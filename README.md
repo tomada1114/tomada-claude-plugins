@@ -5,7 +5,7 @@ Claude Code用のスキルプラグイン集です。
 ## Installation
 
 ```bash
-claude mcp add-skill-plugin tomada@github:muscle-coding/tomada-claude-plugins
+claude mcp add-skill-plugin tomada@github:tomada1114/tomada-claude-plugins
 ```
 
 ## Available Skills
