@@ -1,0 +1,10 @@
+# OS files
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Temporary
+*.tmp
+*.bak
