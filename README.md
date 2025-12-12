@@ -5,8 +5,24 @@ Claude Code用のスキルプラグイン集です。
 ## Installation
 
 ```bash
-claude mcp add-skill-plugin tomada@github:tomada1114/tomada-claude-plugins
+# 1. マーケットプレイスとして追加
+/plugin marketplace add tomada1114/tomada-claude-plugins
+
+# 2. プラグインをインストール（例: claude-rules-organizer）
+/plugin install claude-rules-organizer@tomada1114
+
+# または対話的にブラウズ
+/plugin
 ```
+
+### 利用可能なプラグイン名
+
+- `claude-skill-creator@tomada1114`
+- `custom-commands-creator@tomada1114`
+- `sub-agents-creator@tomada1114`
+- `claude-rules-organizer@tomada1114`
+- `transcription-fixer@tomada1114`
+- `srt-transcription-fixer@tomada1114`
 
 ## Available Skills
 
