@@ -1,6 +1,6 @@
 # Tomada Claude Plugins
 
-Claude Code用のスキルプラグイン集です。
+Claude Code用のプラグイン集です。Skills、Commands、Agentsを提供します。
 
 ## Installation
 
@@ -8,21 +8,33 @@ Claude Code用のスキルプラグイン集です。
 # 1. マーケットプレイスとして追加
 /plugin marketplace add tomada1114/tomada-claude-plugins
 
-# 2. プラグインをインストール（例: claude-rules-organizer）
-/plugin install claude-rules-organizer@tomada1114
+# 2. プラグインをインストール
+/plugin install tomada-plugins@tomada-claude-plugins
 
 # または対話的にブラウズ
 /plugin
 ```
 
-### 利用可能なプラグイン名
+インストールすると、以下のすべてのSkills、Commands、Agentsが利用可能になります。
 
-- `claude-skill-creator@tomada1114`
-- `custom-commands-creator@tomada1114`
-- `sub-agents-creator@tomada1114`
-- `claude-rules-organizer@tomada1114`
-- `transcription-fixer@tomada1114`
-- `srt-transcription-fixer@tomada1114`
+### 含まれるコンポーネント
+
+#### Skills (6個)
+- claude-skill-creator
+- custom-commands-creator
+- sub-agents-creator
+- claude-rules-organizer
+- transcription-fixer
+- srt-transcription-fixer
+
+#### Commands (2個)
+- smart-commit (`/smart-commit`)
+- pr-description (`/pr-description <pr-number>`)
+
+#### Agents (1個)
+- test-strategy-advisor
+
+---
 
 ## Available Skills
 
@@ -42,19 +54,54 @@ Claude Code用のスキルプラグイン集です。
 | **transcription-fixer** | 音声入力・文字起こしの誤変換を自動修正。Claude Code、AI駆動開発、プログラミング用語に特化 |
 | **srt-transcription-fixer** | SRT字幕ファイル専用の文字起こし修正スキル |
 
-## Usage
+---
 
-インストール後、Claude Codeが自動的にスキルを認識します。
+## Available Commands
 
+### Git Workflow
+
+| Command | Description |
+|---------|-------------|
+| **smart-commit** | 変更を論理単位でグループ化し、Conventional Commits形式で自動コミット生成。機密情報を自動除外 |
+| **pr-description** | PRのタイトルと説明を自動生成。コミット履歴と変更内容を分析してConventional Commits形式で出力 |
+
+### Usage
+
+```bash
+# smart-commit: 変更を分析して自動コミット
+/smart-commit
+
+# pr-description: PR番号を指定して説明を生成
+/pr-description 123
 ```
-# スキルを明示的に呼び出す
-> Use the claude-skill-creator skill to help me create a new skill
 
-# または自然な会話で（キーワードマッチング）
-> 新しいスキルを作りたい
-> カスタムコマンドの書き方を教えて
-> サブエージェントが発動しない問題を解決したい
-```
+---
+
+## Available Agents
+
+### Quality & Testing
+
+| Agent | Description |
+|-------|-------------|
+| **test-strategy-advisor** | テスト戦略・テストケース設計アドバイザー。Happy/Sad/Edge/Unhappy pathを網羅したテスト計画を提案 |
+
+### test-strategy-advisor
+
+テストを書く際に自動的に発動し、包括的なテスト戦略を提案します。
+
+**Features:**
+- Happy Path / Sad Path / Boundary Values / Invalid Inputs の網羅チェック
+- Given/When/Then 形式のテスト構造ガイド
+- 例外タイプとメッセージの検証要件
+- 外部依存（API、DB）のモック戦略
+- 100%ブランチカバレッジを目標とした計画
+
+**Triggers:**
+- "writing tests", "creating tests", "test strategy"
+- "test coverage", "test cases", "unit tests"
+- "what tests should I write", "how do I test this"
+
+---
 
 ## Skill Details
 
@@ -112,6 +159,8 @@ SRT字幕ファイル専用の修正スキル。
 **Use when:**
 - SRTファイルの誤変換を修正したい
 - タイムコードを維持したまま字幕を修正したい
+
+---
 
 ## Requirements
 
