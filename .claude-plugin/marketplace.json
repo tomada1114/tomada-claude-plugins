@@ -1,0 +1,13 @@
+{
+  "name": "tomada-claude-plugins",
+  "owner": {
+    "name": "tomada1114"
+  },
+  "plugins": [
+    {
+      "name": "tomada-plugins",
+      "source": ".",
+      "description": "Claude Code用のプラグイン集。Skills、Commands、Agentsを提供"
+    }
+  ]
+}
