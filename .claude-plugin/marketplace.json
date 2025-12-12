@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "tomada-plugins",
-      "source": ".",
+      "source": "./",
       "description": "Claude Code用のプラグイン集。Skills、Commands、Agentsを提供"
     }
   ]
