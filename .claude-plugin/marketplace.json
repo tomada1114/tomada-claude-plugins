@@ -5,9 +5,24 @@
   },
   "plugins": [
     {
-      "name": "tomada-plugins",
-      "source": "./",
-      "description": "Claude Code用のプラグイン集。Skills、Commands、Agentsを提供"
+      "name": "claude-dev-kit",
+      "source": "./claude-dev-kit",
+      "description": "Claude Code拡張開発キット。Skill、Command、Agent、Rulesの作成ガイド"
+    },
+    {
+      "name": "git-workflow",
+      "source": "./git-workflow",
+      "description": "Gitワークフロー効率化。smart-commit、pr-descriptionコマンド"
+    },
+    {
+      "name": "test-advisor",
+      "source": "./test-advisor",
+      "description": "テスト戦略アドバイザー。Happy/Sad/Edge/Unhappy path網羅のテスト計画"
+    },
+    {
+      "name": "transcription-tools",
+      "source": "./transcription-tools",
+      "description": "日本語文字起こし修正ツール。Whisper誤変換、SRT字幕対応"
     }
   ]
 }

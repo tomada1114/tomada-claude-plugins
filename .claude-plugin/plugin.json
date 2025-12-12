@@ -1,9 +1,0 @@
-{
-  "name": "tomada-claude-plugins",
-  "description": "Claude Code用のプラグイン集。Skills、Commands、Agentsを提供",
-  "version": "2.0.0",
-  "author": {
-    "name": "tomada1114",
-    "url": "https://github.com/tomada1114"
-  }
-}
