@@ -15,6 +15,7 @@ This guide helps you create well-structured skills for Claude Code. Skills exten
 - [YAML Frontmatter](#yaml-frontmatter-essentials)
 - [Directory Structure](#directory-structure)
 - [Context Efficiency](#context-efficiency)
+- [Skill Development](#skill-development)
 - [Best Practices](#best-practices)
 - [Troubleshooting](#troubleshooting)
 - [CLAUDE.md Integration](#guaranteed-activation-claudemd-integration)
@@ -146,6 +147,8 @@ comprehensive-skill/
 └── scripts/              # Utility scripts
 ```
 
+**Note on CHANGELOG**: Don't create CHANGELOG.md by default. For simple skills, version info in SKILL.md footer is sufficient. Only create separate CHANGELOG.md for frequently-updated, complex skills.
+
 **Progressive Disclosure:** Keep SKILL.md under 500 lines. Use reference files for detailed information that Claude loads on-demand.
 
 For detailed structure patterns, see [reference.md](reference.md#directory-structure-details).
@@ -207,6 +210,66 @@ This makes scripts extremely token-efficient for deterministic operations.
 3. **Link to specific sections** - `[reference.md#section-a](reference.md#section-a)`
 
 For complete context efficiency guide, see [context-efficiency.md](context-efficiency.md).
+
+## Skill Development
+
+Effective skill development follows a structured process. See [skill-development.md](skill-development.md) for the complete guide.
+
+### Evaluation-Driven Development
+
+**Create evaluations BEFORE writing extensive documentation.**
+
+```
+1. Identify gaps     → Run Claude without skill, document failures
+2. Create evaluations → Build 3+ test scenarios
+3. Establish baseline → Measure performance without skill
+4. Write minimal content → Just enough to pass evaluations
+5. Iterate           → Execute, compare, refine
+```
+
+This ensures you're solving real problems, not documenting imagined ones.
+
+### Iterative Development with Claude
+
+Use two Claude instances for effective development:
+
+| Role | Purpose |
+|------|---------|
+| **Claude A** (Designer) | Helps create and refine the skill |
+| **Claude B** (Tester) | Uses the skill in real tasks |
+
+**Process:**
+1. Complete a task with Claude A (without skill) - notice what you explain repeatedly
+2. Ask Claude A to create a skill capturing that knowledge
+3. Test with Claude B on similar tasks
+4. Observe failures, return to Claude A for improvements
+5. Repeat the observe-refine-test cycle
+
+### Workflow Patterns
+
+For complex tasks, use checklists and feedback loops:
+
+```markdown
+Copy this checklist:
+- [ ] Step 1: Analyze
+- [ ] Step 2: Validate
+- [ ] Step 3: Execute
+- [ ] Step 4: Verify
+```
+
+**Feedback loop**: validate → fix → repeat (catches errors early)
+
+### Multi-Model Testing
+
+Test with all models you plan to use:
+
+| Model | Question |
+|-------|----------|
+| **Haiku** | Does the skill provide enough guidance? |
+| **Sonnet** | Is the skill clear and efficient? |
+| **Opus** | Does the skill avoid over-explaining? |
+
+What works for Opus may need more detail for Haiku.
 
 ## Best Practices
 
@@ -367,6 +430,7 @@ When this skill is activated to help create or improve skills:
 - Point to reference.md for detailed specs
 - Point to scripts-guide.md for script questions
 - Point to context-efficiency.md for context optimization
+- Point to skill-development.md for development process
 - Keep SKILL.md under 500 lines
 - Write trigger-rich descriptions
 - Remind users about Skill tool permissions
@@ -381,6 +445,7 @@ When this skill is activated to help create or improve skills:
 - Skip "When to Use" section
 - Create files > 500 lines without progressive disclosure
 - Forget CLAUDE.md integration for critical skills
+- Create CHANGELOG.md by default (only for complex, frequently-updated skills)
 
 ### When Uncertain
 
@@ -391,8 +456,9 @@ When this skill is activated to help create or improve skills:
 ## Additional Resources
 
 ### Documentation
-- **[reference.md](reference.md)** - Complete YAML spec, skills vs commands, tool restrictions, patterns
+- **[reference.md](reference.md)** - Complete YAML spec (including third-person rule), skills vs commands, tool restrictions
 - **[context-efficiency.md](context-efficiency.md)** - 3-level loading, token optimization, progressive disclosure
+- **[skill-development.md](skill-development.md)** - Evaluation-driven development, iterative refinement, workflow patterns
 - **[scripts-guide.md](scripts-guide.md)** - Guide to using scripts in skills
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history
 
@@ -404,4 +470,4 @@ Explore `examples/` for 5 complete, working skill examples.
 
 ---
 
-**Current Version:** 3.1.0 | See [CHANGELOG.md](CHANGELOG.md) for history.
+**Current Version:** 3.2.0 | See [CHANGELOG.md](CHANGELOG.md) for history.

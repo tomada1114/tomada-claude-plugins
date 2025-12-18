@@ -5,6 +5,24 @@ All notable changes to this skill will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this skill adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2025-12-18
+
+### Added
+- **Skill Development section** in SKILL.md with development process overview
+- **skill-development.md** - Comprehensive guide covering:
+  - Evaluation-driven development (create evaluations before documentation)
+  - Iterative development with Claude A (designer) and Claude B (tester)
+  - Workflow patterns (checklists, feedback loops)
+  - Multi-model testing (Haiku, Sonnet, Opus)
+- **Third-person rule** added to reference.md description section
+- **CHANGELOG policy**: Don't create CHANGELOG.md by default (only for complex skills)
+
+### Changed
+- Updated AI Assistant Instructions with skill-development.md reference
+- Updated AI Assistant Instructions: Never create CHANGELOG.md by default
+- Removed CHANGELOG.md from directory structure examples in reference.md
+- Enhanced Additional Resources with skill-development.md link
+
 ## [3.1.0] - 2025-12-18
 
 ### Added
