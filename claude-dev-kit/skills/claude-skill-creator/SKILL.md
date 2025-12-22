@@ -1,41 +1,29 @@
 ---
 name: claude-skill-creator
-description: Creates effective Claude Code skills with proper YAML frontmatter, directory structure, and best practices. Use PROACTIVELY when creating skills, updating skills, troubleshooting skill activation, configuring CLAUDE.md integration, or working with skill structure, allowed-tools, Skill permissions.
+description: Guide for creating effective Claude Code skills with proper YAML frontmatter, directory structure, templates, scripts, and best practices. Use PROACTIVELY when creating new skills, updating existing skills, learning about skill development, troubleshooting skill activation issues, or working with Claude Code skills, skill structure, YAML frontmatter, Skill permission settings, CLAUDE.md integration.
 ---
 
 # Claude Skill Creator Guide
 
-This guide helps you create well-structured skills for Claude Code. Skills extend Claude's capabilities through organized folders containing instructions, templates, scripts, and resources.
-
-## Contents
-
-- [When to Use This Skill](#when-to-use-this-skill)
-- [Critical: Skill Tool Permissions](#critical-skill-tool-permissions)
-- [Quick Start](#quick-start)
-- [YAML Frontmatter](#yaml-frontmatter-essentials)
-- [Directory Structure](#directory-structure)
-- [Context Efficiency](#context-efficiency)
-- [Skill Development](#skill-development)
-- [Best Practices](#best-practices)
-- [Troubleshooting](#troubleshooting)
-- [CLAUDE.md Integration](#guaranteed-activation-claudemd-integration)
-- [Quick Reference Checklist](#quick-reference-checklist)
-- [AI Assistant Instructions](#ai-assistant-instructions)
-- [Additional Resources](#additional-resources)
+This guide helps you create well-structured, effective skills for Claude Code. Skills extend Claude's capabilities through organized folders containing instructions, templates, scripts, and resources.
 
 ## When to Use This Skill
 
 Use this skill when:
 - Creating a new skill from scratch
 - Updating an existing skill
+- Learning about skill structure and best practices
 - Troubleshooting why a skill isn't being activated
 - Converting documentation into a skill format
-- Configuring Skill tool permissions
-- Integrating skills with CLAUDE.md for guaranteed activation
+- Understanding skills vs slash commands
+- **Configuring Skill tool permissions**
+- **Integrating skills with CLAUDE.md for guaranteed activation**
 
 ## Critical: Skill Tool Permissions
 
-**Skills are NOT automatically available!** The Skill tool is denied by default.
+**Skills are NOT automatically available!** The Skill tool is denied by default. You must explicitly allow it.
+
+### Enable Skill Tool
 
 Add to `.claude/settings.json` (project) or `~/.claude/settings.json` (user):
 
@@ -56,10 +44,10 @@ Or use CLI flag: `--allowed-tools "Skill"`
 ### 1. Create Directory
 
 ```bash
-# Personal skills (available across all your projects)
+# For personal skills (available across all your projects)
 mkdir -p ~/.claude/skills/my-skill-name
 
-# Project skills (shared with team via git)
+# For project skills (shared with team via git)
 mkdir -p .claude/skills/my-skill-name
 ```
 
@@ -70,7 +58,7 @@ Every skill requires a `SKILL.md` file with YAML frontmatter:
 ```yaml
 ---
 name: skill-identifier
-description: What this skill does. Use when [scenario], or working with [keywords].
+description: What this skill does and when to use it. Use when [scenario 1], [scenario 2], or working with [keyword1], [keyword2].
 ---
 
 # Skill Name
@@ -80,16 +68,9 @@ description: What this skill does. Use when [scenario], or working with [keyword
 
 ### 3. Use Templates
 
+Start with our templates:
 - [Basic Skill Template](templates/basic-skill-template.md) - For simple skills
 - [Advanced Skill Template](templates/advanced-skill-template.md) - For complex skills
-
-### 4. Validate
-
-Run the validation script to check your skill:
-
-```bash
-python scripts/validate-skill.py path/to/SKILL.md
-```
 
 ## YAML Frontmatter Essentials
 
@@ -98,24 +79,25 @@ python scripts/validate-skill.py path/to/SKILL.md
 **name:**
 - Lowercase letters, numbers, hyphens only
 - Maximum 64 characters
-- Example: `api-docs-writer`, `test-strategy`
+- Example: `api-docs-writer`, `test-strategy`, `code-review`
 
 **description:**
 - Must describe BOTH what the skill does AND when to use it
 - Maximum 1024 characters
 - Include trigger keywords users would naturally mention
+- Be specific, not generic
 
-**Good Example:**
+**Good Description Example:**
 ```yaml
-description: Generate OpenAPI documentation from Express or FastAPI endpoints. Use when documenting APIs, creating API specs, or working with OpenAPI, Swagger, REST.
+description: Generate OpenAPI/Swagger documentation from Express routes, FastAPI endpoints, or GraphQL schemas. Use when documenting APIs, creating API specs, or working with OpenAPI, Swagger, REST, GraphQL.
 ```
 
-**Bad Example:**
+**Bad Description Example:**
 ```yaml
 description: Helps with API documentation
 ```
 
-### Optional: allowed-tools
+### Optional Field: allowed-tools
 
 Restrict Claude's capabilities when the skill is active:
 
@@ -127,7 +109,30 @@ allowed-tools: Read, Grep, Glob
 ---
 ```
 
-For complete YAML specification, see [reference.md](reference.md#yaml-frontmatter-specification).
+Use for: read-only operations, security-critical workflows, preventing accidental modifications.
+
+## Skills vs Slash Commands
+
+| Aspect | Slash Commands | Skills |
+|--------|---------------|--------|
+| Activation | Manual (`/command`) | Automatic (model-invoked) |
+| Complexity | Simple prompts | Complex capabilities |
+| Files | Single .md file | Directory with resources |
+| Supporting Files | No | Yes (templates, scripts, examples) |
+| Tool Restrictions | No | Yes (`allowed-tools`) |
+
+**Use Slash Commands for:**
+- Frequently-used manual operations
+- Simple instructions in one file
+- When you want explicit control
+
+**Use Skills for:**
+- Complex workflows with multiple resources
+- Capabilities Claude should discover automatically
+- Team standards and workflows
+- When tool restrictions needed
+
+See [reference.md](reference.md) for detailed comparison.
 
 ## Directory Structure
 
@@ -142,134 +147,103 @@ simple-skill/
 comprehensive-skill/
 ├── SKILL.md              # Main file (< 500 lines)
 ├── reference.md          # Detailed reference (loaded on-demand)
+├── scripts-guide.md      # Script documentation (if using scripts)
 ├── templates/            # Reusable templates
-├── examples/             # Complete examples
+│   ├── basic-template.md
+│   └── advanced-template.md
+├── examples/             # Complete example skills
+│   ├── 1-simple-skill/
+│   ├── 2-skill-with-references/
+│   ├── 3-skill-with-scripts/
+│   ├── 4-skill-with-templates/
+│   └── 5-tool-restricted-skill/
 └── scripts/              # Utility scripts
+    ├── validate.py
+    └── setup.sh
 ```
-
-**Note on CHANGELOG**: Don't create CHANGELOG.md by default. For simple skills, version info in SKILL.md footer is sufficient. Only create separate CHANGELOG.md for frequently-updated, complex skills.
 
 **Progressive Disclosure:** Keep SKILL.md under 500 lines. Use reference files for detailed information that Claude loads on-demand.
 
-For detailed structure patterns, see [reference.md](reference.md#directory-structure-details).
-
-## Context Efficiency
-
-Understanding how skills use context is essential for creating effective skills.
-
-### The Three-Level Loading Model
-
-Skills load content in three levels with different timing and token costs:
-
-| Level | Content | When Loaded | Token Cost |
-|-------|---------|-------------|------------|
-| **1. Metadata** | YAML frontmatter | Always (startup) | ~100 tokens/skill |
-| **2. Instructions** | SKILL.md body | When triggered | < 5k tokens |
-| **3. Resources** | Reference files, scripts | When needed | 0 until accessed |
-
-**Key insight**: You can install many skills without context penalty. Only metadata is pre-loaded.
-
-### Core Principle: Claude is Already Smart
-
-**Default assumption**: Claude has extensive base knowledge.
-
-Challenge each piece of information:
-- "Does Claude really need this explanation?"
-- "Can I assume Claude knows this?"
-- "Does this paragraph justify its token cost?"
-
-**Good (concise):**
-```markdown
-Use pdfplumber:
-\`\`\`python
-import pdfplumber
-with pdfplumber.open("file.pdf") as pdf:
-    text = pdf.pages[0].extract_text()
-\`\`\`
-```
-
-**Bad (verbose):**
-```markdown
-PDF (Portable Document Format) files are a common file format...
-To extract text from a PDF, you'll need to use a library...
-```
-
-### Script Efficiency: Code Never Enters Context
-
-**When Claude executes a script, the script code does NOT enter the context window. Only the output consumes tokens.**
-
-- 200-line `validate.py` script: 0 tokens (not loaded)
-- Script output "✓ Valid": ~10 tokens
-
-This makes scripts extremely token-efficient for deterministic operations.
-
-### Reference File Rules
-
-1. **Keep references one level deep** - SKILL.md → reference.md ✓, not SKILL.md → a.md → b.md
-2. **Add ToC to files > 100 lines** - Helps Claude navigate large references
-3. **Link to specific sections** - `[reference.md#section-a](reference.md#section-a)`
-
-For complete context efficiency guide, see [context-efficiency.md](context-efficiency.md).
-
-## Skill Development
-
-Effective skill development follows a structured process. See [skill-development.md](skill-development.md) for the complete guide.
-
-### Evaluation-Driven Development
-
-**Create evaluations BEFORE writing extensive documentation.**
-
-```
-1. Identify gaps     → Run Claude without skill, document failures
-2. Create evaluations → Build 3+ test scenarios
-3. Establish baseline → Measure performance without skill
-4. Write minimal content → Just enough to pass evaluations
-5. Iterate           → Execute, compare, refine
-```
-
-This ensures you're solving real problems, not documenting imagined ones.
-
-### Iterative Development with Claude
-
-Use two Claude instances for effective development:
-
-| Role | Purpose |
-|------|---------|
-| **Claude A** (Designer) | Helps create and refine the skill |
-| **Claude B** (Tester) | Uses the skill in real tasks |
-
-**Process:**
-1. Complete a task with Claude A (without skill) - notice what you explain repeatedly
-2. Ask Claude A to create a skill capturing that knowledge
-3. Test with Claude B on similar tasks
-4. Observe failures, return to Claude A for improvements
-5. Repeat the observe-refine-test cycle
-
-### Workflow Patterns
-
-For complex tasks, use checklists and feedback loops:
+## Content Structure Template
 
 ```markdown
-Copy this checklist:
-- [ ] Step 1: Analyze
-- [ ] Step 2: Validate
-- [ ] Step 3: Execute
-- [ ] Step 4: Verify
+---
+name: skill-name
+description: [What it does] and [when to use]. Use when [triggers].
+---
+
+# Skill Title
+
+Brief introduction (2-3 sentences).
+
+## When to Use This Skill
+
+- Specific scenario 1
+- Specific scenario 2
+- Specific scenario 3
+
+## Instructions
+
+1. **Step 1**: First action
+2. **Step 2**: Next action
+3. **Step 3**: Final action
+
+## Examples
+
+### Example 1: Common Use Case
+
+```language
+// Code example
 ```
 
-**Feedback loop**: validate → fix → repeat (catches errors early)
+## Best Practices
 
-### Multi-Model Testing
+- Practice 1
+- Practice 2
 
-Test with all models you plan to use:
+## AI Assistant Instructions
 
-| Model | Question |
-|-------|----------|
-| **Haiku** | Does the skill provide enough guidance? |
-| **Sonnet** | Is the skill clear and efficient? |
-| **Opus** | Does the skill avoid over-explaining? |
+When this skill is activated:
 
-What works for Opus may need more detail for Haiku.
+1. Always do X
+2. Never do Y
+3. If uncertain, ask user
+
+## Additional Resources
+
+- [Detailed reference](reference.md)
+- [Script guide](scripts-guide.md)
+```
+
+## Using Scripts in Skills
+
+Scripts provide deterministic, reliable functionality. See [scripts-guide.md](scripts-guide.md) for complete details.
+
+### When to Use Scripts
+
+✅ **Use scripts for:**
+- Validation and checking
+- Setup and initialization
+- Data transformation
+- Complex logic hard for Claude to generate reliably
+
+❌ **Don't use scripts for:**
+- User-specific customization
+- File content editing
+- Analysis and decision-making
+
+### Shell vs Python
+
+**Shell scripts (.sh):** Simple operations, file handling, < 50 lines
+**Python scripts (.py):** Complex logic, cross-platform, > 50 lines
+
+**Example:**
+```bash
+# scripts/setup.sh - Quick environment setup
+# scripts/validate.py - Complex validation with error handling
+```
+
+See [examples/3-skill-with-scripts/](examples/3-skill-with-scripts/) for complete examples.
 
 ## Best Practices
 
@@ -277,47 +251,119 @@ What works for Opus may need more detail for Haiku.
 
 One skill = one capability
 
-- ✅ `api-docs-writer`, `test-strategy`, `db-migration`
-- ❌ `developer-helper`, `backend-tools`
+✅ `api-docs-writer`, `test-strategy`, `db-migration`
+❌ `developer-helper`, `backend-tools`
 
 ### 2. Write Trigger-Rich Descriptions
 
 Include specific keywords users would naturally mention:
 
 ```yaml
-description: Generate OpenAPI/Swagger documentation from Express routes or FastAPI endpoints. Use when documenting APIs, creating API specs, or working with OpenAPI, Swagger, REST, GraphQL.
+description: Generate OpenAPI/Swagger documentation from Express routes, FastAPI endpoints, or GraphQL schemas. Use when documenting APIs, creating API specs, or working with OpenAPI, Swagger, REST, GraphQL.
 ```
 
-### 3. Use `<example>` Tags for Higher Activation
+### 3. Use `<example>` Tags for Higher Activation Rate
+
+Add concrete examples in the description to improve activation:
 
 ```yaml
-description: Generate API documentation. Use PROACTIVELY when documenting APIs. Examples: <example>Context: User asks about API docs user: 'Create OpenAPI spec' assistant: 'I will use api-docs-writer skill'</example>
+description: Generate API documentation. Use PROACTIVELY when documenting APIs. Examples: <example>Context: User asks about API docs user: 'Create OpenAPI spec for my endpoints' assistant: 'I will use api-docs-writer skill' <commentary>Triggered by API documentation request</commentary></example>
 ```
 
-### 4. Use Progressive Disclosure
+### 4. Provide Concrete Examples
+
+Show, don't just tell. Include real code examples.
+
+### 5. Use Progressive Disclosure
 
 - SKILL.md: Core instructions (< 500 lines)
 - reference.md: Detailed specs (loaded when needed)
-- examples/: Extended examples (loaded when needed)
+- examples.md: Extended examples (loaded when needed)
 
-### 5. Context Window Awareness
+### 6. Test Your Skills
 
-**DO:**
+1. Does it activate with expected keywords?
+2. Does Claude follow instructions correctly?
+3. Are examples clear and helpful?
+4. Does it handle edge cases?
+
+### 7. Context Window Awareness
+
+✅ **DO:**
 - Assume Claude's base knowledge
 - Include only task-specific context
 - Keep SKILL.md under 500 lines
+- Use reference files for details
 
-**DON'T:**
+❌ **DON'T:**
 - Explain programming basics
-- Create monolithic files > 500 lines
+- Create monolithic skill files
 - Include unnecessary background
 
-### 6. Use Scripts for Deterministic Operations
+### 8. Subagent Orchestration for Complex Workflows (Advanced)
 
-Scripts provide reliable, token-efficient functionality. See [scripts-guide.md](scripts-guide.md) for details.
+For skills requiring multi-phase quality control or complex evaluation, consider the **Subagent Orchestration Pattern**:
 
-**Use scripts for:** Validation, setup, data transformation
-**Don't use scripts for:** User-specific logic, content editing, analysis
+**When to Use:**
+- Multiple independent evaluation criteria
+- Evaluate-then-improve workflows
+- Quality gates with iterative refinement
+- Complex tasks that benefit from parallel processing
+
+**Pattern Structure:**
+```
+your-skill/
+├── SKILL.md                  # Orchestrator
+└── scripts/                  # Evaluation scripts (optional)
+
+.claude/agents/your-skill/    # Dedicated subagents
+├── evaluator-a.md            # haiku - lightweight evaluation
+├── evaluator-b.md            # haiku - lightweight evaluation
+├── improver-a.md             # sonnet - quality improvements
+└── improver-b.md             # sonnet - quality improvements
+```
+
+**Key Principles:**
+1. **Parallel Evaluation**: Run evaluators simultaneously for efficiency
+2. **Model Selection**: Use `haiku` for evaluation (fast/cheap), `sonnet` for improvement (high quality)
+3. **Script Integration**: Evaluators wrap scripts and interpret results
+4. **Iterative Loop**: Re-evaluate until quality threshold met (e.g., 95+ points)
+5. **Role Separation**: Evaluators detect issues, improvers propose fixes
+
+**Example Invocation (from SKILL.md):**
+```markdown
+#### Phase 1: Parallel Evaluation
+Invoke evaluators in parallel:
+`evaluator-a, evaluator-b, evaluator-c を使って <file> を並列評価`
+
+#### Phase 2: Targeted Improvement
+If score < threshold, invoke relevant improver:
+`improver-a を使って <issues> を改善提案`
+
+#### Phase 3: Re-evaluate
+Return to Phase 1 until score >= threshold
+```
+
+**Benefits:**
+- Cost efficiency: Use lightweight models for simple tasks
+- Quality: Use capable models for nuanced improvements
+- Parallelism: Multiple evaluators run simultaneously
+- Separation of concerns: Each agent has single responsibility
+- Scalability: Easy to add new evaluation criteria
+
+**Reference Implementation:** See `claude-code-series-writing` skill in iObsidian project.
+
+## Examples
+
+This skill includes 5 complete example skills:
+
+1. **[Simple Skill](examples/1-simple-skill/)** - Basic greeting generator
+2. **[Skill with References](examples/2-skill-with-references/)** - HTTP status code guide with reference.md
+3. **[Skill with Scripts](examples/3-skill-with-scripts/)** - Project validator with Python and shell scripts
+4. **[Skill with Templates](examples/4-skill-with-templates/)** - Changelog generator with templates
+5. **[Tool-Restricted Skill](examples/5-tool-restricted-skill/)** - Read-only code analyzer
+
+Each example demonstrates different skill capabilities and organization patterns.
 
 ## Troubleshooting
 
@@ -328,7 +374,7 @@ Scripts provide reliable, token-efficient functionality. See [scripts-guide.md](
 2. Verify name is lowercase with hyphens only
 3. Check YAML syntax (space after colons)
 4. Ensure file is named exactly `SKILL.md`
-5. Verify Skill tool is enabled in settings.json
+5. Verify file path is correct
 
 **Test:**
 ```
@@ -337,54 +383,94 @@ Ask Claude: "What skills are available?"
 
 ### Skill Activates at Wrong Times
 
+**Solutions:**
 1. Make description more specific
 2. Narrow the scope
 3. Add unique trigger keywords
+4. Differentiate from similar skills
 
-For detailed troubleshooting, see [reference.md](reference.md#troubleshooting-guide).
+See [reference.md](reference.md) for detailed troubleshooting.
 
 ## Guaranteed Activation: CLAUDE.md Integration
 
 **Problem**: Skills rely on description matching, resulting in ~25% activation rate for edge cases.
 
-**Solution**: Add activation rules directly to CLAUDE.md:
+**Solution**: Add activation rules directly to CLAUDE.md for 100% activation:
+
+### Recommended Directory Structure
+
+```
+your-project/
+├── CLAUDE.md                    # Global rules + activation conditions
+├── .claude/
+│   ├── settings.json            # Skill permissions
+│   ├── agents/                  # Task-specific agents
+│   │   └── code-reviewer.md
+│   └── skills/                  # Shared knowledge
+│       └── my-skill/
+│           └── SKILL.md
+```
+
+### CLAUDE.md Activation Rules
+
+Add to your project's `CLAUDE.md`:
 
 ```markdown
 ## Skill Activation Rules
 
-When the user asks about the following, ALWAYS use the Skill tool:
+When the user asks about the following, ALWAYS use the Skill tool to invoke the specified skill:
 
-- **API documentation, OpenAPI** → `api-docs-writer` skill
+- **API documentation, OpenAPI, Swagger** → `api-docs-writer` skill
 - **Test strategy, testing approach** → `test-strategy` skill
+- **Database migration** → `db-migration` skill
 ```
 
-This guarantees skill activation regardless of how the user phrases their request.
+This approach guarantees skill activation regardless of how the user phrases their request.
 
 ## Quick Reference Checklist
 
 When creating a skill:
 
-- [ ] Skill tool enabled in `.claude/settings.json`
-- [ ] Directory: `~/.claude/skills/name/` or `.claude/skills/name/`
+- [ ] **Skill tool enabled** in `.claude/settings.json` (`"allow": ["Skill(*)"]`)
+- [ ] Directory created: `~/.claude/skills/skill-name/` or `.claude/skills/skill-name/`
 - [ ] File named exactly `SKILL.md`
 - [ ] YAML frontmatter with `---` delimiters
 - [ ] `name`: lowercase, hyphens, <64 chars
 - [ ] `description`: what + when, trigger keywords, <1024 chars
-- [ ] `Use PROACTIVELY` in description for auto-activation
+- [ ] **`Use PROACTIVELY`** included in description for auto-activation
+- [ ] **`<example>` tags** in description for improved matching
 - [ ] Clear "When to Use" section
+- [ ] Step-by-step instructions
 - [ ] Concrete examples
 - [ ] AI Assistant Instructions
-- [ ] CLAUDE.md activation rules (for guaranteed activation)
+- [ ] Tested with realistic scenarios
+- [ ] **CLAUDE.md activation rules** added (for guaranteed activation)
+- [ ] **For complex workflows**: Consider subagent orchestration pattern (evaluators + improvers)
 
-## Examples
+## Templates
 
-This skill includes 5 complete example skills in `examples/`:
+Use these templates to get started quickly:
 
-1. **[Simple Skill](examples/1-simple-skill/)** - Basic greeting generator
-2. **[Skill with References](examples/2-skill-with-references/)** - HTTP status code guide
-3. **[Skill with Scripts](examples/3-skill-with-scripts/)** - Project validator
-4. **[Skill with Templates](examples/4-skill-with-templates/)** - Changelog generator
-5. **[Tool-Restricted Skill](examples/5-tool-restricted-skill/)** - Read-only analyzer
+- **[Basic Skill Template](templates/basic-skill-template.md)** - For simple, straightforward skills
+- **[Advanced Skill Template](templates/advanced-skill-template.md)** - For complex skills with multiple features
+
+## Additional Resources
+
+### Detailed Documentation
+- **[reference.md](reference.md)** - Complete YAML spec, skills vs commands comparison, tool restrictions, common patterns
+- **[scripts-guide.md](scripts-guide.md)** - Comprehensive guide to using scripts in skills
+
+### Examples
+Explore the [examples/](examples/) directory for 5 complete, working skill examples covering:
+- Basic structure
+- Reference files
+- Scripts (Python and shell)
+- Templates
+- Tool restrictions
+
+### Further Reading
+- [Keep a Changelog](https://keepachangelog.com/) - For documenting skill versions
+- [Semantic Versioning](https://semver.org/) - For versioning skills
 
 ## AI Assistant Instructions
 
@@ -394,80 +480,130 @@ When this skill is activated to help create or improve skills:
 
 1. **Understand Requirements**:
    - What capability does the user want?
-   - Is this a skill or slash command?
+   - Is this a skill or slash command? (Use decision framework)
    - What complexity level?
 
 2. **Recommend Template**:
    - Simple task → Basic template
    - Complex workflow → Advanced template
+   - Show template content from templates/ directory
 
 3. **Help with YAML**:
    - Suggest descriptive, lowercase-hyphen name
-   - Write trigger-rich description
-   - Add `allowed-tools` if read-only
+   - Write trigger-rich description with keywords
+   - Add `allowed-tools` if read-only or restricted
 
 4. **Guide Structure**:
    - < 200 lines → Single SKILL.md
    - 200-500 lines → SKILL.md + examples.md
    - > 500 lines → Progressive disclosure with reference.md
 
+5. **Add Supporting Files**:
+   - Scripts if deterministic operations needed
+   - Templates for reusable content
+   - Examples for clarity
+
 ### For Existing Skills
 
-1. **Analyze**: Read SKILL.md, check organization
-2. **Improve**: Enhance description, add missing sections
-3. **Refactor**: Move detailed content to reference.md if > 500 lines
+1. **Analyze Current State**:
+   - Read existing SKILL.md
+   - Check file organization
+   - Identify improvement areas
 
-### Testing
+2. **Suggest Improvements**:
+   - Enhance description with more triggers
+   - Add missing sections (examples, best practices)
+   - Break into multiple files if > 500 lines
+   - Add scripts for repetitive tasks
+   - Include templates for consistency
 
-1. Verify activation with expected keywords
-2. Confirm it doesn't activate for unrelated queries
-3. Validate all referenced files exist
+3. **Refactor if Needed**:
+   - Move detailed content to reference.md
+   - Extract examples to examples.md
+   - Create script files for automation
+   - Add templates directory
+
+4. **Consider Orchestration** (for complex skills):
+   - If skill has multiple evaluation criteria → subagent pattern
+   - Evaluators: haiku model, wrap scripts, detect issues
+   - Improvers: sonnet model, provide contextual fixes
+
+### Testing Skills
+
+1. **Verify Activation**:
+   - Test with various phrasings that should trigger
+   - Confirm it doesn't activate for unrelated queries
+
+2. **Check Instructions**:
+   - Ensure AI follows the workflow
+   - Validate examples are clear
+   - Test edge cases
+
+3. **Validate Files**:
+   - All referenced files exist
+   - Templates are usable
+   - Scripts are executable
+   - Examples work correctly
 
 ### Always
 
-- Use templates from templates/ directory
-- Reference examples from examples/ directory
+- Use the templates from templates/ directory
+- Reference example skills from examples/ directory
 - Point to reference.md for detailed specs
 - Point to scripts-guide.md for script questions
-- Point to context-efficiency.md for context optimization
-- Point to skill-development.md for development process
 - Keep SKILL.md under 500 lines
 - Write trigger-rich descriptions
-- Remind users about Skill tool permissions
-- **Apply 3-level loading model**: metadata (always) → SKILL.md (trigger) → resources (on-demand)
-- **Assume Claude is smart**: Don't explain what Claude already knows
+- Include concrete examples
+- Test activation with expected keywords
 
 ### Never
 
 - Create skills without proper YAML frontmatter
-- Use uppercase/spaces/underscores in name
+- Use uppercase letters, spaces, or underscores in name field
 - Write vague descriptions without triggers
-- Skip "When to Use" section
-- Create files > 500 lines without progressive disclosure
-- Forget CLAUDE.md integration for critical skills
-- Create CHANGELOG.md by default (only for complex, frequently-updated skills)
+- Skip the "When to Use" section
+- Forget AI Assistant Instructions
+- Create monolithic files > 500 lines without progressive disclosure
+- Use generic trigger keywords
+- **Forget to remind users about Skill tool permissions**
+- **Skip CLAUDE.md integration for critical skills**
 
 ### When Uncertain
 
 - Ask user about intended use cases
-- Show template options
-- Suggest simple approach first
+- Show template options and let user choose
+- Suggest simple approach first, then offer to enhance
+- Point to relevant examples from examples/ directory
 
-## Additional Resources
+## Version
 
-### Documentation
-- **[reference.md](reference.md)** - Complete YAML spec (including third-person rule), skills vs commands, tool restrictions
-- **[context-efficiency.md](context-efficiency.md)** - 3-level loading, token optimization, progressive disclosure
-- **[skill-development.md](skill-development.md)** - Evaluation-driven development, iterative refinement, workflow patterns
-- **[scripts-guide.md](scripts-guide.md)** - Guide to using scripts in skills
-- **[CHANGELOG.md](CHANGELOG.md)** - Version history
+**Current Version:** 2.2.0
 
-### Examples
-Explore `examples/` for 5 complete, working skill examples.
+### Version History
 
-### Scripts
-- **[scripts/validate-skill.py](scripts/validate-skill.py)** - Validate SKILL.md files
+- **2.2.0** (2025-12-22): Subagent Orchestration Pattern
+  - Added "8. Subagent Orchestration for Complex Workflows" to Best Practices
+  - Added orchestration checklist item
+  - Added "Consider Orchestration" to AI Instructions for existing skills
+  - Reference implementation: `claude-code-series-writing` skill
 
----
+- **2.1.0** (2025-11-29): Activation best practices
+  - Added Critical: Skill Tool Permissions section
+  - Added Guaranteed Activation: CLAUDE.md Integration section
+  - Added `<example>` tag usage in descriptions
+  - Added `Use PROACTIVELY` pattern guidance
+  - Updated Quick Reference Checklist with activation items
+  - Updated AI Assistant Instructions with permission reminders
 
-**Current Version:** 3.2.0 | See [CHANGELOG.md](CHANGELOG.md) for history.
+- **2.0.0** (2025-01-21): Major enhancement
+  - Added 5 complete example skills in examples/ directory
+  - Created comprehensive scripts-guide.md
+  - Created detailed reference.md
+  - Added basic and advanced templates
+  - Reorganized for progressive disclosure
+  - Reduced main SKILL.md from 634 to ~400 lines
+
+- **1.0.0** (Previous): Initial release
+  - Basic skill creation guide
+  - Essential YAML frontmatter documentation
+  - Core best practices

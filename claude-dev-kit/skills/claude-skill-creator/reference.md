@@ -81,16 +81,6 @@ The description is crucial for skill activation. It must tell Claude:
 2. **When** to use it
 3. **Trigger keywords** that should activate it
 
-**Critical: Always Write in Third Person**
-
-The description is injected into the system prompt. Inconsistent point-of-view causes discovery problems.
-
-| Style | Example | Status |
-|-------|---------|--------|
-| **Third person** | "Processes Excel files and generates reports" | ✅ Good |
-| First person | "I can help you process Excel files" | ❌ Avoid |
-| Second person | "You can use this to process Excel files" | ❌ Avoid |
-
 **Recommended Structure:**
 ```
 [Action verbs] + [specific technologies/frameworks] + [problem solved].
@@ -490,6 +480,7 @@ full-featured-skill/
 ├── SKILL.md              # Main entry point (< 500 lines)
 ├── reference.md          # Complete API/spec reference
 ├── examples.md           # Extended code examples
+├── CHANGELOG.md          # Version history
 ├── templates/            # Reusable templates
 │   ├── basic-template.txt
 │   ├── advanced-template.txt
