@@ -23,6 +23,11 @@
       "name": "transcription-tools",
       "source": "./transcription-tools",
       "description": "日本語文字起こし修正ツール。Whisper誤変換、SRT字幕対応"
+    },
+    {
+      "name": "marp-slide-writer",
+      "source": "./marp-slide-writer",
+      "description": "YouTube収録用Marpスライド作成・検証スキル。テック系コンテンツに最適化"
     }
   ]
 }
