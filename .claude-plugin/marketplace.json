@@ -28,6 +28,11 @@
       "name": "agile-tools",
       "source": "./agile-tools",
       "description": "アジャイル開発ツール。要件設計とGitHub Issue作成"
+    },
+    {
+      "name": "content-tools",
+      "source": "./content-tools",
+      "description": "コンテンツ制作ツール。YouTube台本作成など"
     }
   ]
 }

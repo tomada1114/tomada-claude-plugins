@@ -1,6 +1,6 @@
 # Tomada Claude Plugins
 
-Claude Code用のプラグイン集です。用途別に5つのプラグインを提供します。
+Claude Code用のプラグイン集です。用途別に6つのプラグインを提供します。
 
 ## Installation
 
@@ -14,6 +14,7 @@ Claude Code用のプラグイン集です。用途別に5つのプラグイン�
 /plugin install test-advisor@tomada-claude-plugins
 /plugin install transcription-tools@tomada-claude-plugins
 /plugin install agile-tools@tomada-claude-plugins
+/plugin install content-tools@tomada-claude-plugins
 
 # または対話的にブラウズ
 /plugin
@@ -129,6 +130,24 @@ Gitワークフロー効率化ツール。コミットとPR作成を自動化し
 - 要件からGitHub Issueを作成したい
 - 曖昧なアイデアを詳細な仕様に落としたい
 - 並列作業できるチケットを特定したい
+
+---
+
+### 6. content-tools
+
+コンテンツ制作ツール。YouTube台本作成などを支援します。
+
+```bash
+/plugin install content-tools@tomada-claude-plugins
+```
+
+| Skill | Description |
+|-------|-------------|
+| **video-script-writing** | YouTube台本作成。テック動画（AI駆動開発・プログラミング）向け7軸評価システム |
+
+**Use when:**
+- 記事やメモからYouTube台本を作成したい
+- テック系動画のスクリプトを書きたい
 
 ---
 
