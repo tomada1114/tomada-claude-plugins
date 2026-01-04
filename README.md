@@ -13,7 +13,7 @@ Claude Code用のプラグイン集です。用途別に5つのプラグイン�
 /plugin install git-workflow@tomada-claude-plugins
 /plugin install test-advisor@tomada-claude-plugins
 /plugin install transcription-tools@tomada-claude-plugins
-/plugin install marp-slide-writer@tomada-claude-plugins
+/plugin install agile-tools@tomada-claude-plugins
 
 # または対話的にブラウズ
 /plugin
@@ -31,17 +31,21 @@ Claude Code拡張開発キット。Skill、Command、Agent、Rulesの作成を�
 /plugin install claude-dev-kit@tomada-claude-plugins
 ```
 
-| Skill | Description |
-|-------|-------------|
-| **claude-skill-creator** | Skillの作成ガイド。YAML frontmatter、ディレクトリ構造、テンプレート |
-| **custom-commands-creator** | カスタムコマンドの作成ガイド。引数パターン、Bash統合 |
-| **sub-agents-creator** | サブエージェントの作成ガイド。発動率向上のCLAUDE.md連携パターン |
-| **claude-rules-organizer** | 肥大化したCLAUDE.mdを`.claude/rules/`へモジュール分割 |
+| Type | Name | Description |
+|------|------|-------------|
+| Skill | **claude-skill-creator** | Skillの作成ガイド。YAML frontmatter、ディレクトリ構造、テンプレート |
+| Skill | **custom-commands-creator** | カスタムコマンドの作成ガイド。引数パターン、Bash統合 |
+| Skill | **sub-agents-creator** | サブエージェントの作成ガイド。発動率向上のCLAUDE.md連携パターン |
+| Skill | **claude-rules-organizer** | 肥大化したCLAUDE.mdを`.claude/rules/`へモジュール分割 |
+| Skill | **claude-code-knowledge** | Claude Codeの機能・設定リファレンス。公式ドキュメントベース |
+| Skill | **claude-code-headless** | ヘッドレスモード（-p フラグ）でのスクリプト連携ガイド |
+| Command | **add-description-to-memory** | CLAUDE.mdのSkill Activation Rulesを自動同期 |
 
 **Use when:**
 - 新しいSkill/Command/Agentを作りたい
 - エージェントが発動しない問題を解決したい
 - CLAUDE.mdが大きくなりすぎた
+- Claude Codeの機能や設定を調べたい
 
 ---
 
@@ -101,36 +105,30 @@ Gitワークフロー効率化ツール。コミットとPR作成を自動化し
 | Skill | Description |
 |-------|-------------|
 | **transcription-fixer** | 音声入力・文字起こしの誤変換を自動修正。Claude Code、AI駆動開発用語に特化 |
-| **srt-transcription-fixer** | SRT字幕ファイル専用の文字起こし修正 |
 
 **Use when:**
 - Whisper等の文字起こしを修正したい
 - 「クロードコード」→「Claude Code」などの変換
-- SRTファイルの誤変換を修正したい
 
 ---
 
-### 5. marp-slide-writer
+### 5. agile-tools
 
-YouTube収録用Marpスライド作成ツール。レイアウト制約を遵守した視認性の高いスライドを生成します。
+アジャイル開発ツール。要件設計とGitHub Issue作成を支援します。
 
 ```bash
-/plugin install marp-slide-writer@tomada-claude-plugins
+/plugin install agile-tools@tomada-claude-plugins
 ```
 
 | Skill | Description |
 |-------|-------------|
-| **marp-slide-writer** | Marpスライドの作成・検証。レイアウト制約に基づく自動バリデーション |
-
-**Features:**
-- YouTube 16:9形式に最適化されたレイアウト制約
-- 箇条書き・コード・テーブルの行数上限チェック
-- 検証スクリプト（validate_slides.py）による自動検証
-- 基本・コード多めの2種類のテンプレート
+| **agile-ticket-planner** | GitHub Issue作成。並列作業の特定、依存関係管理、git worktree戦略 |
+| **product-requirements-designer** | 曖昧な要件を詳細化。PdM視点の質問→ワイヤーフレーム→チケット分割 |
 
 **Use when:**
-- スライド作成、プレゼン資料作成
-- 「スライドを作って」「Marpで資料作成」
+- 要件からGitHub Issueを作成したい
+- 曖昧なアイデアを詳細な仕様に落としたい
+- 並列作業できるチケットを特定したい
 
 ---
 
