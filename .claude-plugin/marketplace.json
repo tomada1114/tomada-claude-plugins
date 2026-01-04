@@ -23,6 +23,11 @@
       "name": "transcription-tools",
       "source": "./transcription-tools",
       "description": "日本語文字起こし修正ツール。Whisper誤変換対応"
+    },
+    {
+      "name": "agile-tools",
+      "source": "./agile-tools",
+      "description": "アジャイル開発ツール。要件設計とGitHub Issue作成"
     }
   ]
 }
