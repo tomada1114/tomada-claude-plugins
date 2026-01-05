@@ -46,10 +46,10 @@ description: Claude Codeの公式ドキュメントをまとめた包括的な�
 - **slash_commands.md** - スラッシュコマンド一覧と使い方
 
 ### カスタマイズ
-- **custom_commands.md** - カスタムコマンドの作成（RPGアナロジー解説付き）
-- **subagents.md** - サブエージェントの活用（RPGアナロジー解説付き）
+- **custom_commands.md** - カスタムコマンドの作成（コンビニアナロジー解説付き）
+- **subagents.md** - サブエージェントの活用（コンビニアナロジー解説付き）
 - **hooks.md** - フックによる自動化
-- **rules.md** - パス別ルールの定義（RPGアナロジー解説付き）
+- **rules.md** - パス別ルールの定義（コンビニアナロジー解説付き）
 - **skill.md** - スキルの使用方法と作成（Progressive Disclosure、Tool/Skills/MCP役割整理を含む）
 
 ### 外部連携
@@ -67,7 +67,7 @@ description: Claude Codeの公式ドキュメントをまとめた包括的な�
 
 ### モデル・パフォーマンス
 - **model_setting.md** - モデル設定の管理と選択（opusplan等）
-- **memory_management.md** - CLAUDE.mdの活用（RPGアナロジー解説付き）
+- **memory_management.md** - CLAUDE.mdの活用（コンビニアナロジー解説付き）
 
 ### トラブルシューティング・ベストプラクティス
 - **troubleshooting.md** - よくある問題と解決法

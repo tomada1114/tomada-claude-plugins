@@ -103,13 +103,16 @@ Gitワークフロー効率化ツール。コミットとPR作成を自動化し
 /plugin install transcription-tools@tomada-claude-plugins
 ```
 
-| Skill | Description |
-|-------|-------------|
-| **transcription-fixer** | 音声入力・文字起こしの誤変換を自動修正。Claude Code、AI駆動開発用語に特化 |
+| Type | Name | Description |
+|------|------|-------------|
+| Skill | **transcription-fixer** | 音声入力・文字起こしの誤変換を自動修正。Claude Code、AI駆動開発用語に特化 |
+| Skill | **srt-transcription-fixer** | SRT字幕ファイル専用の修正。改行位置の最適化、誤変換修正 |
+| Command | **/srt-transcription-fixer:fix-srt** | SRTファイルを修正するコマンド |
 
 **Use when:**
 - Whisper等の文字起こしを修正したい
 - 「クロードコード」→「Claude Code」などの変換
+- SRT字幕ファイルの誤変換・改行位置を修正したい
 
 ---
 
