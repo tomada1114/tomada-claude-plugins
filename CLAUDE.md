@@ -118,25 +118,3 @@ allowed-tools: Read, Edit, Write  # Optional
 /plugin install plugin-name@tomada-claude-plugins
 ```
 
-## Documentation Rules
-
-### README Synchronization
-
-**IMPORTANT**: The root `README.md` and each plugin's `README.md` must be kept in sync.
-
-Each plugin directory has its own `README.md`:
-- `claude-dev-kit/README.md`
-- `git-workflow/README.md`
-- `test-advisor/README.md`
-- `agile-tools/README.md`
-- `content-tools/README.md`
-
-When updating plugin information:
-1. Update the plugin's individual `README.md` first
-2. Reflect the same changes in the root `README.md`
-3. Ensure installation commands, feature descriptions, and trigger keywords are consistent
-
-When adding a new plugin:
-1. Create `<plugin-name>/README.md` with standard structure (Installation, Contents, Use Cases, Trigger Keywords)
-2. Add the plugin section to root `README.md`
-3. Update this `CLAUDE.md` repository structure
