@@ -276,7 +276,7 @@ description: とまだの文字起こし・音声入力（Whisper等）の誤変
   - 専門用語の正しい表記への変換
   - 句読点の追加
 
-### srt-transcription-fixer
+### fixing-srt-subtitles
 - **対象**: SRT字幕ファイル専用
 - **役割**: SRTフォーマット固有の処理
 - **やること**:
@@ -286,7 +286,7 @@ description: とまだの文字起こし・音声入力（Whisper等）の誤変
 
 ### 使い分け
 - **SRTファイル以外**: transcription-fixerのみ使用
-- **SRTファイル**: srt-transcription-fixerを使用（内部でtranscription-fixerの辞書を参照）
+- **SRTファイル**: fixing-srt-subtitlesを使用（内部でfixing-transcriptionsの辞書を参照）
 
 ## 更新履歴
 

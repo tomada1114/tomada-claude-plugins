@@ -79,7 +79,20 @@ Start with our templates:
 **name:**
 - Lowercase letters, numbers, hyphens only
 - Maximum 64 characters
-- Example: `api-docs-writer`, `test-strategy`, `code-review`
+- **Gerund form (-ing) strongly recommended** - clearly expresses capability
+- **Prohibited**: XML tags, reserved words (`anthropic`, `claude`)
+
+**Recommended naming styles:**
+```
+# Best: Gerund form (strongly recommended)
+processing-pdfs, analyzing-spreadsheets, writing-documentation, reviewing-code
+
+# Acceptable alternatives
+pdf-processing, spreadsheet-analysis    # Noun phrases
+process-pdfs, analyze-spreadsheets      # Action-oriented
+```
+
+**Examples:** `processing-pdfs`, `code-reviewing`, `test-strategy`
 
 **description:**
 - Must describe BOTH what the skill does AND when to use it
@@ -299,6 +312,7 @@ Show, don't just tell. Include real code examples.
 - Explain programming basics
 - Create monolithic skill files
 - Include unnecessary background
+- **Add CHANGELOG.md or version history** (wastes tokens, use git history instead)
 
 ### 8. Subagent Orchestration for Complex Workflows (Advanced)
 

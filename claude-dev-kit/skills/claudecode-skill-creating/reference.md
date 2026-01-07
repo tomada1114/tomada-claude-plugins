@@ -8,10 +8,10 @@ This file provides comprehensive reference information for Claude Code skills. I
 - [Skills vs Slash Commands](#skills-vs-slash-commands)
 - [Directory Structure Details](#directory-structure-details)
 - [Progressive Disclosure Pattern](#progressive-disclosure-pattern)
+- [Token Efficiency Best Practices](#token-efficiency-best-practices)
 - [Tool Restrictions](#tool-restrictions)
 - [Common Patterns Library](#common-patterns-library)
 - [Troubleshooting Guide](#troubleshooting-guide)
-- [Version Guidelines](#version-guidelines)
 
 ## YAML Frontmatter Specification
 
@@ -47,15 +47,34 @@ allowed-tools: Read, Grep, Glob    # Optional
   - Underscores (_)
   - Special characters (!@#$%^&* etc.)
 
-**Valid Examples:**
+**Prohibited Patterns:**
+- XML-like tags (e.g., `<skill>`, `</name>`)
+- Reserved words: `anthropic`, `claude`
+
+**Recommended Naming Style - Gerund Form (-ing):**
+
+The gerund form (ending in -ing) is **strongly recommended** because it clearly expresses what capability the skill provides:
+
 ```yaml
-name: api-docs-writer
-name: test-strategy
-name: code-review
-name: db-migration-helper
-name: security-analyzer
-name: comprehensive-testing
-name: openapi-generator
+# ✅ BEST: Gerund form (strongly recommended)
+name: processing-pdfs
+name: analyzing-spreadsheets
+name: managing-databases
+name: testing-code
+name: writing-documentation
+name: reviewing-code
+name: explaining-code
+```
+
+**Acceptable Alternatives:**
+```yaml
+# Noun phrases
+name: pdf-processing
+name: spreadsheet-analysis
+
+# Action-oriented
+name: process-pdfs
+name: analyze-spreadsheets
 ```
 
 **Invalid Examples:**
@@ -67,6 +86,8 @@ name: api-docs-writer!      # ✗ Special characters
 name: ApiDocsWriter         # ✗ CamelCase
 name: -api-docs            # ✗ Starts with hyphen
 name: api-docs-            # ✗ Ends with hyphen
+name: claude-helper        # ✗ Reserved word
+name: anthropic-tools      # ✗ Reserved word
 ```
 
 ### Field: `description`
@@ -583,6 +604,111 @@ Use these templates as starting points:
 - All information is essential
 - No extensive reference material
 
+## Token Efficiency Best Practices
+
+Understanding how skills consume tokens helps you build efficient, scalable skill collections.
+
+### How Skill Loading Works
+
+**Metadata-Only Loading (Always):**
+- Only `name` and `description` are loaded initially
+- Approximately **50-100 tokens per skill**
+- Even with 50+ skills installed, metadata costs only a few thousand tokens
+- This is the "progressive disclosure" foundation
+
+**SKILL.md Loading (On-Demand):**
+- Full SKILL.md content loads only when skill is activated
+- Target: **< 5,000 tokens** (under 500 lines)
+- Referenced files (reference.md, examples.md) load only when explicitly needed
+
+### Skill Splitting Strategy
+
+**"One Skill = One Capability"** is critical for token efficiency:
+
+```
+# ❌ BAD: Monolithic skill
+coding-assistant/
+└── SKILL.md  # 2000 lines covering testing, docs, debugging, etc.
+              # Always loads everything even for simple tasks
+
+# ✅ GOOD: Focused skills
+testing-code/
+└── SKILL.md  # 300 lines - testing only
+
+writing-documentation/
+└── SKILL.md  # 250 lines - docs only
+
+debugging-errors/
+└── SKILL.md  # 200 lines - debugging only
+
+refactoring-modules/
+└── SKILL.md  # 280 lines - refactoring only
+```
+
+**Benefits of splitting:**
+- Only relevant context loads for each task
+- Claude selects skills more accurately
+- Easier to maintain and update
+- Better activation precision
+
+### Token-Efficient Directory Structure
+
+```
+your-skill-name/
+├── SKILL.md              # Required: Keep < 500 lines (< 5k tokens)
+├── scripts/              # Code NOT loaded into context!
+│   ├── validate.py       # Only execution output costs tokens
+│   └── helper.sh         # Ideal for deterministic operations
+├── references/           # Loaded only when explicitly referenced
+│   ├── guidelines.md     # Keep mutually exclusive content separate
+│   └── examples.md
+└── assets/               # Templates, images (loaded on-demand)
+    └── template.xlsx
+```
+
+**Why scripts/ is token-efficient:**
+- Script **code is NOT loaded** into context
+- Only **execution output** consumes tokens
+- Perfect for: validation, data processing, complex calculations
+- Use scripts for deterministic operations Claude might struggle with
+
+### What NOT to Include
+
+**Never add these files to skills (wastes tokens):**
+
+❌ **CHANGELOG.md / VERSION.md**
+- Version history wastes tokens every time skill loads
+- Use git history instead (`git log --oneline`)
+- If you must track versions, keep in a separate repo wiki
+
+❌ **Extensive inline documentation**
+- Move to reference.md (loaded on-demand)
+- Link to external docs instead of duplicating
+
+❌ **Redundant examples**
+- 2-3 examples are sufficient
+- More examples = more tokens
+
+### Practical Token Budgets
+
+| Component | Target | Max |
+|-----------|--------|-----|
+| SKILL.md | < 300 lines | 500 lines |
+| Metadata (name + description) | ~80 tokens | 100 tokens |
+| reference.md | < 500 lines | 800 lines |
+| Total skill (excluding scripts) | < 5k tokens | 10k tokens |
+
+### Monitoring Token Usage
+
+To estimate your skill's token cost:
+```bash
+# Rough estimate: ~4 characters per token
+wc -c ~/.claude/skills/my-skill/SKILL.md
+# Divide result by 4 for approximate tokens
+```
+
+**Rule of thumb:** If `wc -l SKILL.md` exceeds 500, refactor.
+
 ## Tool Restrictions
 
 ### Complete Tool Reference
@@ -801,76 +927,6 @@ description: Generate comprehensive tests with edge cases, mocks, and 100% cover
    # ✅ Narrow scope
    description: Analyze TypeScript code complexity and suggest refactoring for functions > 50 lines. Use when reviewing TypeScript code or refactoring complex functions.
    ```
-
-## Version Guidelines
-
-### Semantic Versioning for Skills
-
-Skills should follow semantic versioning principles:
-
-```
-MAJOR.MINOR.PATCH
-
-Example: 2.1.3
-         │ │ │
-         │ │ └─ Patch: Bug fixes, minor improvements
-         │ └─── Minor: New features (backward compatible)
-         └───── Major: Breaking changes
-```
-
-### Version History Format
-
-```markdown
-## Version History
-
-### 2.0.0 (2025-01-15)
-**Breaking Changes:**
-- Changed output format
-- Removed deprecated options
-
-**New Features:**
-- Added support for Python 3.12
-- New validation mode
-
-**Fixes:**
-- Fixed edge case in parser
-- Improved error messages
-
-### 1.2.0 (2024-12-01)
-**New Features:**
-- Added TypeScript support
-- New templates for FastAPI
-
-**Improvements:**
-- Better error handling
-- Performance improvements
-
-### 1.1.1 (2024-11-15)
-**Fixes:**
-- Fixed validation bug
-- Updated dependencies
-```
-
-### When to Bump Versions
-
-**MAJOR (Breaking Changes):**
-- Changed skill behavior significantly
-- Removed features or options
-- Changed output format incompatibly
-- Renamed files or directories
-- Changed AI instructions significantly
-
-**MINOR (New Features):**
-- Added new capabilities
-- New templates or examples
-- Enhanced existing features
-- New optional parameters
-
-**PATCH (Bug Fixes):**
-- Fixed bugs or errors
-- Improved documentation
-- Performance improvements
-- Minor wording changes
 
 ---
 

@@ -381,20 +381,6 @@ If user needs capabilities beyond allowed tools:
 - [Scenario 2]: Should handle [edge case]
 - [Scenario 3]: Should fail gracefully if [error condition]
 
-## Versioning
-
-**Current Version**: 1.0.0
-
-### Version History
-
-- **1.0.0** (YYYY-MM-DD): Initial release
-  - [Feature 1]
-  - [Feature 2]
-
-### Migration Guide (for breaking changes)
-
-[Instructions for migrating from older versions]
-
 ## Contributing
 
 To improve this skill:
