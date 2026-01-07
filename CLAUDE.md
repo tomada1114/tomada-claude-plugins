@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a Claude Code plugin marketplace repository containing 6 plugins for extending Claude Code capabilities. The repository is published as a GitHub-hosted marketplace that users install via `/plugin marketplace add tomada1114/tomada-claude-plugins`.
+This is a Claude Code plugin marketplace repository containing 5 plugins for extending Claude Code capabilities. The repository is published as a GitHub-hosted marketplace that users install via `/plugin marketplace add tomada1114/tomada-claude-plugins`.
 
 ## Repository Structure
 
@@ -19,12 +19,11 @@ tomada-claude-plugins/
 │   └── commands/             # smart-commit, pr-description
 ├── test-advisor/             # Plugin: Test strategy guidance
 │   └── agents/               # test-strategy-advisor sub-agent
-├── transcription-tools/      # Plugin: Japanese transcription fixer
-│   └── skills/               # transcription-fixer, srt-transcription-fixer
 ├── agile-tools/              # Plugin: Agile development tools
-│   └── skills/               # product-requirements-designer, agile-ticket-planner
+│   └── skills/               # designing-requirements, planning-tickets
 └── content-tools/            # Plugin: Content creation tools
-    └── skills/               # video-script-writing
+    ├── skills/               # video-script-writing, fixing-transcriptions, fixing-srt-subtitles
+    └── commands/             # video-script-writing:generate, fixing-srt-subtitles:fix-srt, split-long-subtitles
 ```
 
 ## Plugin Architecture
@@ -129,7 +128,6 @@ Each plugin directory has its own `README.md`:
 - `claude-dev-kit/README.md`
 - `git-workflow/README.md`
 - `test-advisor/README.md`
-- `transcription-tools/README.md`
 - `agile-tools/README.md`
 - `content-tools/README.md`
 

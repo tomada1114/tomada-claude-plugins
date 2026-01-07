@@ -20,11 +20,6 @@
       "description": "テスト戦略アドバイザー。Happy/Sad/Edge/Unhappy path網羅のテスト計画"
     },
     {
-      "name": "transcription-tools",
-      "source": "./transcription-tools",
-      "description": "日本語文字起こし修正ツール。Whisper誤変換対応"
-    },
-    {
       "name": "agile-tools",
       "source": "./agile-tools",
       "description": "アジャイル開発ツール。要件設計とGitHub Issue作成"
@@ -32,7 +27,7 @@
     {
       "name": "content-tools",
       "source": "./content-tools",
-      "description": "コンテンツ制作ツール。YouTube台本作成など"
+      "description": "コンテンツ制作ツール。YouTube台本作成、文字起こし修正、SRT字幕修正"
     }
   ]
 }

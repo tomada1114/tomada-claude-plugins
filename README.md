@@ -1,6 +1,6 @@
 # Tomada Claude Plugins
 
-Claude Code用のプラグイン集です。用途別に6つのプラグインを提供します。
+Claude Code用のプラグイン集です。用途別に5つのプラグインを提供します。
 
 ## Installation
 
@@ -12,7 +12,6 @@ Claude Code用のプラグイン集です。用途別に6つのプラグイン�
 /plugin install claude-dev-kit@tomada-claude-plugins
 /plugin install git-workflow@tomada-claude-plugins
 /plugin install test-advisor@tomada-claude-plugins
-/plugin install transcription-tools@tomada-claude-plugins
 /plugin install agile-tools@tomada-claude-plugins
 /plugin install content-tools@tomada-claude-plugins
 
@@ -34,12 +33,12 @@ Claude Code拡張開発キット。Skill、Command、Agent、Rulesの作成を�
 
 | Type | Name | Description |
 |------|------|-------------|
-| Skill | **claude-skill-creator** | Skillの作成ガイド。YAML frontmatter、ディレクトリ構造、テンプレート |
-| Skill | **custom-commands-creator** | カスタムコマンドの作成ガイド。引数パターン、Bash統合 |
-| Skill | **sub-agents-creator** | サブエージェントの作成ガイド。発動率向上のCLAUDE.md連携パターン |
-| Skill | **claude-rules-organizer** | 肥大化したCLAUDE.mdを`.claude/rules/`へモジュール分割 |
-| Skill | **claude-code-knowledge** | Claude Codeの機能・設定リファレンス。公式ドキュメントベース |
-| Skill | **claude-code-headless** | ヘッドレスモード（-p フラグ）でのスクリプト連携ガイド |
+| Skill | **claudecode-skill-creating** | Skillの作成ガイド。YAML frontmatter、ディレクトリ構造、テンプレート |
+| Skill | **creating-commands** | カスタムコマンドの作成ガイド。引数パターン、Bash統合 |
+| Skill | **creating-subagents** | サブエージェントの作成ガイド。発動率向上のCLAUDE.md連携パターン |
+| Skill | **claudecode-rules-organizing** | 肥大化したCLAUDE.mdを`.claude/rules/`へモジュール分割 |
+| Skill | **claudecode-docs-referencing** | Claude Codeの機能・設定リファレンス。公式ドキュメントベース |
+| Skill | **claudecode-headless-automating** | ヘッドレスモード（-p フラグ）でのスクリプト連携ガイド |
 | Command | **add-description-to-memory** | CLAUDE.mdのSkill Activation Rulesを自動同期 |
 
 **Use when:**
@@ -95,28 +94,7 @@ Gitワークフロー効率化ツール。コミットとPR作成を自動化し
 
 ---
 
-### 4. transcription-tools
-
-日本語文字起こし修正ツール。Whisper等の誤変換を自動修正します。
-
-```bash
-/plugin install transcription-tools@tomada-claude-plugins
-```
-
-| Type | Name | Description |
-|------|------|-------------|
-| Skill | **transcription-fixer** | 音声入力・文字起こしの誤変換を自動修正。Claude Code、AI駆動開発用語に特化 |
-| Skill | **srt-transcription-fixer** | SRT字幕ファイル専用の修正。改行位置の最適化、誤変換修正 |
-| Command | **/srt-transcription-fixer:fix-srt** | SRTファイルを修正するコマンド |
-
-**Use when:**
-- Whisper等の文字起こしを修正したい
-- 「クロードコード」→「Claude Code」などの変換
-- SRT字幕ファイルの誤変換・改行位置を修正したい
-
----
-
-### 5. agile-tools
+### 4. agile-tools
 
 アジャイル開発ツール。要件設計とGitHub Issue作成を支援します。
 
@@ -126,8 +104,8 @@ Gitワークフロー効率化ツール。コミットとPR作成を自動化し
 
 | Skill | Description |
 |-------|-------------|
-| **agile-ticket-planner** | GitHub Issue作成。並列作業の特定、依存関係管理、git worktree戦略 |
-| **product-requirements-designer** | 曖昧な要件を詳細化。PdM視点の質問→ワイヤーフレーム→チケット分割 |
+| **planning-tickets** | GitHub Issue作成。並列作業の特定、依存関係管理、git worktree戦略 |
+| **designing-requirements** | 曖昧な要件を詳細化。PdM視点の質問→ワイヤーフレーム→チケット分割 |
 
 **Use when:**
 - 要件からGitHub Issueを作成したい
@@ -136,21 +114,28 @@ Gitワークフロー効率化ツール。コミットとPR作成を自動化し
 
 ---
 
-### 6. content-tools
+### 5. content-tools
 
-コンテンツ制作ツール。YouTube台本作成などを支援します。
+コンテンツ制作ツール。YouTube台本作成、文字起こし修正、SRT字幕修正を支援します。
 
 ```bash
 /plugin install content-tools@tomada-claude-plugins
 ```
 
-| Skill | Description |
-|-------|-------------|
-| **video-script-writing** | YouTube台本作成。テック動画（AI駆動開発・プログラミング）向け7軸評価システム |
+| Type | Name | Description |
+|------|------|-------------|
+| Skill | **video-script-writing** | YouTube台本作成。テック動画（AI駆動開発・プログラミング）向け7軸評価システム |
+| Skill | **fixing-transcriptions** | 音声入力・文字起こしの誤変換を自動修正。Claude Code、AI駆動開発用語に特化 |
+| Skill | **fixing-srt-subtitles** | SRT字幕ファイル専用の修正。改行位置の最適化、誤変換修正 |
+| Command | **/video-script-writing:generate** | ソースファイルからYouTube台本を生成 |
+| Command | **/fixing-srt-subtitles:fix-srt** | 指定ディレクトリのSRTファイルを修正 |
+| Command | **/fixing-srt-subtitles:split-long-subtitles** | 長い字幕テキストを分割 |
 
 **Use when:**
 - 記事やメモからYouTube台本を作成したい
 - テック系動画のスクリプトを書きたい
+- Whisper等の文字起こしを修正したい
+- SRT字幕ファイルの誤変換・改行位置を修正したい
 
 ---
 
