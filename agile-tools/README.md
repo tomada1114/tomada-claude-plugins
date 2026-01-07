@@ -20,6 +20,7 @@
 |------|-------------|
 | **planning-tickets** | GitHub Issue作成。並列作業の特定、依存関係管理、git worktree戦略 |
 | **designing-requirements** | 曖昧な要件を詳細化。PdM視点の質問→ワイヤーフレーム→チケット分割 |
+| **ui-ux-designing** | UI/UXデザインコンセプト決定。競合調査→段階的質問→デザインシステムドキュメント生成 |
 
 ## Use Cases
 
@@ -27,6 +28,8 @@
 - 曖昧なアイデアを詳細な仕様に落としたい
 - 並列作業できるチケットを特定したい
 - スプリント計画を立てたい
+- UI/UXのデザインコンセプトを決めたい
+- デザインシステムドキュメントを作成したい
 
 ## Features
 
@@ -40,6 +43,11 @@
 - **ワイヤーフレーム設計**: UI/UXの具体化
 - **チケット分割**: 実装可能な粒度への分解
 
+### ui-ux-designing
+- **競合UX調査**: WebSearchで人気アプリのUXを調査・分析
+- **段階的質問**: AskUserQuestionでトーン、カラー、レイアウト方針を決定
+- **デザインドキュメント**: テンプレートベースのデザインコンセプト文書生成
+
 ## Trigger Keywords
 
 Skills are activated when you mention:
@@ -47,6 +55,8 @@ Skills are activated when you mention:
 - "要件を詳細化", "specs", "PRD"
 - "ワイヤーフレーム", "UI design"
 - "並列作業", "worktree"
+- "デザインコンセプト", "UI/UX", "カラースキーム"
+- "デザインシステム", "見た目"
 
 ## Author
 
