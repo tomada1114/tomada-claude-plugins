@@ -105,12 +105,15 @@ Gitワークフロー効率化ツール。コミットとPR作成を自動化し
 | Skill | Description |
 |-------|-------------|
 | **planning-tickets** | GitHub Issue作成。並列作業の特定、依存関係管理、git worktree戦略 |
-| **designing-requirements** | 曖昧な要件を詳細化。PdM視点の質問→ワイヤーフレーム→チケット分割 |
+| **refining-requirements** | 曖昧な要件を質問形式で詳細化。PdM視点でモバイルUX・アクセシビリティを網羅 |
+| **designing-wireframes** | ASCIIワイヤーフレーム・ユーザーフロー・横断的仕様を設計 |
+| **ui-ux-designing** | UI/UXデザインコンセプトの策定。デザイン原則、カラー、タイポグラフィ |
 
 **Use when:**
 - 要件からGitHub Issueを作成したい
 - 曖昧なアイデアを詳細な仕様に落としたい
 - 並列作業できるチケットを特定したい
+- 画面設計やワイヤーフレームを作成したい
 
 ---
 
@@ -126,7 +129,8 @@ Gitワークフロー効率化ツール。コミットとPR作成を自動化し
 |------|------|-------------|
 | Skill | **video-script-writing** | YouTube台本作成。テック動画（AI駆動開発・プログラミング）向け7軸評価システム |
 | Skill | **fixing-transcriptions** | 音声入力・文字起こしの誤変換を自動修正。Claude Code、AI駆動開発用語に特化 |
-| Skill | **fixing-srt-subtitles** | SRT字幕ファイル専用の修正。改行位置の最適化、誤変換修正 |
+| Skill | **fixing-srt-subtitles** | SRT字幕ファイル専用の修正。24文字ルール、タイムコード按分による長文分割 |
+| Agent | **srt-splitter** | 長い字幕テキスト（24文字超）を文法的に自然な位置で分割提案 |
 | Command | **/video-script-writing:generate** | ソースファイルからYouTube台本を生成 |
 | Command | **/fixing-srt-subtitles:fix-srt** | 指定ディレクトリのSRTファイルを修正 |
 | Command | **/fixing-srt-subtitles:split-long-subtitles** | 長い字幕テキストを分割 |
