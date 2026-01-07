@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a Claude Code plugin marketplace repository containing 5 plugins for extending Claude Code capabilities. The repository is published as a GitHub-hosted marketplace that users install via `/plugin marketplace add tomada1114/tomada-claude-plugins`.
+This is a Claude Code plugin marketplace repository containing 6 plugins for extending Claude Code capabilities. The repository is published as a GitHub-hosted marketplace that users install via `/plugin marketplace add tomada1114/tomada-claude-plugins`.
 
 ## Repository Structure
 
@@ -20,9 +20,11 @@ tomada-claude-plugins/
 ├── test-advisor/             # Plugin: Test strategy guidance
 │   └── agents/               # test-strategy-advisor sub-agent
 ├── transcription-tools/      # Plugin: Japanese transcription fixer
-│   └── skills/               # transcription-fixer skill
-└── agile-tools/              # Plugin: Agile development tools
-    └── skills/               # product-requirements-designer, agile-ticket-planner
+│   └── skills/               # transcription-fixer, srt-transcription-fixer
+├── agile-tools/              # Plugin: Agile development tools
+│   └── skills/               # product-requirements-designer, agile-ticket-planner
+└── content-tools/            # Plugin: Content creation tools
+    └── skills/               # video-script-writing
 ```
 
 ## Plugin Architecture
@@ -116,3 +118,27 @@ allowed-tools: Read, Edit, Write  # Optional
 # Install specific plugin
 /plugin install plugin-name@tomada-claude-plugins
 ```
+
+## Documentation Rules
+
+### README Synchronization
+
+**IMPORTANT**: The root `README.md` and each plugin's `README.md` must be kept in sync.
+
+Each plugin directory has its own `README.md`:
+- `claude-dev-kit/README.md`
+- `git-workflow/README.md`
+- `test-advisor/README.md`
+- `transcription-tools/README.md`
+- `agile-tools/README.md`
+- `content-tools/README.md`
+
+When updating plugin information:
+1. Update the plugin's individual `README.md` first
+2. Reflect the same changes in the root `README.md`
+3. Ensure installation commands, feature descriptions, and trigger keywords are consistent
+
+When adding a new plugin:
+1. Create `<plugin-name>/README.md` with standard structure (Installation, Contents, Use Cases, Trigger Keywords)
+2. Add the plugin section to root `README.md`
+3. Update this `CLAUDE.md` repository structure
