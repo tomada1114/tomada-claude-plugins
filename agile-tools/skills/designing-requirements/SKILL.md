@@ -1,5 +1,5 @@
 ---
-name: product-requirements-designer
+name: designing-requirements
 description: Transform rough product ideas into detailed, implementation-ready requirements. Acts as PdM and UI/UX designer to clarify ambiguous points, design screens, and create ticket breakdowns. Use PROACTIVELY when user mentions requirements, specs, PRD, wireframe, UI design, UX flow, product idea, feature planning, ticket breakdown, or asks to refine/detail app ideas. Examples: <example>Context: User has rough idea user: 'Help me refine this app spec' assistant: 'I will use product-requirements-designer skill' <commentary>Triggered by spec refinement request</commentary></example> <example>Context: Planning phase user: 'Let's detail the requirements' assistant: 'I will use product-requirements-designer skill' <commentary>Triggered by requirements detailing</commentary></example>
 ---
 

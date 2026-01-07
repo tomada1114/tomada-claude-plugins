@@ -1,5 +1,5 @@
 ---
-name: custom-commands-creator
+name: creating-commands
 description: Create effective Claude Code custom commands for workflow automation. Use when creating new custom commands, understanding YAML frontmatter structure (description, allowed-tools, argument-hint, model, disable-model-invocation), designing argument patterns ($ARGUMENTS vs $1/$2/$3), integrating Bash execution (!prefix) and file references (@prefix), or troubleshooting command issues.
 ---
 

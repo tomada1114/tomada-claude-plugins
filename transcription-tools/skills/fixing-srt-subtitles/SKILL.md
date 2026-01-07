@@ -1,6 +1,6 @@
 ---
-name: srt-transcription-fixer
-description: SRT字幕ファイル専用の文字起こし修正スキル。Whisper等で生成されたSRTファイルの誤変換・不自然な改行位置を自動修正。Use PROACTIVELY when editing .srt files, fixing subtitle transcriptions, correcting SRT timing text, or when user mentions 字幕, SRT, 文字起こし修正, subtitle. transcription-fixerスキルと連携して誤変換を修正。
+name: fixing-srt-subtitles
+description: SRT字幕ファイル専用の文字起こし修正スキル。Whisper等で生成されたSRTファイルの誤変換・不自然な改行位置を自動修正。Use PROACTIVELY when editing .srt files, fixing subtitle transcriptions, correcting SRT timing text, or when user mentions 字幕, SRT, 文字起こし修正, subtitle. fixing-transcriptionsスキルと連携して誤変換を修正。
 ---
 
 # SRT Transcription Fixer（SRT字幕修正スキル）

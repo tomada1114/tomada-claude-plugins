@@ -1,5 +1,5 @@
 ---
-name: sub-agents-creator
+name: creating-subagents
 description: Create effective Claude Code sub-agents for project-level workflows. Use PROACTIVELY when creating new sub-agents, improving existing agents, understanding YAML frontmatter structure (name, description, tools, model, color), designing agent activation strategies with CLAUDE.md integration, writing effective descriptions with PROACTIVELY/MUST BE USED/<example> patterns, or troubleshooting agent activation issues (~25% activation rate problem).
 ---
 

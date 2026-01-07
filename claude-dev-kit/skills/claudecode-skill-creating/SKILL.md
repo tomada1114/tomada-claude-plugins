@@ -1,5 +1,5 @@
 ---
-name: claude-skill-creator
+name: claudecode-skill-creating
 description: Guide for creating effective Claude Code skills with proper YAML frontmatter, directory structure, templates, scripts, and best practices. Use PROACTIVELY when creating new skills, updating existing skills, learning about skill development, troubleshooting skill activation issues, or working with Claude Code skills, skill structure, YAML frontmatter, Skill permission settings, CLAUDE.md integration.
 ---
 

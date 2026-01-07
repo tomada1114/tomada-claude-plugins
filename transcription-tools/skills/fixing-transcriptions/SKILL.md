@@ -1,5 +1,5 @@
 ---
-name: transcription-fixer
+name: fixing-transcriptions
 description: とまだの文字起こし・音声入力（Whisper等）の誤変換・誤字脱字を自動修正するスキル。AI駆動開発、Claude Code、MCP、プログラミング用語の誤変換を専門的に修正。「文字起こしを修正」「誤変換を直して」「誤字脱字を修正」「音声入力を整理」「テキストをクリーンアップ」「変換ミスを直して」と言われたときに使用。Obsidianノートの文字起こし整理、技術用語の表記統一に最適。Use PROACTIVELY when fixing transcriptions, correcting voice input errors, or cleaning up Whisper output.
 ---
 

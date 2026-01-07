@@ -1,5 +1,5 @@
 ---
-name: claude-rules-organizer
+name: claudecode-rules-organizing
 description: Reorganize bloated CLAUDE.md files into modular .claude/rules/ structure with dynamic loading. Use PROACTIVELY when CLAUDE.md exceeds 200 lines, when organizing project rules, when splitting monolithic instructions, when optimizing context usage, or when user mentions CLAUDE.md refactoring, rules organization, context optimization. Examples: <example>Context: User has large CLAUDE.md user: 'My CLAUDE.md is getting too big' assistant: 'I will use claude-rules-organizer to split into modular rules' <commentary>Triggered by CLAUDE.md size concern</commentary></example>
 ---
 
