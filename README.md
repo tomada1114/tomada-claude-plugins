@@ -162,9 +162,19 @@ Gitワークフロー効率化ツール。コミットとPR作成を自動化し
 
 **とまだ (@muscle_coding)**
 
-- AI駆動開発の実践者・教育者
-- Udemy講師（Claude Code講座）
-- Zenn/Qiita/note 技術記事執筆
+AI駆動開発の実践者・教育者
+
+### Links
+
+| Platform | URL |
+|----------|-----|
+| X (Twitter) | https://x.com/muscle_coding |
+| Zenn | https://zenn.dev/tmasuyama1114 |
+| YouTube | https://www.youtube.com/@vibe-coding-studio |
+| Udemy クーポン | https://www.vibecodingstudio.dev/coupons?topic=claude-code |
+| コミュニティ | https://www.vibecodingstudio.dev/community |
+
+仕事の依頼、執筆の依頼、その他相談などは X の DM へお気軽にどうぞ。
 
 ## License
 
