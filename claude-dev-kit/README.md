@@ -18,12 +18,12 @@ Claude Code拡張開発キット。Skill、Command、Agent、Rulesの作成を�
 
 | Name | Description |
 |------|-------------|
-| **claude-skill-creator** | Skillの作成ガイド。YAML frontmatter、ディレクトリ構造、テンプレート |
-| **custom-commands-creator** | カスタムコマンドの作成ガイド。引数パターン、Bash統合 |
-| **sub-agents-creator** | サブエージェントの作成ガイド。発動率向上のCLAUDE.md連携パターン |
-| **claude-rules-organizer** | 肥大化したCLAUDE.mdを`.claude/rules/`へモジュール分割 |
-| **claude-code-knowledge** | Claude Codeの機能・設定リファレンス。公式ドキュメントベース |
-| **claude-code-headless** | ヘッドレスモード（-p フラグ）でのスクリプト連携ガイド |
+| **claudecode-skill-creating** | Skillの作成ガイド。YAML frontmatter、ディレクトリ構造、テンプレート |
+| **creating-commands** | カスタムコマンドの作成ガイド。引数パターン、Bash統合 |
+| **creating-subagents** | サブエージェントの作成ガイド。発動率向上のCLAUDE.md連携パターン |
+| **claudecode-rules-organizing** | 肥大化したCLAUDE.mdを`.claude/rules/`へモジュール分割 |
+| **claudecode-docs-referencing** | Claude Codeの機能・設定リファレンス。公式ドキュメントベース |
+| **claudecode-headless-automating** | ヘッドレスモード（-p フラグ）でのスクリプト連携ガイド |
 
 ### Commands
 

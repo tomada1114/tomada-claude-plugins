@@ -18,8 +18,8 @@
 
 | Name | Description |
 |------|-------------|
-| **agile-ticket-planner** | GitHub Issue作成。並列作業の特定、依存関係管理、git worktree戦略 |
-| **product-requirements-designer** | 曖昧な要件を詳細化。PdM視点の質問→ワイヤーフレーム→チケット分割 |
+| **planning-tickets** | GitHub Issue作成。並列作業の特定、依存関係管理、git worktree戦略 |
+| **designing-requirements** | 曖昧な要件を詳細化。PdM視点の質問→ワイヤーフレーム→チケット分割 |
 
 ## Use Cases
 
@@ -30,12 +30,12 @@
 
 ## Features
 
-### agile-ticket-planner
+### planning-tickets
 - **並列作業の特定**: 依存関係のないタスクを並列実行可能と判定
 - **依存関係管理**: タスク間の前後関係を明確化
 - **git worktree戦略**: 並列開発のためのブランチ戦略を提案
 
-### product-requirements-designer
+### designing-requirements
 - **PdM視点の質問**: 曖昧なポイントを洗い出し
 - **ワイヤーフレーム設計**: UI/UXの具体化
 - **チケット分割**: 実装可能な粒度への分解
