@@ -39,6 +39,7 @@ Claude Code拡張開発キット。Skill、Command、Agent、Rulesの作成を�
 | Skill | **claudecode-rules-organizing** | 肥大化したCLAUDE.mdを`.claude/rules/`へモジュール分割 |
 | Skill | **claudecode-docs-referencing** | Claude Codeの機能・設定リファレンス。公式ドキュメントベース |
 | Skill | **claudecode-headless-automating** | ヘッドレスモード（-p フラグ）でのスクリプト連携ガイド |
+| Skill | **bootstrapping-claudecode** | 新規プロジェクト向けClaude Codeセットアップウィザード。Rules、Hooks、MCP、CLAUDE.mdのテンプレート提供 |
 | Command | **add-description-to-memory** | CLAUDE.mdのSkill Activation Rulesを自動同期 |
 
 **Use when:**
@@ -46,6 +47,7 @@ Claude Code拡張開発キット。Skill、Command、Agent、Rulesの作成を�
 - エージェントが発動しない問題を解決したい
 - CLAUDE.mdが大きくなりすぎた
 - Claude Codeの機能や設定を調べたい
+- 新規プロジェクトでClaude Codeをセットアップしたい
 
 ---
 
@@ -164,6 +166,12 @@ AI駆動開発の実践者・教育者
 | コミュニティ | https://www.vibecodingstudio.dev/community |
 
 仕事の依頼、執筆の依頼、その他相談などは X の DM へお気軽にどうぞ。
+
+## Acknowledgments
+
+### bootstrapping-claudecode
+
+`bootstrapping-claudecode` スキルは [everything-claude-code](https://github.com/affaan-m/everything-claude-code) by [Affaan M](https://github.com/affaan-m) を参考に作成しました。Claude Code のベストプラクティス集として非常に優れたリポジトリです。このスキルでは、そのエッセンスを対話形式のセットアップウィザードとして再構成し、独自のカスタマイズを加えています。
 
 ## License
 
