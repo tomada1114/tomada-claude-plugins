@@ -1,0 +1,10 @@
+{
+  "matcher": "tool == \"Bash\" && tool_input.command matches \"(npm (install|test)|pnpm (install|test)|yarn (install|test)|bun (install|test)|cargo build|make|docker|pytest|vitest|playwright)\"",
+  "hooks": [
+    {
+      "type": "command",
+      "command": "#!/bin/bash\ninput=$(cat)\nif [ -z \"$TMUX\" ]; then\n  echo '[Hook] Consider running in tmux for session persistence' >&2\n  echo '[Hook] tmux new -s dev  |  tmux attach -t dev' >&2\nfi\necho \"$input\""
+    }
+  ],
+  "description": "Reminder to use tmux for long-running commands"
+}

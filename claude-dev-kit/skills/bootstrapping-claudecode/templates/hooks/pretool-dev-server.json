@@ -1,0 +1,10 @@
+{
+  "matcher": "tool == \"Bash\" && tool_input.command matches \"(npm run dev|pnpm( run)? dev|yarn dev|bun run dev)\"",
+  "hooks": [
+    {
+      "type": "command",
+      "command": "#!/bin/bash\ninput=$(cat)\ncmd=$(echo \"$input\" | jq -r '.tool_input.command // \"\"')\n\n# Block dev servers that aren't run in tmux\necho '[Hook] BLOCKED: Dev server must run in tmux for log access' >&2\necho '[Hook] Use this command instead:' >&2\necho \"[Hook] tmux new-session -d -s dev 'npm run dev'\" >&2\necho '[Hook] Then: tmux attach -t dev' >&2\nexit 1"
+    }
+  ],
+  "description": "Block dev servers outside tmux - ensures you can access logs"
+}

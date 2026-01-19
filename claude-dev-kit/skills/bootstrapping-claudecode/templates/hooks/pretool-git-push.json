@@ -1,0 +1,10 @@
+{
+  "matcher": "tool == \"Bash\" && tool_input.command matches \"git push\"",
+  "hooks": [
+    {
+      "type": "command",
+      "command": "#!/bin/bash\n# Open editor for review before pushing\necho '[Hook] Review changes before push...' >&2\n# Uncomment your preferred editor:\n# zed . 2>/dev/null\n# code . 2>/dev/null\n# cursor . 2>/dev/null\necho '[Hook] Press Enter to continue with push or Ctrl+C to abort...' >&2\nread -r"
+    }
+  ],
+  "description": "Pause before git push to review changes"
+}

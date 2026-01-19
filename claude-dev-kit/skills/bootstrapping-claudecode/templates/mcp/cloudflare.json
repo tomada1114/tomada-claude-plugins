@@ -1,0 +1,22 @@
+{
+  "cloudflare-docs": {
+    "type": "http",
+    "url": "https://docs.mcp.cloudflare.com/mcp",
+    "description": "Cloudflare documentation search"
+  },
+  "cloudflare-workers-builds": {
+    "type": "http",
+    "url": "https://builds.mcp.cloudflare.com/mcp",
+    "description": "Cloudflare Workers builds"
+  },
+  "cloudflare-workers-bindings": {
+    "type": "http",
+    "url": "https://bindings.mcp.cloudflare.com/mcp",
+    "description": "Cloudflare Workers bindings"
+  },
+  "cloudflare-observability": {
+    "type": "http",
+    "url": "https://observability.mcp.cloudflare.com/mcp",
+    "description": "Cloudflare observability/logs"
+  }
+}
