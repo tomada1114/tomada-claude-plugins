@@ -1,6 +1,6 @@
 ---
 name: claudecode-docs-referencing
-description: Claude Codeの公式ドキュメントをまとめた包括的なレファレンス集。インストール、基本操作、カスタマイズ、トラブルシューティング、実践的なTipsまでの情報を体系的に提供。Use PROACTIVELY when answering questions about Claude Code features, installation, configuration, hooks, MCP, sandbox, plugins, subagents, custom commands, or troubleshooting. Examples: <example>Context: User asks about feature user: 'Claude Codeのhooksってどう使うの？' assistant: 'I will use claudecode-docs-referencing skill' <commentary>Triggered by hooks question</commentary></example> <example>Context: User asks about setup user: 'MCPサーバーの設定方法を教えて' assistant: 'I will use claudecode-docs-referencing skill' <commentary>Triggered by MCP setup question</commentary></example>
+description: Claude Codeの公式ドキュメントをまとめた包括的なレファレンス集。インストール、基本操作、カスタマイズ、トラブルシューティング、実践的なTipsまでの情報を体系的に提供。Use PROACTIVELY when answering questions about Claude Code features, installation, configuration, hooks, MCP, sandbox, plugins, subagents, custom commands, or troubleshooting. Examples: <example>Context: User asks about feature user: 'Claude Codeのhooksってどう使うの？' assistant: 'I will use claude-code-knowledge skill' <commentary>Triggered by hooks question</commentary></example> <example>Context: User asks about setup user: 'MCPサーバーの設定方法を教えて' assistant: 'I will use claude-code-knowledge skill' <commentary>Triggered by MCP setup question</commentary></example>
 ---
 
 # Claude Code Knowledge

@@ -1,6 +1,6 @@
 ---
 name: claudecode-headless-automating
-description: Claude Code をヘッドレスモード（非対話モード）でスクリプトから呼び出すための実装ガイド。Use PROACTIVELY when creating automation scripts, shell scripts calling claude, headless mode, non-interactive mode, batch processing with Claude, CI/CD integration, -p flag, --dangerously-skip-permissions, or building workflows that invoke Claude programmatically. Examples: <example>Context: User wants automation user: 'claudeをスクリプトから呼び出したい' assistant: 'I will use claudecode-headless-automating skill' <commentary>Triggered by script automation request</commentary></example>
+description: Claude Code をヘッドレスモード（非対話モード）でスクリプトから呼び出すための実装ガイド。Use PROACTIVELY when creating automation scripts, shell scripts calling claude, headless mode, non-interactive mode, batch processing with Claude, CI/CD integration, -p flag, --dangerously-skip-permissions, or building workflows that invoke Claude programmatically. Examples: <example>Context: User wants automation user: 'claudeをスクリプトから呼び出したい' assistant: 'I will use claude-code-headless skill' <commentary>Triggered by script automation request</commentary></example>
 ---
 
 # Claude Code Headless Mode Guide
