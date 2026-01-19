@@ -7,9 +7,9 @@ This guide provides comprehensive coverage of all YAML frontmatter fields availa
 | Field | Required | Type | Default | Purpose |
 |-------|----------|------|---------|---------|
 | `description` | Quasi-required | string (max 1024 chars) | First line of body | Command description for autocomplete |
-| `allowed-tools` | Optional | comma-separated list | Inherit all | Tool access restrictions |
+| `allowed-tools` | Optional | comma-separated list | Inherit all | Tool access restrictions（**指定したツールは自動許可**） |
 | `argument-hint` | Optional | string | None | Argument format hint |
-| `model` | Optional | enum | sonnet | Claude model selection |
+| `model` | Optional | enum | 会話モデルを継承 | **基本的に指定しないことを推奨** |
 | `disable-model-invocation` | Optional | boolean | false | Prevent AI auto-invocation |
 
 ---
@@ -119,10 +119,26 @@ description: Interactive technical design quality review and validation that ana
 ### Purpose
 Restricts which tools the command can invoke, implementing the principle of least privilege for security.
 
+### 重要な特徴：自動許可
+**`allowed-tools` で指定されたツールは、ユーザー確認なしで自動的に許可されます。** これにより、コマンド実行時に即座にツールを使用できます。
+
 ### Syntax
-Comma-separated list of exact tool names:
+カンマ区切りの1行形式で記述：
 ```yaml
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+```
+
+### Bash コマンドのワイルドカードパターン
+Bash コマンドは細かく制御可能：
+```yaml
+# git で始まるすべてのコマンドを許可
+allowed-tools: Bash(git:*), Read, Write
+
+# 特定のコマンドのみ許可
+allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git commit:*), Read
+
+# npm run で始まるコマンドを許可
+allowed-tools: Bash(npm run:*), Read, Write
 ```
 
 ### Default Behavior
@@ -410,140 +426,129 @@ argument-hint: <feature> optional-arg
 
 ---
 
-## 4. model
+## 4. model - 基本的に指定しないことを推奨
 
 ### Purpose
 Specifies which Claude model to use for processing this command.
+
+### 推奨：モデルは指定しない
+**基本的にモデルは指定せず、会話のモデル設定を継承させることを推奨します。** これにより：
+- ユーザーが選択したモデルで一貫した体験が得られる
+- 不要なコスト増加を避けられる
+- 会話全体の設定と整合性が保たれる
 
 ### Available Values
 
 | Model | Characteristics | Best For |
 |-------|----------------|----------|
-| `sonnet` | Balanced performance/cost | General-purpose commands (default) |
+| (未指定) | 会話のモデルを継承 | **推奨：ほぼすべてのケース** |
+| `sonnet` | Balanced performance/cost | General-purpose commands |
 | `opus` | Highest quality, slowest | Complex analysis, critical decisions |
-| `haiku` | Fastest, cheapest | Simple tasks, quick checks |
-| `inherit` | Use conversation's model | Consistent experience across session |
+| `haiku` | Fastest, cheapest | 非常にシンプルなタスク限定 |
 
 ### Default Behavior
-If omitted, defaults to `sonnet` (or the system default).
+If omitted, inherits the model from the conversation context (recommended).
 
 ### Use Cases by Model
 
-#### sonnet (Default)
+#### 未指定（推奨）
+**Best For**:
+- **ほぼすべてのケース** - モデルを指定しないことを推奨
+- ユーザーの会話モデル設定を尊重したい場合
+- 一貫した体験を提供したい場合
+
+**Example Commands**:
+```yaml
+---
+description: Fix errors from quality checks
+allowed-tools: Bash, Read, Write
+# model フィールドは省略（会話のモデルを継承）
+---
+```
+
+#### sonnet
 **Best For**:
 - General-purpose commands
 - Standard workflow automation
 - Balanced speed and quality needs
 
-**Example Commands**:
-```yaml
-model: sonnet  # Or omit for default
-```
-- Code generation
-- File operations
-- Standard analysis
+**Note**: 通常は指定不要（会話モデルを継承で十分）
 
-#### opus (Premium)
+#### opus
 **Best For**:
-- Complex architectural decisions
-- Critical design reviews
-- Multi-step reasoning
-- High-stakes operations
+- 非常に複雑なアーキテクチャ決定
+- Critical design reviews requiring deep reasoning
 
-**Example Commands**:
-```yaml
-model: opus
-```
-- Architecture validation
-- Comprehensive code review
-- Strategic planning
-- Complex refactoring decisions
+**⚠️ Consideration**: Higher cost and latency. 本当に必要な場合のみ指定。
 
-**⚠️ Consideration**: Higher cost and latency
-
-#### haiku (Economy)
+#### haiku
 **Best For**:
-- Simple validation checks
+- 非常にシンプルなタスク限定
 - Quick formatting tasks
 - Straightforward operations
-- High-frequency commands
 
 **Example Commands**:
 ```yaml
-model: haiku
+model: haiku  # 本当にシンプルなタスク限定
 ```
-- Syntax validation
-- Simple file operations
-- Quick status checks
-- Format verification
 
-**✅ Benefit**: Significantly faster and cheaper
-
-#### inherit (Contextual)
-**Best For**:
-- Commands that should match user's current session model
-- Maintaining consistent quality level across workflow
-- When user has explicitly chosen a model for their session
-
-**Example Commands**:
-```yaml
-model: inherit
-```
-- Commands that are part of larger workflow
-- Commands where user's model preference should apply
+**Note**: 軽量タスクでも、会話モデルの継承で問題ない場合が多い
 
 ### Selection Guidelines
 
 **Decision Flow**:
 ```
-Is this a critical decision or complex analysis?
+本当にモデル指定が必要か？
+├─ NO（ほとんどの場合）→ 指定しない（会話モデルを継承）✅ 推奨
+└─ YES ↓
+
+極めて複雑なアーキテクチャ判断が必要？
 ├─ YES → opus
 └─ NO ↓
 
-Is this a simple, straightforward task?
+極めてシンプルで軽量なタスク？
 ├─ YES → haiku
-└─ NO ↓
-
-Should this match user's session model?
-├─ YES → inherit
-└─ NO → sonnet (default)
+└─ NO → 指定しない（継承で十分）
 ```
 
 ### Best Practices
 
-**✅ Good Model Choices**:
+**✅ Good Examples（推奨）**:
 ```yaml
-# Critical architecture review
----
-description: Interactive technical design quality review and validation
-model: opus
----
-
-# Quick syntax check
----
-description: Validate JSON syntax in configuration files
-model: haiku
----
-
-# General workflow
+# 推奨：model を指定しない（会話モデルを継承）
 ---
 description: Generate implementation tasks from design
-model: sonnet  # or omit
+allowed-tools: Read, Write, Bash
+---
+
+# 推奨：model を指定しない
+---
+description: Fix errors from quality checks
+allowed-tools: Bash(npm run:*), Read, Write
 ---
 ```
 
-**❌ Poor Model Choices**:
+**⚠️ 特別な理由がある場合のみ**:
 ```yaml
-# Overkill - simple task using opus
+# 非常に複雑なアーキテクチャ判断
+---
+description: Interactive technical design quality review and validation
+model: opus  # 本当に必要な場合のみ
+---
+```
+
+**❌ 避けるべき例**:
+```yaml
+# 不要なモデル指定
 ---
 description: Format code with prettier
-model: opus  # haiku would be sufficient
+model: sonnet  # 指定不要、継承で十分
 ---
 
-# Underpowered - complex task using haiku
+# 過剰なモデル指定
 ---
-description: Comprehensive architecture refactoring analysis
-model: haiku  # opus or sonnet recommended
+description: Simple file copy
+model: opus  # 完全に不要
 ---
 ```
 

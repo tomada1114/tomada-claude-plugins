@@ -1,20 +1,20 @@
 ---
 name: claudecode-rules-organizing
-description: Reorganize bloated CLAUDE.md files into modular .claude/rules/ structure with dynamic loading. Use PROACTIVELY when CLAUDE.md exceeds 200 lines, when organizing project rules, when splitting monolithic instructions, when optimizing context usage, or when user mentions CLAUDE.md refactoring, rules organization, context optimization. Examples: <example>Context: User has large CLAUDE.md user: 'My CLAUDE.md is getting too big' assistant: 'I will use claudecode-rules-organizing skill to split into modular rules' <commentary>Triggered by CLAUDE.md size concern</commentary></example>
+description: Extract file-type specific rules from CLAUDE.md into .claude/rules/ with dynamic loading via paths. Use PROACTIVELY when CLAUDE.md has file-specific rules (API, frontend, testing) that can benefit from on-demand loading, when context optimization is needed for large projects, or when user mentions rules organization. Note - universal rules should stay in CLAUDE.md; only use rules/ for dynamic loading with paths. Examples: <example>Context: User wants context optimization user: 'I want to load API rules only when editing API files' assistant: 'I will use claudecode-rules-organizing to set up dynamic loading' <commentary>Triggered by dynamic loading request</commentary></example>
 ---
 
 # Claude Rules Organizer
 
-Reorganize bloated CLAUDE.md files into a modular `.claude/rules/` structure for better maintainability and context efficiency.
+Extract file-type specific rules from CLAUDE.md into `.claude/rules/` with dynamic loading via `paths` frontmatter for context optimization.
 
 ## When to Use This Skill
 
-- CLAUDE.md exceeds 200 lines
-- Multiple unrelated topics in single CLAUDE.md
-- Context optimization needed (large projects)
-- Team wants topic-based rule organization
-- Need dynamic loading for specific file types
-- Migrating from monolithic to modular rules
+- CLAUDE.md has **file-type specific rules** that can use dynamic loading
+- Context optimization needed (large projects with many rules)
+- Want to load API/frontend/testing rules only when relevant files are accessed
+- Migrating from monolithic CLAUDE.md to dynamic rule loading
+
+**Note**: If rules are universal (code style, git, build commands), keep them in CLAUDE.md. Only use `.claude/rules/` for rules with `paths` for dynamic loading.
 
 ## Core Concepts
 
@@ -22,9 +22,21 @@ Reorganize bloated CLAUDE.md files into a modular `.claude/rules/` structure for
 
 | Method | Location | Loading | Use Case |
 |--------|----------|---------|----------|
-| **CLAUDE.md** | `./CLAUDE.md` or `./.claude/CLAUDE.md` | Always at startup | Core project overview, navigation |
-| **.claude/rules/** | `.claude/rules/*.md` | Conditional (paths) | Topic-specific rules |
+| **CLAUDE.md** | `./CLAUDE.md` or `./.claude/CLAUDE.md` | Always at startup | Core project overview, universal rules |
+| **.claude/rules/** (with paths) | `.claude/rules/*.md` | On file access | File-type specific rules |
 | **@import** | Within CLAUDE.md | At startup | External file references |
+
+### Important: Context Consumption
+
+**Rules without `paths` consume context at startup, same as CLAUDE.md.**
+
+| Location | paths | Context Impact |
+|----------|-------|----------------|
+| CLAUDE.md | N/A | Always consumed |
+| rules/*.md | None | Always consumed (same as CLAUDE.md) |
+| rules/*.md | Specified | On-demand only |
+
+**Key insight**: Splitting rules into `.claude/rules/` without `paths` provides **no context savings**. Only use rules/ for dynamic loading.
 
 ### Dynamic Loading with paths
 
@@ -49,37 +61,46 @@ paths: src/api/**/*.ts
 
 ### Step 1: Analyze Current CLAUDE.md
 
-Identify distinct topics:
-- Project overview (keep in CLAUDE.md)
-- Coding standards → `rules/code-style.md`
-- Testing rules → `rules/testing.md`
-- API conventions → `rules/api.md` (with paths)
-- Frontend rules → `rules/frontend.md` (with paths)
+Categorize content:
+
+**Keep in CLAUDE.md** (universal, always needed):
+- Project overview
+- Coding standards
+- Git conventions
+- Build commands
+
+**Move to rules/** (file-type specific, use `paths`):
+- API conventions → `rules/api.md` (paths: src/api/**)
+- Frontend rules → `rules/frontend.md` (paths: **/*.tsx)
+- Testing rules → `rules/testing.md` (paths: **/*.test.ts)
 
 ### Step 2: Create Modular Structure
 
 ```
 .claude/
-├── CLAUDE.md              # Minimal: overview + navigation only
+├── CLAUDE.md              # Overview + universal rules (code style, git, etc.)
 └── rules/
-    ├── code-style.md      # No paths → always load
-    ├── testing.md         # No paths → always load
     ├── api.md             # paths: src/api/**/* → dynamic
     ├── frontend/
     │   ├── react.md       # paths: **/*.tsx → dynamic
     │   └── styles.md      # paths: **/*.css → dynamic
+    ├── testing.md         # paths: **/*.test.ts → dynamic
     └── backend/
         └── database.md    # paths: src/db/**/* → dynamic
 ```
 
-### Step 3: Determine paths Strategy
+**Note**: Universal rules (code style, git conventions) stay in CLAUDE.md. Only file-type specific rules go to rules/.
 
-| Rule Type | paths Recommendation |
-|-----------|---------------------|
-| Universal (code style, git) | No paths (always load) |
-| Language-specific | `**/*.{ext}` |
-| Directory-specific | `src/api/**/*` |
-| Test-specific | `**/*.test.ts, **/*.spec.ts` |
+### Step 3: Determine Where to Place Rules
+
+| Rule Type | Recommendation | Reason |
+|-----------|----------------|--------|
+| Universal (code style, git) | **Keep in CLAUDE.md** | No context benefit from splitting |
+| Language-specific | rules/ with `paths: **/*.{ext}` | Dynamic loading saves context |
+| Directory-specific | rules/ with `paths: src/api/**/*` | Dynamic loading saves context |
+| Test-specific | rules/ with `paths: **/*.test.ts` | Dynamic loading saves context |
+
+**Principle**: Only move to `.claude/rules/` if you can specify `paths` for dynamic loading.
 
 ### Step 4: Migrate Content
 
@@ -88,7 +109,8 @@ For each topic:
 1. Create new rule file with frontmatter
 2. Move relevant content from CLAUDE.md
 3. Add paths if file-type specific
-4. Update CLAUDE.md to reference new location
+
+**Note**: Do NOT add rule file references to CLAUDE.md. Dynamic rules with `paths` load automatically when matching files are accessed. Listing them in CLAUDE.md is redundant and wastes context.
 
 ## Output Templates
 
@@ -105,14 +127,6 @@ Brief project description.
 - Test: `npm test`
 - Lint: `npm run lint`
 
-## Rule Files
-
-Detailed rules in `.claude/rules/`:
-- `code-style.md` - Coding standards
-- `testing.md` - Test conventions
-- `api.md` - API guidelines (loads for src/api/)
-- `frontend/react.md` - React patterns (loads for *.tsx)
-
 ## Key Files
 
 | Purpose | Path |
@@ -121,25 +135,9 @@ Detailed rules in `.claude/rules/`:
 | Config | config/ |
 ```
 
-### Rule File Template (No paths)
+**Important**: Do NOT list `.claude/rules/` files in CLAUDE.md. They load automatically via `paths` frontmatter. Adding references wastes startup context.
 
-```markdown
-# [Topic] Rules
-
-## Overview
-Brief description of what this rule file covers.
-
-## Rules
-
-### Rule Category 1
-- Specific rule
-- Another rule
-
-### Rule Category 2
-- Specific rule
-```
-
-### Rule File Template (With paths)
+### Rule File Template (Always use paths)
 
 ```markdown
 ---
@@ -166,16 +164,16 @@ Rules for API endpoint development.
 
 ### DO
 
-1. **Keep CLAUDE.md minimal** - Overview and navigation only
-2. **One topic per file** - `testing.md`, `api.md`, not `rules.md`
-3. **Use paths sparingly** - Only for truly file-specific rules
-4. **Descriptive filenames** - Content should be obvious from name
+1. **Keep universal rules in CLAUDE.md** - Code style, git, build commands
+2. **Only use rules/ for dynamic loading** - Always specify `paths`
+3. **One topic per rule file** - `api.md`, `react.md`, not generic `rules.md`
+4. **Use descriptive filenames** - Content should be obvious from name
 5. **Use subdirectories** - Group related rules (`frontend/`, `backend/`)
 
 ### DON'T
 
-1. **Don't over-fragment** - 3-10 rule files is ideal
-2. **Don't paths everything** - Universal rules need no paths
+1. **Don't split without `paths`** - No context benefit, adds complexity
+2. **Don't over-fragment** - 3-10 rule files is ideal
 3. **Don't duplicate** - Reference shared rules, don't copy
 4. **Don't nest too deep** - Max 2 levels of subdirectories
 
@@ -204,17 +202,17 @@ When this skill is activated:
 
 1. **Propose structure**: Show target file tree
 2. **Categorize rules**:
-   - Universal (no paths)
-   - File-type specific (with paths)
-   - Directory-specific (with paths)
-3. **Estimate impact**: Context savings, maintainability gains
+   - Universal → Keep in CLAUDE.md
+   - File-type specific → rules/ with `paths`
+   - Directory-specific → rules/ with `paths`
+3. **Estimate impact**: Context savings from dynamic loading
 4. **Get user approval** before proceeding
 
 ### Execution Phase
 
 1. **Create directories**: `.claude/rules/` and subdirs
 2. **Create rule files**: One topic at a time
-3. **Update CLAUDE.md**: Strip content, add navigation
+3. **Update CLAUDE.md**: Strip moved content only (do NOT add rule references)
 4. **Preserve @imports**: Keep external references working
 5. **Show diff summary**: What moved where
 
@@ -238,7 +236,7 @@ When this skill is activated:
 - Delete rules without user confirmation
 - Change rule semantics during migration
 - Create circular @imports
-- Use paths for less than 50 lines of rules
+- Create rule files without `paths` (use CLAUDE.md instead)
 - Over-fragment into too many small files
 
 ## Additional Resources

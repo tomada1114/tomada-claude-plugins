@@ -94,8 +94,9 @@ description: Fix errors found by npm run check:all (lint, format, typecheck, tes
 Restricts which tools the command can invoke.
 
 **Specification**:
-- Comma-separated list of tool names
-- Wildcard patterns not supported (unlike sub-agents)
+- カンマ区切りの1行形式で記述
+- **重要**: 指定したツールはユーザー確認なしで自動的に許可される
+- Bash コマンドはワイルドカードパターンで細かく制御可能
 - If omitted, inherits all tools from conversation context
 
 **Example**:
@@ -106,15 +107,21 @@ allowed-tools: Read, Grep, Glob
 # Full project modification
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 
-# Bash integration required
-allowed-tools: Bash, Read, Write
+# Bash コマンドの細かい制御（ワイルドカード対応）
+allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git commit:*), Read
 ```
+
+**Bash コマンドの自動実行について**:
+- `allowed-tools` で Bash を指定すると、コマンド実行時にユーザー確認をスキップして自動実行される
+- `Bash(git:*)` のようにワイルドカードを使用すると、`git` で始まるすべてのコマンドを許可
+- `Bash(npm install:*)` のように特定のコマンドのみを許可することも可能
+- これにより、スラッシュコマンド起動時に即座に Bash コマンドを実行できる
 
 **Best Practices**:
 - Grant minimum necessary tools for security
 - Read-only tasks: `Read, Grep, Glob`
 - File modification: Add `Write, Edit`
-- System commands: Carefully add `Bash`
+- System commands: Carefully add `Bash` with specific patterns (e.g., `Bash(git:*)`)
 
 #### argument-hint (Optional)
 Shows expected argument format during autocomplete.
@@ -130,20 +137,27 @@ argument-hint: <file-path> [--force]
 
 **Display**: User sees `/command-name <feature-name>` in autocomplete
 
-#### model (Optional)
+#### model (Optional) - 基本的に指定しないことを推奨
 Specifies which Claude model to use for this command.
 
+**推奨**: モデルは基本的に指定せず、会話のモデル設定を継承させることを推奨します。これにより、ユーザーが選択したモデルで一貫した体験が得られます。
+
 **Available Models**:
-- `sonnet` (default): Balanced performance
+- (未指定): 会話のモデル設定を継承 ← **推奨**
+- `sonnet`: Balanced performance
 - `opus`: Highest quality, complex tasks
 - `haiku`: Fastest, simple tasks
-- `inherit`: Use conversation's current model
 
 **Example**:
 ```yaml
-model: sonnet    # General purpose
-model: opus      # Complex analysis
-model: haiku     # Quick checks
+# 推奨: model フィールドを省略（会話のモデルを継承）
+---
+description: Fix errors from quality checks
+allowed-tools: Bash, Read, Write
+---
+
+# 特別な理由がある場合のみ指定
+model: haiku     # 非常にシンプルなタスク限定
 ```
 
 #### disable-model-invocation (Optional)
