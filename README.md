@@ -132,6 +132,7 @@ Gitワークフロー効率化ツール。コミットとPR作成を自動化し
 | Skill | **video-script-writing** | YouTube台本作成。テック動画（AI駆動開発・プログラミング）向け7軸評価システム |
 | Skill | **fixing-transcriptions** | 音声入力・文字起こしの誤変換を自動修正。Claude Code、AI駆動開発用語に特化 |
 | Skill | **fixing-srt-subtitles** | SRT字幕ファイル専用の修正。24文字ルール、タイムコード按分による長文分割 |
+| Skill | **implementing-nextjs-blog** | Next.js 15 App Routerでのマークダウンブログ実装ガイド。静的生成、シンタックスハイライト、スクロール追従TOC、カテゴリ、SEO対応 |
 | Agent | **srt-splitter** | 長い字幕テキスト（24文字超）を文法的に自然な位置で分割提案 |
 | Command | **/video-script-writing:generate** | ソースファイルからYouTube台本を生成 |
 | Command | **/fixing-srt-subtitles:fix-srt** | 指定ディレクトリのSRTファイルを修正 |
@@ -142,6 +143,7 @@ Gitワークフロー効率化ツール。コミットとPR作成を自動化し
 - テック系動画のスクリプトを書きたい
 - Whisper等の文字起こしを修正したい
 - SRT字幕ファイルの誤変換・改行位置を修正したい
+- Next.jsプロジェクトにマークダウンブログを追加したい
 
 ---
 

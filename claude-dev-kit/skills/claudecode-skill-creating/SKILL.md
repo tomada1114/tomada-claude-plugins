@@ -72,13 +72,29 @@ Start with our templates:
 - [Basic Skill Template](templates/basic-skill-template.md) - For simple skills
 - [Advanced Skill Template](templates/advanced-skill-template.md) - For complex skills
 
-## YAML Frontmatter Essentials
+## YAML Frontmatter Complete Reference
 
-### Required Fields
+### Field Overview
+
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| `name` | No | String | Skill identifier (defaults to directory name) |
+| `description` | Recommended | String | What it does + when to use. Used for auto-activation |
+| `argument-hint` | No | String | Hint shown in autocomplete (e.g., `[issue-number]`) |
+| `disable-model-invocation` | No | Boolean | If `true`, only user can invoke via `/name` |
+| `user-invocable` | No | Boolean | If `false`, hidden from menu (Claude only) |
+| `allowed-tools` | No | String | Comma-separated tools allowed during execution |
+| `model` | No | String | Model to use when skill is active |
+| `context` | No | String | Set to `fork` for subagent context execution |
+| `agent` | No | String | Agent type for `context: fork` (`Explore`, `Plan`, `general-purpose`) |
+| `hooks` | No | Object | Lifecycle hooks configuration |
+
+### Core Fields
 
 **name:**
 - Lowercase letters, numbers, hyphens only
 - Maximum 64 characters
+- Defaults to directory name if omitted
 - **Gerund form (-ing) strongly recommended** - clearly expresses capability
 - **Prohibited**: XML tags, reserved words (`anthropic`, `claude`)
 
@@ -92,13 +108,11 @@ pdf-processing, spreadsheet-analysis    # Noun phrases
 process-pdfs, analyze-spreadsheets      # Action-oriented
 ```
 
-**Examples:** `processing-pdfs`, `code-reviewing`, `test-strategy`
-
 **description:**
 - Must describe BOTH what the skill does AND when to use it
 - Maximum 1024 characters
 - Include trigger keywords users would naturally mention
-- Be specific, not generic
+- If omitted, first paragraph of SKILL.md is used (explicit recommended)
 
 **Good Description Example:**
 ```yaml
@@ -110,8 +124,37 @@ description: Generate OpenAPI/Swagger documentation from Express routes, FastAPI
 description: Helps with API documentation
 ```
 
-### Optional Field: allowed-tools
+### Invocation Control Fields
 
+**disable-model-invocation:**
+- `true`: Only user can invoke via `/skill-name`
+- `false` (default): Both user and Claude can invoke
+- Use for: deploy, commit, send operations (timing-sensitive side effects)
+
+```yaml
+---
+name: deploy
+description: Deploy the application to production
+disable-model-invocation: true
+---
+```
+
+**user-invocable:**
+- `false`: Hidden from `/` menu, Claude only can load
+- `true` (default): Visible to both user and Claude
+- Use for: background knowledge, context-only skills
+
+```yaml
+---
+name: legacy-system-context
+description: How the legacy authentication system works
+user-invocable: false
+---
+```
+
+### Tool Restriction Field
+
+**allowed-tools:**
 Restrict Claude's capabilities when the skill is active:
 
 ```yaml
@@ -124,15 +167,51 @@ allowed-tools: Read, Grep, Glob
 
 Use for: read-only operations, security-critical workflows, preventing accidental modifications.
 
+### Fork Context Fields
+
+**context + agent:**
+Execute skill in isolated subagent context:
+
+```yaml
+---
+name: deep-research
+description: Research a topic thoroughly
+context: fork
+agent: Explore
+---
+```
+
+- `context: fork`: Skill runs in forked context (isolated from conversation history)
+- `agent`: Agent type - `Explore` (read-only), `Plan` (planning), `general-purpose` (default)
+
+**Dynamic context injection with `!` prefix:**
+```yaml
+---
+name: pr-summary
+context: fork
+agent: Explore
+allowed-tools: Bash(gh:*)
+---
+
+## Pull request context
+- PR diff: !`gh pr diff`
+- PR comments: !`gh pr view --comments`
+
+## Your task
+Summarize this pull request...
+```
+
 ## Skills vs Slash Commands
 
 | Aspect | Slash Commands | Skills |
 |--------|---------------|--------|
-| Activation | Manual (`/command`) | Automatic (model-invoked) |
+| Activation | Manual (`/command`) | Automatic (model-invoked) or Manual (`/skill`) |
 | Complexity | Simple prompts | Complex capabilities |
 | Files | Single .md file | Directory with resources |
 | Supporting Files | No | Yes (templates, scripts, examples) |
 | Tool Restrictions | No | Yes (`allowed-tools`) |
+| Invocation Control | No | Yes (`disable-model-invocation`, `user-invocable`) |
+| Fork Context | No | Yes (`context: fork`) |
 
 **Use Slash Commands for:**
 - Frequently-used manual operations
@@ -144,6 +223,8 @@ Use for: read-only operations, security-critical workflows, preventing accidenta
 - Capabilities Claude should discover automatically
 - Team standards and workflows
 - When tool restrictions needed
+- When you need invocation control (user-only, Claude-only)
+- When isolated subagent execution is needed
 
 See [reference.md](reference.md) for detailed comparison.
 
@@ -445,19 +526,32 @@ This approach guarantees skill activation regardless of how the user phrases the
 
 When creating a skill:
 
+**Setup:**
 - [ ] **Skill tool enabled** in `.claude/settings.json` (`"allow": ["Skill(*)"]`)
 - [ ] Directory created: `~/.claude/skills/skill-name/` or `.claude/skills/skill-name/`
 - [ ] File named exactly `SKILL.md`
 - [ ] YAML frontmatter with `---` delimiters
-- [ ] `name`: lowercase, hyphens, <64 chars
+
+**Core Fields:**
+- [ ] `name`: lowercase, hyphens, <64 chars (optional - defaults to directory name)
 - [ ] `description`: what + when, trigger keywords, <1024 chars
 - [ ] **`Use PROACTIVELY`** included in description for auto-activation
 - [ ] **`<example>` tags** in description for improved matching
+
+**Invocation Control (if needed):**
+- [ ] `disable-model-invocation: true` for user-only skills (deploy, commit)
+- [ ] `user-invocable: false` for Claude-only background knowledge
+- [ ] `allowed-tools` for restricted tool access
+- [ ] `context: fork` + `agent` for isolated subagent execution
+
+**Content:**
 - [ ] Clear "When to Use" section
 - [ ] Step-by-step instructions
 - [ ] Concrete examples
 - [ ] AI Assistant Instructions
 - [ ] Tested with realistic scenarios
+
+**Integration:**
 - [ ] **CLAUDE.md activation rules** added (for guaranteed activation)
 - [ ] **For complex workflows**: Consider subagent orchestration pattern (evaluators + improvers)
 
@@ -471,7 +565,10 @@ Use these templates to get started quickly:
 ## Additional Resources
 
 ### Detailed Documentation
-- **[reference.md](reference.md)** - Complete YAML spec, skills vs commands comparison, tool restrictions, common patterns
+- **[reference.md](reference.md)** - Index to all reference documentation
+  - [yaml-spec.md](yaml-spec.md) - Complete YAML frontmatter specification
+  - [structure-and-patterns.md](structure-and-patterns.md) - Directory structure, patterns, token efficiency
+  - [troubleshooting.md](troubleshooting.md) - Diagnosis and fixes for common issues
 - **[scripts-guide.md](scripts-guide.md)** - Comprehensive guide to using scripts in skills
 
 ### Examples
@@ -496,6 +593,7 @@ When this skill is activated to help create or improve skills:
    - What capability does the user want?
    - Is this a skill or slash command? (Use decision framework)
    - What complexity level?
+   - Who should invoke it? (user, Claude, or both)
 
 2. **Recommend Template**:
    - Simple task → Basic template
@@ -503,9 +601,12 @@ When this skill is activated to help create or improve skills:
    - Show template content from templates/ directory
 
 3. **Help with YAML**:
-   - Suggest descriptive, lowercase-hyphen name
+   - Suggest descriptive, lowercase-hyphen name (or omit to use directory name)
    - Write trigger-rich description with keywords
    - Add `allowed-tools` if read-only or restricted
+   - Add `disable-model-invocation: true` for user-triggered-only skills (deploy, commit)
+   - Add `user-invocable: false` for background knowledge Claude should auto-load
+   - Add `context: fork` + `agent` for isolated subagent execution
 
 4. **Guide Structure**:
    - < 200 lines → Single SKILL.md
@@ -581,6 +682,8 @@ When this skill is activated to help create or improve skills:
 - Use generic trigger keywords
 - **Forget to remind users about Skill tool permissions**
 - **Skip CLAUDE.md integration for critical skills**
+- Use `context: fork` without explicit task instructions (guidelines alone won't work)
+- Confuse `disable-model-invocation` (user-only) with `user-invocable: false` (Claude-only)
 
 ### When Uncertain
 

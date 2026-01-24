@@ -5,9 +5,7 @@ description: Claude Code ベストプラクティスの対話形式セットア�
 
 # Claude Code Bootstrap Wizard
 
-[everything-claude-code](https://github.com/affaan-m/everything-claude-code) リポジトリのベストプラクティスを参考に、対話形式でセットアップするウィザードです。
-
-> **Acknowledgment**: このスキルは [Affaan M](https://github.com/affaan-m) による [everything-claude-code](https://github.com/affaan-m/everything-claude-code) を大いに参考にしています。オリジナルのリポジトリは Claude Code のベストプラクティス集として非常に優れています。
+everything-claude-code リポジトリのベストプラクティスを対話形式でセットアップするウィザードです。
 
 ## Quick Start
 
