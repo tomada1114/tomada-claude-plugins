@@ -1,7 +1,16 @@
 ---
-name: advanced-skill-name
+name: advanced-skill-name                 # Optional: defaults to directory name
 description: Comprehensive description including what it does, technologies involved, and when to use it. Use when [scenario 1], [scenario 2], or working with [tech1], [tech2], [tech3].
+# Invocation control:
+# disable-model-invocation: true          # User-only (for deploy, commit, send)
+# user-invocable: false                   # Claude-only (for background knowledge)
+# Tool restrictions:
 allowed-tools: Read, Grep, Glob, Write, Edit  # Optional: restrict tools
+# Advanced options:
+# argument-hint: "[arg1] [arg2]"          # Hint for autocomplete
+# model: claude-opus-4-5-20251101         # Use specific model
+# context: fork                           # Run in isolated subagent context
+# agent: Explore                          # Agent type (Explore, Plan, general-purpose)
 ---
 
 # Advanced Skill Name
@@ -428,6 +437,9 @@ To improve this skill:
 **Advanced Features to Consider:**
 
 - `allowed-tools`: Restrict tools for safety/compliance
+- `disable-model-invocation: true`: User-only invocation (deploy, commit, send)
+- `user-invocable: false`: Claude-only background knowledge
+- `context: fork` + `agent`: Isolated subagent execution
 - Progressive disclosure: Use reference.md for details
 - Scripts: Add automation for repetitive tasks
 - Templates: Provide reusable starting points

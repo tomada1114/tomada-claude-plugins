@@ -1,6 +1,14 @@
 ---
-name: your-skill-name
+name: your-skill-name                     # Optional: defaults to directory name
 description: Brief description of what this skill does and when to use it. Use when [trigger scenario 1], [trigger scenario 2], or working with [keyword1], [keyword2].
+# Optional fields (uncomment as needed):
+# argument-hint: "[argument]"             # Hint for autocomplete
+# disable-model-invocation: true          # User-only invocation (for deploy, commit)
+# user-invocable: false                   # Claude-only (for background knowledge)
+# allowed-tools: Read, Grep, Glob         # Restrict available tools
+# model: claude-sonnet-4-20250514         # Specify model
+# context: fork                           # Run in isolated subagent context
+# agent: Explore                          # Agent type for fork context
 ---
 
 # Your Skill Name
@@ -119,10 +127,13 @@ When uncertain:
 **Before publishing this skill:**
 
 - [ ] Replace all placeholder text with actual content
-- [ ] Ensure `name` field uses lowercase, hyphens only (no spaces/underscores)
+- [ ] Ensure `name` field uses lowercase, hyphens only (or omit to use directory name)
 - [ ] Make `description` trigger-rich with specific keywords
 - [ ] Add at least 2 concrete examples
 - [ ] Include AI Assistant Instructions
+- [ ] Choose invocation control if needed:
+  - `disable-model-invocation: true` for user-only skills (deploy, commit)
+  - `user-invocable: false` for Claude-only background knowledge
 - [ ] Test the skill with realistic scenarios
 - [ ] Remove this "Notes for Skill Creator" section
 
@@ -131,6 +142,8 @@ When uncertain:
 - Use action verbs (Generate, Analyze, Create, Implement)
 - List trigger scenarios explicitly
 - Keep under 1024 characters
+- Add `Use PROACTIVELY when...` for auto-activation
+- Add `<example>` tags for improved matching
 
 **File Organization:**
 ```
