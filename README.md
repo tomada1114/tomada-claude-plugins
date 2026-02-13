@@ -1,6 +1,6 @@
 # Tomada Claude Plugins
 
-Claude Code用のプラグイン集です。用途別に5つのプラグインを提供します。
+Claude Code用のプラグイン集です。用途別に6つのプラグインを提供します。
 
 ## Installation
 
@@ -14,6 +14,7 @@ Claude Code用のプラグイン集です。用途別に5つのプラグイン�
 /plugin install test-advisor@tomada-claude-plugins
 /plugin install agile-tools@tomada-claude-plugins
 /plugin install content-tools@tomada-claude-plugins
+/plugin install openai-agents-guides@tomada-claude-plugins
 
 # または対話的にブラウズ
 /plugin
@@ -40,6 +41,8 @@ Claude Code拡張開発キット。Skill、Command、Agent、Rulesの作成を�
 | Skill | **claudecode-docs-referencing** | Claude Codeの機能・設定リファレンス。公式ドキュメントベース |
 | Skill | **claudecode-headless-automating** | ヘッドレスモード（-p フラグ）でのスクリプト連携ガイド |
 | Skill | **bootstrapping-claudecode** | 新規プロジェクト向けClaude Codeセットアップウィザード。Rules、Hooks、MCP、CLAUDE.mdのテンプレート提供 |
+| Skill | **capturing-claudecode** | tmux経由でClaude Codeのターミナル出力・UI画面をキャプチャ |
+| Skill | **tmux-orchestrating** | tmuxで複数のClaude Codeセッションをオーケストレーション。並列タスク実行 |
 | Command | **add-description-to-memory** | CLAUDE.mdのSkill Activation Rulesを自動同期 |
 
 **Use when:**
@@ -48,6 +51,8 @@ Claude Code拡張開発キット。Skill、Command、Agent、Rulesの作成を�
 - CLAUDE.mdが大きくなりすぎた
 - Claude Codeの機能や設定を調べたい
 - 新規プロジェクトでClaude Codeをセットアップしたい
+- 複数セッションを並列実行したい
+- Claude Codeの出力をキャプチャしたい
 
 ---
 
@@ -133,6 +138,7 @@ Gitワークフロー効率化ツール。コミットとPR作成を自動化し
 | Skill | **fixing-transcriptions** | 音声入力・文字起こしの誤変換を自動修正。Claude Code、AI駆動開発用語に特化 |
 | Skill | **fixing-srt-subtitles** | SRT字幕ファイル専用の修正。24文字ルール、タイムコード按分による長文分割 |
 | Skill | **implementing-nextjs-blog** | Next.js 15 App Routerでのマークダウンブログ実装ガイド。静的生成、シンタックスハイライト、スクロール追従TOC、カテゴリ、SEO対応 |
+| Skill | **converting-to-wordpress-swell** | HTML/Markdown/テキストをWordPress Gutenbergブロック形式（SWELLテーマ）に変換 |
 | Agent | **srt-splitter** | 長い字幕テキスト（24文字超）を文法的に自然な位置で分割提案 |
 | Command | **/video-script-writing:generate** | ソースファイルからYouTube台本を生成 |
 | Command | **/fixing-srt-subtitles:fix-srt** | 指定ディレクトリのSRTファイルを修正 |
@@ -144,6 +150,33 @@ Gitワークフロー効率化ツール。コミットとPR作成を自動化し
 - Whisper等の文字起こしを修正したい
 - SRT字幕ファイルの誤変換・改行位置を修正したい
 - Next.jsプロジェクトにマークダウンブログを追加したい
+- 記事をWordPress（SWELLテーマ）に変換したい
+
+---
+
+### 6. openai-agents-guides
+
+OpenAI Agents SDKリファレンスガイド。エージェント作成からマルチエージェントオーケストレーションまで。
+
+```bash
+/plugin install openai-agents-guides@tomada-claude-plugins
+```
+
+| Agent | Description |
+|-------|-------------|
+| **openai-agent-basics-guide** | エージェント作成と基本設定ガイド。Agent class、instructions、output types |
+| **openai-runner-workflow-guide** | エージェント実行とワークフロー管理。Runner API、run_sync、run_streamed |
+| **openai-handoff-coordinator** | エージェント間委譲とマルチエージェント調整。input_filter、handoff callbacks |
+| **openai-tools-specialist** | ツール定義と実装。@function_tool、hosted tools、agents as tools |
+| **openai-multi-agent-orchestrator** | 高度なマルチエージェントパターン。階層型、ルーティング、並列実行 |
+| **openai-session-memory-expert** | セッション管理と会話履歴。SQLiteSession、RedisSession |
+| **openai-version-specialist** | 最新バージョン情報、外部ライブラリドキュメント、トラブルシューティング |
+
+**Use when:**
+- OpenAI Agents SDKでエージェントを構築したい
+- ハンドオフパターンを実装したい
+- マルチエージェントシステムを設計したい
+- セッション管理を実装したい
 
 ---
 

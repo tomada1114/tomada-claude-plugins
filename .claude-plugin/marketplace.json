@@ -27,7 +27,12 @@
     {
       "name": "content-tools",
       "source": "./content-tools",
-      "description": "コンテンツ制作ツール。YouTube台本作成、文字起こし修正、SRT字幕修正"
+      "description": "コンテンツ制作ツール。YouTube台本作成、文字起こし修正、SRT字幕修正、WordPress変換"
+    },
+    {
+      "name": "openai-agents-guides",
+      "source": "./openai-agents-guides",
+      "description": "OpenAI Agents SDKリファレンスガイド。エージェント作成、ツール定義、ハンドオフ、マルチエージェント"
     }
   ]
 }
