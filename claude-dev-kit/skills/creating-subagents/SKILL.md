@@ -1,6 +1,6 @@
 ---
 name: creating-subagents
-description: Create effective Claude Code sub-agents for project-level workflows. Use PROACTIVELY when creating new sub-agents, improving existing agents, understanding YAML frontmatter structure (name, description, tools, model, color), designing agent activation strategies with CLAUDE.md integration, writing effective descriptions with PROACTIVELY/MUST BE USED/<example> patterns, or troubleshooting agent activation issues (~25% activation rate problem).
+description: "Create effective Claude Code sub-agents for project-level workflows. Use PROACTIVELY when creating new sub-agents, improving existing agents, understanding YAML frontmatter structure (name, description, tools, model, color), designing agent activation strategies with CLAUDE.md integration, writing effective descriptions with PROACTIVELY/MUST BE USED/<example> patterns, or troubleshooting agent activation issues (~25% activation rate problem)."
 ---
 
 # Sub-Agents Creator
@@ -210,6 +210,163 @@ color: red     # 警告・セキュリティ
 **用途**:
 - チーム内でエージェントタイプを視覚的に区別
 - 重要度・カテゴリの表現
+
+#### skills（オプション）
+サブエージェントに読み込ませるスキルを指定。**Reference Contents（知識・ガイドライン）を持つスキル**との連携に使用。
+
+**指定方法**:
+- カンマ区切りのスキル名リスト
+- スキルは `.claude/skills/` または `~/.claude/skills/` に配置
+
+**例**:
+```yaml
+---
+name: code-reviewer
+description: Expert code review specialist
+tools: Read, Grep, Glob
+skills: coding-standards, security-guidelines
+---
+```
+
+**動作原理**:
+- サブエージェントの中にスキルの知識が展開される
+- 実行するタスクは、メインエージェントが委譲時に決定
+- スキルは「何をするか」ではなく「どうやるか」を提供
+
+**使用場面**:
+- コーディング規約に従ったレビューを行わせたい
+- ドメイン知識を持った状態でタスクを実行させたい
+- セキュリティガイドラインを適用させたい
+
+**⚠️ 重要**: `skills:` フィールドは **Reference Contents**（知識型スキル）に適しています。**Task Contents**（タスク型スキル）を実行する場合は、スキル側で `context: fork` を使用してください。
+
+## Skill との連携パターン
+
+サブエージェントとスキルを連携させる方法は3つあります。**Reference Contents（知識型）** と **Task Contents（タスク型）** の違いを理解することが重要です。
+
+### Reference Contents vs Task Contents
+
+| 分類 | 特徴 | 例 |
+|------|------|-----|
+| **Reference Contents** | 知識・ガイドラインを提供（パッシブスキル） | コーディング規約、ドメイン知識、スタイルガイド |
+| **Task Contents** | 具体的なタスクリストを定義（アクティブスキル） | PR作成、ビルド実行、デプロイ |
+
+### 3つの連携パターン
+
+| パターン | コンテキスト | システムプロンプト | タスク決定 | 向いている用途 |
+|----------|-------------|-------------------|-----------|---------------|
+| **Subagent + `skills:`** | 新規生成 | サブエージェントのMarkdown | メインエージェントが委譲時に決定 | Reference Contents |
+| **`context: fork`** | メインからフォーク | 組み込みAgentのプロンプト | SKILL.md内で定義 | Task Contents |
+| **`context: fork` + `agent:`** | メインからフォーク | サブエージェントのMarkdown + SKILL.md | SKILL.md内で定義 | Task Contents + カスタム動作 |
+
+### パターン1: Subagent + skills:（Reference Contents向け）
+
+**サブエージェントの中にスキルの知識を展開**する方法。
+
+```yaml
+# .claude/agents/code-reviewer.md
+---
+name: code-reviewer
+description: Expert code review specialist
+tools: Read, Grep, Glob
+skills: coding-standards, security-guidelines
+---
+
+You are a code review specialist.
+
+## Review Process
+1. Check code against loaded skill guidelines
+2. Identify issues and improvements
+3. Provide actionable feedback
+```
+
+```yaml
+# .claude/skills/coding-standards/SKILL.md
+---
+name: coding-standards
+description: Project coding standards and conventions
+---
+
+## Naming Conventions
+- Use camelCase for variables
+- Use PascalCase for classes
+...
+```
+
+**動作**: メインエージェントが「このコードをレビューして」と委譲 → code-reviewer が coding-standards の知識を持った状態でレビュー実行
+
+### パターン2: context: fork（Task Contents向け）
+
+**スキルの実行をメインエージェントから分離**する方法。
+
+```yaml
+# .claude/skills/pr-opener/SKILL.md
+---
+name: pr-opener
+description: Open PR with standardized format. Use when creating pull requests.
+context: fork
+---
+
+## Your Task
+1. Get branch diff: `git diff main...HEAD`
+2. Analyze commits: `git log main..HEAD --oneline`
+3. Generate PR title and description
+4. Create PR: `gh pr create --title "..." --body "..."`
+```
+
+**動作**: ユーザーが「PRを開いて」→ pr-opener スキルがフォークされたコンテキストで自律的にタスク実行
+
+### パターン3: context: fork + agent:（Task Contents + カスタム動作）
+
+**フォークしたスキルを特定のサブエージェントで実行**する方法。
+
+```yaml
+# .claude/skills/build-runner/SKILL.md
+---
+name: build-runner
+description: Build specific modules. Use when building the app.
+context: fork
+agent: module-builder
+---
+
+## Your Task
+Build the specified modules and report results.
+```
+
+```yaml
+# .claude/agents/module-builder.md
+---
+name: module-builder
+description: Build specific modules for the app
+tools: Bash, Read, Grep, Glob
+---
+
+You are a build specialist.
+
+## Build Process
+[カスタムビルドプロセスの指示]
+```
+
+**動作**: build-runner スキルのタスク + module-builder サブエージェントのシステムプロンプトが組み合わさって実行
+
+### パターン選択ガイド
+
+```
+スキルの内容は何か？
+
+知識・ガイドライン（Reference Contents）
+  └─→ パターン1: Subagent + skills:
+       サブエージェントが知識を持った状態でメインから委譲されたタスクを実行
+
+具体的なタスクリスト（Task Contents）
+  └─→ カスタム動作が必要か？
+       ├─ NO → パターン2: context: fork
+       │        組み込みAgentでSKILL.md内のタスクを実行
+       └─ YES → パターン3: context: fork + agent:
+                カスタムSubagentでSKILL.md内のタスクを実行
+```
+
+**⚠️ 注意**: `context: fork` は **Task Contents にのみ使用**してください。Reference Contents を `context: fork` で実行すると、フォークされたエージェントが何をすべきか分からず期待通りに動作しません。
 
 ## サブエージェント作成のステップ
 

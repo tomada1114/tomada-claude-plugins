@@ -233,6 +233,72 @@ project/
         └── documentation-expert.md
 ```
 
+## Skill との連携パターン
+
+サブエージェントとスキルを連携させる方法について、スキルの内容タイプに応じた適切なパターンを選択することが重要です。
+
+### スキルの2つの分類
+
+| 分類 | 特徴 | 例 |
+|------|------|-----|
+| **Reference Contents** | 知識・ガイドラインを提供（パッシブ） | コーディング規約、ドメイン知識 |
+| **Task Contents** | 具体的なタスクを定義（アクティブ） | PR作成、ビルド実行 |
+
+### 連携パターン比較
+
+| パターン | コンテキスト | タスク決定者 | 向いている用途 |
+|----------|-------------|-------------|---------------|
+| **Subagent + `skills:`** | 新規生成 | メインエージェント | Reference Contents |
+| **`context: fork`** | メインからフォーク | SKILL.md | Task Contents |
+| **`context: fork` + `agent:`** | メインからフォーク | SKILL.md | Task Contents + カスタム動作 |
+
+### パターン1: Subagent + skills:
+
+**Reference Contents（知識型スキル）に最適**。サブエージェントの中にスキルの知識を展開し、メインエージェントが委譲したタスクを実行。
+
+```yaml
+# .claude/agents/code-reviewer.md
+---
+name: code-reviewer
+description: Expert code review specialist
+skills: coding-standards, security-guidelines
+---
+```
+
+### パターン2: context: fork
+
+**Task Contents（タスク型スキル）に最適**。スキルの実行をメインコンテキストからフォークし、SKILL.md内で定義されたタスクを自律的に実行。
+
+```yaml
+# .claude/skills/pr-opener/SKILL.md
+---
+name: pr-opener
+context: fork
+---
+
+## Your Task
+1. Get diff and create PR...
+```
+
+### パターン3: context: fork + agent:
+
+**Task Contents + カスタム動作**。フォークしたスキルを指定したサブエージェントで実行。
+
+```yaml
+# .claude/skills/build-runner/SKILL.md
+---
+name: build-runner
+context: fork
+agent: module-builder
+---
+```
+
+### ⚠️ 重要な注意点
+
+- `context: fork` は **Task Contents にのみ使用**
+- Reference Contents を `context: fork` で実行すると期待通りに動作しない
+- 知識・ガイドラインを渡したい場合は `skills:` フィールドを使用
+
 ## セキュリティ考慮事項
 
 ### ツール権限の原則
