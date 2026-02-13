@@ -3,6 +3,7 @@
 YouTube台本バリデーションスクリプト
 
 台本ファイルを評価し、7軸のスコアを算出する。
+Marpスライドファイルの場合はスピーカーノートを抽出して評価する。
 """
 
 import re
@@ -10,6 +11,33 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+
+
+def is_marp_file(content: str) -> bool:
+    """Marpファイルかどうかを判定"""
+    # front matterにmarp: trueがあるか
+    return bool(re.search(r'^---\s*\nmarp:\s*true', content, re.MULTILINE))
+
+
+def extract_speaker_notes(content: str) -> str:
+    """Marpファイルからスピーカーノートを抽出
+
+    HTMLコメント（<!-- ... -->）の中身を抽出し、
+    Marpディレクティブ（_class:, _paginate: など）は除外する。
+    """
+    pattern = r'<!--\s*([\s\S]*?)\s*-->'
+    notes = re.findall(pattern, content)
+
+    # Marpディレクティブを除外
+    # _class:, _paginate:, _header:, _footer:, _backgroundColor: など
+    filtered_notes = []
+    for note in notes:
+        note = note.strip()
+        # _で始まるMarpディレクティブは除外
+        if note and not note.startswith('_'):
+            filtered_notes.append(note)
+
+    return '\n\n'.join(filtered_notes)
 
 
 @dataclass(frozen=True)
@@ -522,6 +550,7 @@ def main() -> int:
     if len(sys.argv) < 2:
         print("Usage: python validate_script.py <script_file>")
         print("Example: python validate_script.py script.md")
+        print("         python validate_script.py slides.md  # Marpファイルの場合はスピーカーノートを評価")
         return 1
 
     script_path = Path(sys.argv[1])
@@ -530,6 +559,16 @@ def main() -> int:
         return 1
 
     content = script_path.read_text(encoding="utf-8")
+
+    # Marpファイルの場合はスピーカーノートを抽出
+    if is_marp_file(content):
+        print("Marpファイルを検出: スピーカーノートを抽出して評価します")
+        print()
+        content = extract_speaker_notes(content)
+        if not content.strip():
+            print("Error: スピーカーノートが見つかりません")
+            return 1
+
     result = evaluate_script(content)
     print_result(result)
 
