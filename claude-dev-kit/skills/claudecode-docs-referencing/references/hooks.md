@@ -49,22 +49,24 @@ Hooksの最大の特徴は、**LLMの判断に依存しない**点です。
 - 設定対象選択（User settings / Project settings）
 - 設定の保存
 
-## 全フックイベント（10種類）
+## 全フックイベント（12種類）
 
-| イベント | 説明 | マッチャー |
-|---------|------|-----------|
-| **PreToolUse** | ツール実行前に実行（ブロック可能） | ○ |
-| **PermissionRequest** | 権限ダイアログ表示時に実行 | ○ |
-| **PostToolUse** | ツール実行完了後に実行 | ○ |
-| **Notification** | 通知送信時に実行 | ○ |
-| **UserPromptSubmit** | ユーザープロンプト送信時に実行 | × |
-| **Stop** | メインエージェント完了時に実行 | × |
-| **SubagentStop** | サブエージェント完了時に実行 | × |
-| **PreCompact** | コンパクト実行前に実行 | × |
-| **SessionStart** | セッション開始/再開時に実行 | × |
-| **SessionEnd** | セッション終了時に実行 | × |
+| イベント | 説明 | マッチャー | マッチ対象 |
+|---------|------|:---------:|-----------|
+| **PreToolUse** | ツール実行前に実行（ブロック可能） | ○ | ツール名 (`Bash`, `Edit\|Write` 等) |
+| **PermissionRequest** | 権限ダイアログ表示時に実行 | ○ | ツール名 |
+| **PostToolUse** | ツール実行成功後に実行 | ○ | ツール名 |
+| **PostToolUseFailure** | ツール実行失敗時に実行 | ○ | ツール名 |
+| **Notification** | 通知送信時に実行 | ○ | 通知タイプ (`permission_prompt`, `idle_prompt`, `auth_success`, `elicitation_dialog`) |
+| **UserPromptSubmit** | ユーザープロンプト送信時に実行 | × | - |
+| **Stop** | メインエージェント完了時に実行 | × | - |
+| **SubagentStart** | サブエージェント起動時に実行 | ○ | エージェント型 (`Bash`, `Explore`, `Plan`, カスタムエージェント名) |
+| **SubagentStop** | サブエージェント完了時に実行 | ○ | エージェント型 |
+| **PreCompact** | コンパクト実行前に実行 | ○ | トリガー種別 (`manual`, `auto`) |
+| **SessionStart** | セッション開始/再開時に実行 | ○ | セッション起源 (`startup`, `resume`, `clear`, `compact`) |
+| **SessionEnd** | セッション終了時に実行 | ○ | 終了理由 (`clear`, `logout`, `other`) |
 
-**⚠️ 注意**: PreToolUse/PostToolUseフックは**メインエージェントのみ**で発火します。サブエージェント（Taskツールで起動されるエージェント）がツールを実行しても、これらのフックは発火しません。サブエージェント完了時に処理を行いたい場合は、SubagentStopフックを使用してください。
+**⚠️ 注意**: PreToolUse/PostToolUse/PostToolUseFailureフックは**メインエージェントのみ**で発火します。サブエージェント（Taskツールで起動されるエージェント）がツールを実行しても、これらのフックは発火しません。サブエージェント完了時に処理を行いたい場合は、SubagentStopフックを使用してください。
 
 **よく使われる4つのフック:**
 - **PreToolUse**: 事前チェック（特定操作のブロック）
@@ -566,8 +568,6 @@ SubagentStopフックは、**サブエージェント（Taskツールで起動�
 }
 ```
 
-⚠️ **matcherは省略**: SubagentStopフック（およびStopフック）では、**matcherフィールドは省略**します。マッチャーの概念がないためです。
-
 **プロンプトベースのフック（type: "prompt"）:**
 
 SubagentStopフックには `type: "command"` のほかに `type: "prompt"` も利用可能です。プロンプトベースのフックはLLM（Haiku）を使用してサブエージェントの完了を評価する仕組みですが、処理時間がかかるため、ほとんどのケースでは `type: "command"` で十分です。
@@ -580,6 +580,141 @@ SubagentStopフックには `type: "command"` のほかに `type: "prompt"` も�
 }
 ```
 Exit Code 0でこのJSONをstdoutに出力すると、サブエージェントに追加作業をさせることも可能です。
+
+### 10. PostToolUseFailureフック（ツール実行失敗時）
+
+PostToolUseFailureフックは、**ツール実行が失敗したとき**に自動実行されます。PostToolUseが成功時のみ発火するのに対し、こちらはエラー時に発火します。
+
+**PostToolUseとPostToolUseFailureの違い:**
+
+| フック | 発火タイミング |
+|--------|----------------|
+| **PostToolUse** | ツール実行が**成功**した後 |
+| **PostToolUseFailure** | ツール実行が**失敗**した後 |
+
+**stdinで受け取る追加フィールド:**
+```json
+{
+  "tool_name": "Bash",
+  "tool_input": { "command": "npm test" },
+  "error": "Command failed with exit code 1",
+  "is_interrupt": false
+}
+```
+
+**エラーログの記録:**
+```json
+{
+  "hooks": {
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '\"[FAIL] \\(.tool_name): \\(.error)\"' >> ~/.claude/tool-errors.log"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 11. SubagentStartフック（サブエージェント起動時）
+
+SubagentStartフックは、**Taskツールでサブエージェントが起動されたとき**に自動実行されます。サブエージェントへのコンテキスト注入に活用できます。
+
+**matcherにはエージェント型を指定:**
+```json
+{
+  "hooks": {
+    "SubagentStart": [
+      {
+        "matcher": "Explore",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"Explore agent started at $(date)\" >> ~/.claude/subagent.log"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+マッチ可能なエージェント型: `Bash`, `Explore`, `Plan`, その他カスタムエージェント名
+
+**コンテキスト注入（stdoutに出力した内容がサブエージェントに追加される）:**
+```json
+{
+  "hooks": {
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Follow the project coding standards defined in CLAUDE.md'"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+⚠️ **注意**: SubagentStartフックはブロック不可です。
+
+### 12. SessionEndフック（セッション終了時）
+
+SessionEndフックは、セッション終了時に自動実行されます。
+
+**matcherで終了理由を区別可能:**
+- `clear` - `/clear`コマンドによる終了
+- `logout` - ログアウトによる終了
+- `other` - その他の理由
+
+```json
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"Session ended at $(date)\" >> ~/.claude/session.log"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## フックの型（3種類）
+
+| 型 | 説明 | デフォルトタイムアウト |
+|----|------|:--------------------:|
+| `command` | シェルコマンド実行（決定論的） | 600秒 |
+| `prompt` | LLM（Haiku）による単ターン判定 | 30秒 |
+| `agent` | サブエージェント（Read/Grep/Globツール利用可） | 60秒 |
+
+**prompt型の例:**
+```json
+{
+  "type": "prompt",
+  "prompt": "Evaluate if the tool output contains any security issues. $ARGUMENTS"
+}
+```
+
+**agent型の例:**
+```json
+{
+  "type": "agent",
+  "prompt": "Check if the edited file follows project conventions by reading CLAUDE.md"
+}
+```
 
 ## フック設定の基本構造
 
@@ -700,7 +835,36 @@ Claude Codeを起動し、ファイルを作成・編集すると、hooks.logに
 ```
 SessionStartではmatcherを省略するとすべてのセッション開始イベントで発火
 
-**Stop/SubagentStopフック**: matcherフィールド自体を省略する（マッチャーの概念がない）
+### SessionEnd用マッチャー
+```json
+"matcher": "clear"    // /clear コマンドによる終了
+"matcher": "logout"   // ログアウトによる終了
+"matcher": "other"    // その他の理由
+```
+
+### Notification用マッチャー
+```json
+"matcher": "permission_prompt"   // 権限プロンプト表示時
+"matcher": "idle_prompt"         // アイドルプロンプト時
+"matcher": "auth_success"        // 認証成功時
+"matcher": "elicitation_dialog"  // 対話ダイアログ時
+```
+
+### SubagentStart/SubagentStop用マッチャー
+```json
+"matcher": "Bash"     // Bashエージェント
+"matcher": "Explore"  // Exploreエージェント
+"matcher": "Plan"     // Planエージェント
+```
+カスタムエージェント名でもマッチ可能
+
+### PreCompact用マッチャー
+```json
+"matcher": "manual"   // 手動コンパクト時
+"matcher": "auto"     // 自動コンパクト時
+```
+
+**Stopフック**: matcherフィールドは省略する（マッチャーの概念がない）
 
 ### 正規表現
 ```json
