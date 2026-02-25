@@ -128,7 +128,7 @@ Gitワークフロー効率化ツール。コミットとPR作成を自動化し
 
 ### 5. content-tools
 
-コンテンツ制作ツール。YouTube台本作成、文字起こし修正、SRT字幕修正を支援します。
+コンテンツ制作ツール。技術記事執筆、YouTube台本作成、文字起こし修正、SRT字幕修正を支援します。
 
 ```bash
 /plugin install content-tools@tomada-claude-plugins
@@ -136,6 +136,7 @@ Gitワークフロー効率化ツール。コミットとPR作成を自動化し
 
 | Type | Name | Description |
 |------|------|-------------|
+| Skill | **tomada-writing** | とまだ式技術記事執筆・改善スキル。構成ヒアリング→7軸並列評価で95点以上を目指すZenn記事作成 |
 | Skill | **video-script-writing** | YouTube台本作成。テック動画（AI駆動開発・プログラミング）向け7軸評価システム |
 | Skill | **fixing-transcriptions** | 音声入力・文字起こしの誤変換を自動修正。Claude Code、AI駆動開発用語に特化 |
 | Skill | **fixing-srt-subtitles** | SRT字幕ファイル専用の修正。24文字ルール、タイムコード按分による長文分割 |
@@ -147,6 +148,7 @@ Gitワークフロー効率化ツール。コミットとPR作成を自動化し
 | Command | **/fixing-srt-subtitles:split-long-subtitles** | 長い字幕テキストを分割 |
 
 **Use when:**
+- とまだ式のZenn技術記事を書きたい・リライトしたい
 - 記事やメモからYouTube台本を作成したい
 - テック系動画のスクリプトを書きたい
 - Whisper等の文字起こしを修正したい
