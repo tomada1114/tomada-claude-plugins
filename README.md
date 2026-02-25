@@ -43,6 +43,7 @@ Claude Code拡張開発キット。Skill、Command、Agent、Rulesの作成を�
 | Skill | **bootstrapping-claudecode** | 新規プロジェクト向けClaude Codeセットアップウィザード。Rules、Hooks、MCP、CLAUDE.mdのテンプレート提供 |
 | Skill | **capturing-claudecode** | tmux経由でClaude Codeのターミナル出力・UI画面をキャプチャ |
 | Skill | **tmux-orchestrating** | tmuxで複数のClaude Codeセッションをオーケストレーション。並列タスク実行 |
+| Skill | **team-discussion** | 3体のエージェント（提案者・批評者・統合者）による3ラウンドのマルチ視点ディスカッション。合意形成と実行可能な提案を生成 |
 | Command | **add-description-to-memory** | CLAUDE.mdのSkill Activation Rulesを自動同期 |
 
 **Use when:**
@@ -53,6 +54,7 @@ Claude Code拡張開発キット。Skill、Command、Agent、Rulesの作成を�
 - 新規プロジェクトでClaude Codeをセットアップしたい
 - 複数セッションを並列実行したい
 - Claude Codeの出力をキャプチャしたい
+- 複雑な意思決定でマルチ視点ディスカッションを行いたい
 
 ---
 
