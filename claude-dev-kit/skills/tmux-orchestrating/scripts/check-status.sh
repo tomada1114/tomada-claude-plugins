@@ -99,7 +99,7 @@ detect_status() {
         return
     fi
     local output
-    output=$(tmux capture-pane -t "$pane_target" -p 2>/dev/null | tail -15) || true
+    output=$(tmux capture-pane -t "$pane_target" -p 2>/dev/null | tail -30) || true
 
     # 1. Check WaitingInput first (interactive selection UI)
     if echo "$output" | grep -qE "$WAITING_INPUT_PATTERNS"; then

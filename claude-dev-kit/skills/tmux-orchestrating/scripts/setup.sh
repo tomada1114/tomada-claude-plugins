@@ -5,7 +5,7 @@ set -euo pipefail
 # Creates tmux session, splits panes, launches Claude Code, waits for idle
 #
 # Usage: bash setup.sh [PANE_COUNT] [SESSION_NAME] [WORK_DIR] [--orchestrated] [--single-pane]
-#   PANE_COUNT:     1-4 workers (default: 2)
+#   PANE_COUNT:     1-8 workers (default: 2)
 #   SESSION_NAME:   tmux session name (default: orchestration)
 #   WORK_DIR:       working directory for all panes (default: current dir)
 #   --orchestrated: enable orchestrator mode (Pane 0 = orchestrator, Pane 1+ = workers)
@@ -44,13 +44,13 @@ else
 fi
 
 # Validation
-if [[ "$PANE_COUNT" -lt 1 || "$PANE_COUNT" -gt 4 ]]; then
-    echo "Error: PANE_COUNT must be 1-4 (got: $PANE_COUNT)"
+if [[ "$PANE_COUNT" -lt 1 || "$PANE_COUNT" -gt 8 ]]; then
+    echo "Error: PANE_COUNT must be 1-8 (got: $PANE_COUNT)"
     exit 1
 fi
 
-if [[ "$TOTAL_PANES" -gt 5 ]]; then
-    echo "Error: Max 5 total panes (1 orchestrator + 4 workers). Got: $TOTAL_PANES"
+if [[ "$TOTAL_PANES" -gt 9 ]]; then
+    echo "Error: Max 9 total panes (1 orchestrator + 8 workers). Got: $TOTAL_PANES"
     exit 1
 fi
 
@@ -80,7 +80,7 @@ tmux kill-session -t "$SESSION_NAME" 2>/dev/null || true
 echo "[1/4] Cleaned existing session"
 
 # Step 2: Create session and split panes
-tmux new-session -d -s "$SESSION_NAME" -c "$WORK_DIR"
+tmux new-session -d -s "$SESSION_NAME" -c "$WORK_DIR" -x 400 -y 200
 
 case "$TOTAL_PANES" in
     1)
@@ -99,11 +99,11 @@ case "$TOTAL_PANES" in
         tmux split-window -v -t "${SESSION_NAME}:0.2" -c "$WORK_DIR"
         tmux select-layout -t "$SESSION_NAME" tiled
         ;;
-    5)
-        tmux split-window -h -t "${SESSION_NAME}:0" -c "$WORK_DIR"
-        tmux split-window -v -t "${SESSION_NAME}:0.0" -c "$WORK_DIR"
-        tmux split-window -v -t "${SESSION_NAME}:0.2" -c "$WORK_DIR"
-        tmux split-window -v -t "${SESSION_NAME}:0.3" -c "$WORK_DIR"
+    *)
+        # 5-9 panes: create additional panes with tiled layout
+        for i in $(seq 1 $((TOTAL_PANES - 1))); do
+            tmux split-window -t "${SESSION_NAME}:0" -c "$WORK_DIR"
+        done
         tmux select-layout -t "$SESSION_NAME" tiled
         ;;
 esac
@@ -137,7 +137,7 @@ fi
 
 # Step 4: Launch Claude Code in all panes and wait for idle
 for i in $(seq 0 $((TOTAL_PANES - 1))); do
-    tmux send-keys -t "${SESSION_NAME}:0.${i}" "claude --dangerously-skip-permissions" C-m
+    tmux send-keys -t "${SESSION_NAME}:0.${i}" "env -u CLAUDECODE claude --dangerously-skip-permissions" C-m
 done
 
 echo "[4/4] Launching Claude Code in $TOTAL_PANES panes..."
