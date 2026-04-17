@@ -1,304 +1,275 @@
 ---
 name: claudecode-skill-creating
-description: Guide for creating and improving Claude Code skills. Use PROACTIVELY when creating a new skill from scratch, updating or refactoring an existing skill, troubleshooting skill activation or YAML frontmatter issues, understanding skills vs slash commands, configuring Skill tool permissions (allowed-tools), integrating skills with CLAUDE.md for guaranteed activation, working with context fork or subagent orchestration, designing progressive disclosure with references/ and assets/, converting documentation into skill format.
+description: Create, audit, refactor, or troubleshoot Claude Code skills via explicit command. Modes: new (scaffold a fresh skill), audit (run validate + audit scripts and write a report), convert (turn an existing doc into a skill), troubleshoot (diagnose activation, frontmatter, or link issues), add-subagents (introduce multi-phase orchestration). Accepts a skill name or path as the second argument.
+argument-hint: "[new|audit|convert|troubleshoot|add-subagents] [skill-name-or-path]"
 ---
 
-# Skill Creator Guide
+# claudecode-skill-creating
 
-Skills are modular packages that extend Claude's capabilities with specialized knowledge, workflows, and tools. They transform Claude from a general-purpose agent into a domain specialist equipped with procedural knowledge no model fully possesses.
+Workshop for building and maintaining Claude Code skills. This skill is designed for **explicit command invocation** — the dispatch table below is the entry point.
 
-## Core Principles
+## Contract
 
-### Concise is Key
+**Inputs:**
+- `$1` (mode, required): `new` | `audit` | `convert` | `troubleshoot` | `add-subagents`
+- `$2` (target, required for `audit`/`troubleshoot`/`add-subagents`): skill name or absolute path
+- For `new` and `convert`, ask the user for missing details before scaffolding.
 
-The context window is a public good. Skills share it with system prompts, conversation history, other skills' metadata, and user requests.
+**Outputs:**
+- `new`: a scaffolded skill at `~/.claude/skills/<name>/` (or `<cwd>/.claude/skills/<name>/` with `--scope project`)
+- `audit`: a Markdown report at `~/.claude/skills-audit/<skill-name>/report.md`
+- `convert`: same path layout as `new`
+- `troubleshoot`: a diagnosis printed in chat plus optional fix patches
+- `add-subagents`: edited SKILL.md plus new subagent files
 
-**Default assumption: Claude is already very smart.** Only add context Claude does not already have. Challenge each piece of information: "Does Claude really need this?" Prefer concise examples over verbose explanations.
+**Bundled scripts** (always invoke with absolute paths):
+- `scripts/init_skill.sh` — scaffold new skill from template
+- `scripts/validate_skill.py` — frontmatter / line-count / link-integrity checks (JSON or text)
+- `scripts/audit_skill.py` — wraps validate, adds editorial checks, writes Markdown report
 
-### Degrees of Freedom
+## Dispatch
 
-Match instruction specificity to the task's fragility:
+Inspect `$ARGUMENTS`. If the first token is missing or unrecognized, **stop and ask** the user which mode they want — do not silently default. Then jump to the matching section below.
 
-- **High freedom** (text instructions): Multiple valid approaches, context-dependent decisions. Use when heuristics guide the approach.
-- **Medium freedom** (pseudocode/scripts with parameters): A preferred pattern exists but some variation is acceptable.
-- **Low freedom** (specific scripts, few parameters): Operations are fragile, consistency is critical, a specific sequence must be followed.
+| Mode | Section |
+|---|---|
+| `new` | [New Mode](#new-mode) |
+| `audit` | [Audit Mode](#audit-mode) |
+| `convert` | [Convert Mode](#convert-mode) |
+| `troubleshoot` | [Troubleshoot Mode](#troubleshoot-mode) |
+| `add-subagents` | [Add-Subagents Mode](#add-subagents-mode) |
 
-Think of Claude exploring a path: a narrow bridge with cliffs needs specific guardrails (low freedom), while an open field allows many routes (high freedom).
+---
 
-## Anatomy of a Skill
+## Core Principles (apply in every mode)
 
-### Canonical Directory Structure
+### Concise is key
+
+The context window is a public good. Skills share it with system prompts, history, other skills' metadata, and the user request. **Default assumption: Claude is already very smart.** Only add context Claude does not already have. Challenge each piece: "Does Claude really need this?"
+
+### Degrees of freedom
+
+Match instruction specificity to fragility:
+
+- **High freedom** (text instructions): multiple valid approaches, heuristic-driven.
+- **Medium freedom** (pseudocode/scripts with parameters): a preferred pattern with some leeway.
+- **Low freedom** (specific scripts, few parameters): fragile operations, consistency critical.
+
+A narrow bridge with cliffs needs guardrails; an open field allows many routes.
+
+### Three-level loading
+
+1. **Metadata** (name + description, ~100 words) — always in context.
+2. **SKILL.md body** (target <500 lines) — loaded when skill triggers.
+3. **Bundled resources** — loaded as needed; scripts can execute without ever being read.
+
+When SKILL.md approaches 500 lines, split content into `references/` and link with clear "when to read" guidance.
+
+### Canonical directory layout
 
 ```
 skill-name/
-├── SKILL.md              # Required. Instructions (<500 lines)
-├── scripts/              # Executable code (Python/Bash)
-├── references/           # Documentation loaded as needed
-└── assets/               # Files used in output (templates, icons, fonts)
+├── SKILL.md              # Required. Instructions
+├── scripts/              # Executable code (token-efficient — output only loads)
+├── references/           # Loaded only when needed; >100 lines → add ToC
+└── assets/               # Templates, images, boilerplate used in output
 ```
 
-- **scripts/**: Token-efficient — code is NOT loaded into context, only execution output. Use for deterministic operations.
-- **references/**: Loaded only when Claude determines it is needed. Keep files one level deep from SKILL.md. For files >100 lines, include a table of contents.
-- **assets/**: Templates, images, boilerplate copied or adapted for output. Not loaded into context until needed.
-
-### YAML Frontmatter
-
-#### Tier 1: Standard Fields (portable skill format)
-
-```yaml
 ---
-name: kebab-case-name        # Required. Max 64 chars. Regex: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
-description: "..."           # Required. THE primary trigger mechanism. Max 1024 chars
-license: "..."               # Optional. License terms or pointer to LICENSE.txt
-compatibility: "..."         # Optional. Rarely needed. Environment requirements (max 500 chars)
----
-```
 
-Skills using only Tier 1 fields are portable and pass the official `package_skill.py` validation.
+## New Mode
 
-#### Tier 2: Claude Code Extension Fields
+Use when scaffolding a brand-new skill from scratch.
 
-These fields are supported by Claude Code runtime but are NOT part of the portable skill format:
+### 1. Capture intent
 
-| Field | Type | Purpose |
-|-------|------|---------|
-| `allowed-tools` | String | Restrict tools (e.g., `Read, Grep, Glob`) |
-| `argument-hint` | String | Hint in autocomplete (e.g., `[issue-number]`) |
-| `disable-model-invocation` | Boolean | `true` = user-only invocation (deploy, commit) |
-| `user-invocable` | Boolean | `false` = hidden from `/` menu (Claude-only) |
-| `model` | String | Explicit model selection |
-| `context` | String | `fork` for isolated subagent execution |
-| `agent` | String | Agent type for fork (`Explore`, `Plan`, `general-purpose`) |
-| `hooks` | Object | Lifecycle hooks |
+Ask the user (one focused round, not a barrage):
 
-See [references/yaml-spec.md](references/yaml-spec.md) for complete field reference.
+1. What concrete tasks should this skill enable?
+2. Will it be invoked by command, by description matching, or both?
+3. What inputs/outputs does it consume and produce?
+4. Are there 1–2 example invocations you can describe right now?
 
-### Progressive Disclosure (Three-Level System)
+If the user is mid-conversation with an obvious workflow already discussed, skip the questions and confirm the inferred answers.
 
-1. **Metadata** (name + description, ~100 words) — Always in context
-2. **SKILL.md body** (<5k words) — Loaded when skill triggers
-3. **Bundled resources** — Loaded as needed (unlimited; scripts can execute without loading)
+### 2. Plan reusable contents
 
-Keep SKILL.md under 500 lines. When approaching this limit, split content into `references/` files. Reference them from SKILL.md with clear "when to read" guidance.
-
-## Description: The Primary Trigger
-
-The description field is the **sole mechanism** Claude uses to decide when to activate a skill. The SKILL.md body is only loaded AFTER triggering — so "When to Use This Skill" sections in the body are not helpful for activation.
-
-**All trigger information must go in the description field:**
-- What the skill does
-- Specific scenarios and keywords that should trigger it
-- Include "Use PROACTIVELY when..." for auto-activation
-- Optionally include `<example>` tags for higher activation rate
-
-```yaml
-# Good: Comprehensive triggers in description
-description: "Use this skill whenever the user wants to create, read, edit, or manipulate
-Word documents (.docx files). Triggers include: any mention of 'Word doc', '.docx', or
-requests to produce professional documents with formatting. Also use when extracting content
-from .docx files or working with tracked changes."
-
-# Bad: Vague, no triggers
-description: "Helps with document processing"
-```
-
-## What NOT to Include
-
-A skill should only contain files that directly support its functionality:
-
-- NO `README.md`, `INSTALLATION_GUIDE.md`, `QUICK_REFERENCE.md`, `CHANGELOG.md`
-- NO auxiliary context about the creation process, setup procedures, or user-facing docs
-- NO explanations of concepts Claude already knows (programming basics, common libraries)
-- Use git history instead of version tracking files
-
-## Skill Creation Process
-
-### Step 1: Understand with Concrete Examples
-
-Ask the user for concrete usage examples. Clarify what functionality the skill supports and what triggers should activate it. Conclude when usage patterns are clear.
-
-### Step 2: Plan Reusable Contents
-
-Analyze each example: What scripts, references, or assets would be helpful when executing these workflows repeatedly?
+For each example, ask: what code, doc, or template would be rewritten every time?
 
 - Code rewritten repeatedly → `scripts/`
-- Documentation Claude should reference → `references/`
-- Boilerplate/templates used in output → `assets/`
+- Doc Claude should consult → `references/`
+- Boilerplate copied into output → `assets/`
 
-### Step 3: Initialize the Skill
-
-Create the directory and SKILL.md with proper frontmatter:
+### 3. Scaffold
 
 ```bash
-mkdir -p ~/.claude/skills/my-skill-name  # personal
-mkdir -p .claude/skills/my-skill-name    # project (shared via git)
+~/.claude/skills/claudecode-skill-creating/scripts/init_skill.sh <name> [basic|advanced] [--scope user|project]
 ```
 
-### Step 4: Edit and Implement
+This creates the directory, copies the right template, and substitutes the name in frontmatter.
 
-1. Implement reusable resources first (scripts, references, assets)
-2. Test scripts by actually running them
-3. Write SKILL.md body in imperative/infinitive form
-4. Delete unused example/placeholder files
+### 4. Implement resources first, SKILL.md last
 
-### Step 5: Test and Validate
+Write `scripts/`, `references/`, and `assets/` before the SKILL.md prose. Test scripts by actually running them. Then write SKILL.md in the imperative form, referencing resources by relative path.
 
-- Verify activation with various phrasings
-- Confirm Claude follows instructions correctly
-- Check all referenced files exist and paths are correct
+### 5. Validate
 
-### Step 6: Iterate
-
-Use the skill on real tasks, notice struggles, update SKILL.md or resources, and test again.
-
-## Skills vs Slash Commands
-
-| Aspect | Slash Commands | Skills |
-|--------|---------------|--------|
-| Activation | Manual only | Auto or manual |
-| Structure | Single .md file | Directory with resources |
-| Tool restrictions | No | Yes (`allowed-tools`) |
-| Invocation control | No | Yes |
-| Fork context | No | Yes (`context: fork`) |
-
-Use **slash commands** for simple, frequent manual operations. Use **skills** for complex workflows, auto-discovery, tool restrictions, or bundled resources.
-
-## Critical: Skill Tool Permissions
-
-The Skill tool is denied by default. Enable it in `.claude/settings.json`:
-
-```json
-{
-  "permissions": {
-    "allow": ["Skill(*)"]
-  }
-}
+```bash
+python3 ~/.claude/skills/claudecode-skill-creating/scripts/validate_skill.py <skill-path>
 ```
 
-Or use CLI flag: `--allowed-tools "Skill"`
+Fix every error before declaring done.
 
-## Guaranteed Activation: CLAUDE.md Integration
+### 6. Iterate on real use
 
-Skills rely on description matching (~25% activation rate for edge cases). For guaranteed activation, add rules to CLAUDE.md:
+Use the skill on a real task. Notice where Claude struggles. Update SKILL.md or bundled resources. Re-validate.
 
-```markdown
-## Skill Activation Rules
+---
 
-When the user asks about the following, ALWAYS use the Skill tool:
+## Audit Mode
 
-- **API documentation, OpenAPI, Swagger** → `api-docs-writer` skill
-- **Test strategy, testing approach** → `test-strategy` skill
-```
+Use when reviewing an existing skill for health, drift, or bloat.
 
-## Subagent Orchestration Pattern
+### Procedure
 
-For skills requiring multi-phase quality control, use dedicated subagents:
+1. Resolve the target path. If `$2` is a bare name, expand to `~/.claude/skills/$2`.
+2. Run the audit script and capture both JSON (for parsing) and Markdown (for the user):
+   ```bash
+   mkdir -p ~/.claude/skills-audit/<skill-name>
+   python3 ~/.claude/skills/claudecode-skill-creating/scripts/audit_skill.py <skill-path> \
+     --report ~/.claude/skills-audit/<skill-name>/report.md
+   ```
+3. Read the report. For each finding above `info`, decide:
+   - **Auto-fixable** (broken link, name regex violation, duplicate heading): propose a concrete `Edit` with old/new strings.
+   - **Editorial** (description bloat, leaked trigger headings, orphan references): explain the impact and propose a rewrite.
+4. Write a `recommendations.md` next to `report.md` listing the proposed edits in priority order. **Do not modify the audited skill until the user approves.**
+5. After approval, apply the edits and re-run audit until no errors remain.
 
-```
-your-skill/
-├── SKILL.md                  # Orchestrator
-└── scripts/                  # Evaluation scripts (optional)
+### What the audit checks
 
-.claude/agents/your-skill/    # Dedicated subagents
-├── evaluator-a.md            # haiku - lightweight evaluation
-├── improver-a.md             # sonnet - quality improvements
-```
+- **Validate-level** (errors block): missing SKILL.md, missing frontmatter, missing/invalid `name`, missing description, description >1024 chars, body >800 lines, broken relative links.
+- **Editorial** (warnings/hints): trigger-style headings leaked into the body (`A001`), duplicate headings (`A002`), orphan references files (`A003`), still-pure auto-trigger framing in description (`A005`).
 
-**Principles:** Parallel evaluation (haiku, fast/cheap) → Targeted improvement (sonnet, high quality) → Re-evaluate until threshold met. Evaluators detect issues, improvers propose fixes.
+---
 
-## Production Patterns
+## Convert Mode
 
-### QA as Bug Hunting
+Use when turning an existing markdown doc, runbook, or note into a skill.
 
-From Anthropic's PPTX skill: "Assume there are problems. Your job is to find them. Your first render is almost never correct. Approach QA as a bug hunt, not a confirmation step."
+1. Read the source document end-to-end first; do not start writing until you understand it.
+2. Decide if the result should be one SKILL.md or SKILL.md + `references/`. Rule of thumb: source >300 lines → split.
+3. Run `init_skill.sh` to scaffold, then move source content into `references/` if splitting.
+4. Write a fresh SKILL.md that **dispatches** rather than duplicates: it should describe inputs, outputs, and when to read each reference, not restate them.
+5. Run `validate_skill.py`. Then run a single dry-run invocation against a realistic prompt and refine.
 
-### Sub-Agent Review
+---
 
-"USE SUBAGENTS — even for 2-3 items. You have been staring at the code and will see what you expect, not what is there. Subagents have fresh eyes."
+## Troubleshoot Mode
 
-### Critical Rules Section
+Use when an existing skill isn't behaving as expected.
 
-For fragile operations (OOXML, complex formats), add prescriptive "Critical Rules" at the bottom of SKILL.md listing exact constraints that must never be violated.
+### Triage sequence
 
-## Best Practices
+1. **Run the validator first** (`validate_skill.py --json`). Most "skill is broken" reports turn out to be a missing field, name regex violation, or broken link.
+2. **Frontmatter sanity:** confirm `name` matches the directory, description is non-empty and ≤1024 chars, no Tier 2 fields are misspelled.
+3. **Activation issues** (only relevant if the skill is *also* expected to auto-trigger):
+   - Description must contain the trigger keywords; the body is loaded only after activation.
+   - If the user is invoking by command, activation isn't the problem — focus on Tier 2 fields and tool permissions.
+4. **Tool permissions:** the Skill tool is denied by default. Confirm `.claude/settings.json` has:
+   ```json
+   { "permissions": { "allow": ["Skill(*)"] } }
+   ```
+5. **Subagent / fork issues:** see [references/orchestration-patterns.md](references/orchestration-patterns.md) — the most common failure is `context: fork` on a Reference-Contents skill (no explicit task → forked agent has nothing to do).
 
-- One skill = one capability. Split monolithic skills into focused ones
-- Write trigger-rich descriptions with specific keywords and "Use PROACTIVELY when..."
-- Use kebab-case for names (e.g., `processing-pdfs`, `analyzing-spreadsheets`)
-- Keep SKILL.md under 500 lines; use `references/` for details
-- Prefer concise examples over verbose explanations — 2-3 examples suffice
-- Always use imperative/infinitive form in SKILL.md body
-- Test activation with realistic prompts before publishing
-- Add CLAUDE.md activation rules for critical skills
+For deeper diagnosis flowcharts, load [references/troubleshooting.md](references/troubleshooting.md).
+
+---
+
+## Add-Subagents Mode
+
+Use when an existing skill has grown into a multi-phase pipeline and needs internal sub-agents.
+
+**Reach for orchestration patterns when at least one is true:**
+
+- The work has multiple independent angles that can run in parallel.
+- A single main-context pass would burn too much context just reading checklists.
+- The skill is one node in a pipeline (intake → design → review → implement → test → ship), reading and writing structured files.
+- Different "lenses" need different specialty checklists, and merging the results is the whole point.
+
+**Structural rule that keeps these skills sane:** parallelism happens **inside** a phase; phases run in **strict sequence**; sub-agents **never talk to each other** — the main agent joins their results between phases.
+
+### Required reading
+
+- [references/orchestration-patterns.md](references/orchestration-patterns.md) — A1–A5 subagent invocation patterns and B1–B3 phase handoff patterns, with concrete prompt templates and anti-patterns.
+- [references/workspace-conventions.md](references/workspace-conventions.md) — deterministic output paths from `$ARGUMENTS`, input/output contracts, snapshot/restore for destructive ops, idempotent re-runs.
+- [examples/5-multi-phase-skill/](examples/5-multi-phase-skill/) — minimal worked example: 2 specialist sub-agents in parallel, each primed with a numbered checklist, writing to a deterministic workspace.
+
+### Companion conventions
+
+Covered in [references/patterns-and-structure.md](references/patterns-and-structure.md):
+
+- Numbered checklist references (e.g., `LB1`–`LB8`) so sub-agents return findings as `LB3 FAIL: …` and the main agent merges mechanically.
+- Templates as either **scaffold** (clone-and-fill) or **reference guide** (consult-while-writing) — declare which in SKILL.md.
+- Cross-skill reference reuse: small "map" skills whose `references/` are read by other skills' sub-agents as bootstrap material.
+
+---
+
+## What NOT to put in a skill
+
+- `README.md`, `INSTALLATION_GUIDE.md`, `QUICK_REFERENCE.md`, `CHANGELOG.md` — use git history.
+- Auxiliary docs about the creation process or user-facing setup.
+- Explanations of concepts Claude already knows (programming basics, common libraries).
+- "When to Use" sections in the SKILL.md body — that information must live in the description field if you also want auto-triggering.
+
+## Production patterns worth copying
+
+### QA as bug hunting
+
+From Anthropic's PPTX skill: *"Assume there are problems. Your job is to find them. Your first render is almost never correct. Approach QA as a bug hunt, not a confirmation step."*
+
+### Sub-agent review
+
+*"USE SUBAGENTS — even for 2-3 items. You have been staring at the code and will see what you expect, not what is there. Subagents have fresh eyes."*
+
+### Critical Rules section
+
+For fragile operations (OOXML, complex formats), add a prescriptive "Critical Rules" block at the bottom of SKILL.md listing exact constraints that must never be violated.
+
+---
 
 ## References
 
-Load these as needed during skill development:
+Load on demand:
 
-- [references/yaml-spec.md](references/yaml-spec.md) — Complete YAML field specification with Tier 1/Tier 2 details
-- [references/patterns-and-structure.md](references/patterns-and-structure.md) — Directory patterns, token efficiency, content type classification
-- [references/troubleshooting.md](references/troubleshooting.md) — Diagnosis and fixes for common issues
-- [references/scripts-guide.md](references/scripts-guide.md) — When and how to use scripts in skills
+- [references/yaml-spec.md](references/yaml-spec.md) — full YAML field reference (Tier 1 + Tier 2), description best practices, regex rules.
+- [references/patterns-and-structure.md](references/patterns-and-structure.md) — directory patterns, Skills vs Slash Commands comparison, token efficiency, content type classification, scaffold-vs-guide templates.
+- [references/orchestration-patterns.md](references/orchestration-patterns.md) — subagent invocation and phase handoff patterns (load when building add-subagents skills).
+- [references/workspace-conventions.md](references/workspace-conventions.md) — deterministic output paths, input/output contracts, snapshot/restore.
+- [references/scripts-guide.md](references/scripts-guide.md) — when and how to use scripts, including absolute-path invocation and dry-run/json modes.
+- [references/troubleshooting.md](references/troubleshooting.md) — diagnostic flowcharts for common issues.
 
-## Assets
+## Templates
 
-Start with these templates:
-
-- [assets/basic-skill-template.md](assets/basic-skill-template.md) — For simple, single-file skills
-- [assets/advanced-skill-template.md](assets/advanced-skill-template.md) — For complex skills with resources
+- [assets/basic-skill-template.md](assets/basic-skill-template.md) — single-file skills.
+- [assets/advanced-skill-template.md](assets/advanced-skill-template.md) — skills with bundled resources.
 
 ## Examples
 
-Explore [examples/](examples/) for 4 working skill examples:
-1. **[Simple Skill](examples/1-simple-skill/)** — Basic structure
-2. **[Skill with References](examples/2-skill-with-references/)** — Progressive disclosure
-3. **[Skill with Scripts](examples/3-skill-with-scripts/)** — Python and shell scripts
-4. **[Tool-Restricted Skill](examples/4-tool-restricted-skill/)** — Read-only with `allowed-tools`
+1. [Simple Skill](examples/1-simple-skill/) — basic structure
+2. [Skill with References](examples/2-skill-with-references/) — progressive disclosure
+3. [Skill with Scripts](examples/3-skill-with-scripts/) — Python and shell scripts
+4. [Tool-Restricted Skill](examples/4-tool-restricted-skill/) — read-only with `allowed-tools`
+5. [Multi-Phase Skill](examples/5-multi-phase-skill/) — phased workflow with parallel sub-agents and deterministic workspace
 
-## AI Assistant Instructions
+---
 
-When this skill is activated to help create or improve skills:
+## Hard rules
 
-### For New Skills
-
-Follow the 6-step Skill Creation Process above:
-
-1. **Understand**: Ask for concrete usage examples and trigger scenarios. Do not overwhelm with questions — start with the most important ones.
-2. **Plan**: Identify what goes in `scripts/`, `references/`, `assets/`. Determine skill vs slash command using the comparison table.
-3. **Initialize**: Create directory and SKILL.md with proper frontmatter. Use Tier 1 fields by default; add Tier 2 only when needed.
-4. **Edit**: Implement resources first, then write SKILL.md. Write trigger-rich description with ALL "when to use" information. Do NOT put "When to Use" sections in the body.
-5. **Test**: Verify activation with various phrasings.
-6. **Iterate**: Suggest improvements based on real usage.
-
-Guide structure decisions:
-- < 200 lines → Single SKILL.md
-- 200-500 lines → SKILL.md + references/
-- > 500 lines → Must split with progressive disclosure
-
-### For Existing Skills
-
-1. Read existing SKILL.md and check organization against canonical structure
-2. Verify description contains ALL trigger information (not in body)
-3. Check for "Concise is Key" violations — remove explanations Claude already knows
-4. Suggest moving detailed content to `references/`
-5. Add scripts for deterministic, repetitive operations
-6. Consider subagent orchestration if multiple evaluation criteria exist
-
-### Always
-
-- Remind users about Skill tool permissions
-- Put ALL trigger info in description, never in body
-- Suggest CLAUDE.md activation rules for critical skills
-- Reference templates from `assets/` directory
-- Point to `references/` for detailed specs
-- Keep SKILL.md under 500 lines
-
-### Never
-
-- Create skills without proper YAML frontmatter
-- Put "When to Use" sections in SKILL.md body (triggers go in description)
-- Include README.md, CHANGELOG.md, or auxiliary documentation
-- Create monolithic files > 500 lines
-- Use `context: fork` without explicit task instructions (guidelines alone fail)
-- Confuse `disable-model-invocation` (user-only) with `user-invocable: false` (Claude-only)
-- Skip testing activation with realistic prompts
+- **Never** put "When to Use" sections in the SKILL.md body — they belong in the description field.
+- **Never** include README/CHANGELOG/setup docs in the skill directory.
+- **Never** create monolithic SKILL.md files >500 lines without splitting.
+- **Never** use `context: fork` on a Reference-Contents skill (no task → forked agent fails silently).
+- **Never** confuse `disable-model-invocation: true` (user-only) with `user-invocable: false` (Claude-only).
+- **Always** run `validate_skill.py` before declaring a skill done.
+- **Always** invoke bundled scripts with absolute paths.
+- **Always** ask which mode is intended if `$ARGUMENTS` is empty or unrecognized.

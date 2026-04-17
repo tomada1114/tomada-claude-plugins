@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a Claude Code plugin marketplace repository containing 5 plugins for extending Claude Code capabilities. The repository is published as a GitHub-hosted marketplace that users install via `/plugin marketplace add tomada1114/tomada-claude-plugins`.
+This is a Claude Code plugin marketplace repository containing 4 plugins for extending Claude Code capabilities. The repository is published as a GitHub-hosted marketplace that users install via `/plugin marketplace add tomada1114/tomada-claude-plugins`.
 
 ## Repository Structure
 
@@ -13,17 +13,13 @@ tomada-claude-plugins/
 ├── .claude-plugin/
 │   └── marketplace.json      # Marketplace definition (required)
 ├── claude-dev-kit/           # Plugin: Claude Code extension development
-│   ├── skills/               # 6 skills for creating skills/commands/agents
-│   └── commands/             # add-description-to-memory command
+│   └── skills/               # 6 skills (skill creation, bootstrap, capture, tmux orchestration, team discussion, harness audit)
 ├── git-workflow/             # Plugin: Git workflow automation
-│   └── commands/             # smart-commit, pr-description
-├── test-advisor/             # Plugin: Test strategy guidance
-│   └── agents/               # test-strategy-advisor sub-agent
+│   └── commands/             # smart-commit
 ├── agile-tools/              # Plugin: Agile development tools
-│   └── skills/               # designing-requirements, planning-tickets
+│   └── skills/               # planning-tickets, refining-requirements, designing-wireframes, ui-ux-designing
 └── content-tools/            # Plugin: Content creation tools
-    ├── skills/               # video-script-writing, fixing-transcriptions, fixing-srt-subtitles
-    └── commands/             # video-script-writing:generate, fixing-srt-subtitles:fix-srt, split-long-subtitles
+    └── skills/               # tomada-writing, converting-to-wordpress-swell
 ```
 
 ## Plugin Architecture

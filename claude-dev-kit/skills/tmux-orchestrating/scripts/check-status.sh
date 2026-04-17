@@ -25,7 +25,8 @@ done
 # Busy/Idle indicators
 # Claude Code activity indicators include Unicode spinners (✽ ✶ ✢ ✳ ✻ ·) and
 # various status verbs. "Esc to interrupt" also indicates active processing.
-BUSY_PATTERNS="Thinking|Esc to interrupt|Boogieing|Mulling|Churning|Implementing|Effecting|Boondoggling|Puzzling|Calculating|Fermenting|Crunching|Writing|Reading|Searching|Running|✽|✶|✢|✳|✻"
+# Also matches the timer pattern "(Ns ·" or "(Nm Ns ·" unique to Claude's thinking mode.
+BUSY_PATTERNS="Thinking|Esc to interrupt|Boogieing|Mulling|Churning|Implementing|Effecting|Boondoggling|Puzzling|Calculating|Fermenting|Crunching|Writing|Reading|Searching|Running|Cogitating|Pontificating|Gusting|Perambulating|Noodling|Pondering|Ruminating|Introspecting|Deliberating|Reticulating|✽|✶|✢|✳|✻|\([0-9]+s ·|\([0-9]+m [0-9]+s"
 IDLE_PATTERNS="❯ |to cycle\)|bypass permissions on"
 
 # Interactive selection UI (AskUserQuestion prompts)
@@ -99,7 +100,10 @@ detect_status() {
         return
     fi
     local output
-    output=$(tmux capture-pane -t "$pane_target" -p 2>/dev/null | tail -30) || true
+    # Use -S -50 to include scrollback buffer: Claude Code's activity (spinner/verb)
+    # often scrolls above the visible pane area due to separator lines and blank space.
+    # Without scrollback, all panes appear "Unknown" even when actively processing.
+    output=$(tmux capture-pane -t "$pane_target" -p -S -50 2>/dev/null | grep -v "^[─═━┄┈ ]*$" | tail -30) || true
 
     # 1. Check WaitingInput first (interactive selection UI)
     if echo "$output" | grep -qE "$WAITING_INPUT_PATTERNS"; then
@@ -133,6 +137,7 @@ detect_status() {
 }
 
 # Helper: get last N lines from capture-pane (for preview)
+# Uses scrollback (-S -30) so activity above visible area is included.
 capture_preview() {
     local pane_target="$1"
     local lines="${2:-5}"
@@ -140,7 +145,7 @@ capture_preview() {
         echo ""
         return
     fi
-    tmux capture-pane -t "$pane_target" -p 2>/dev/null | tail -"$lines" | sed 's/"/\\"/g' || echo ""
+    tmux capture-pane -t "$pane_target" -p -S -30 2>/dev/null | grep -v "^[─═━┄┈ ]*$" | tail -"$lines" | sed 's/"/\\"/g' || echo ""
 }
 
 if [[ "$JSON_OUTPUT" == true ]]; then

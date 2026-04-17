@@ -11,6 +11,9 @@ This document covers directory structure, integration patterns, workflow pattern
 - [Progressive Disclosure Patterns](#progressive-disclosure-patterns)
 - [Degrees of Freedom](#degrees-of-freedom)
 - [Subagent Integration Patterns](#subagent-integration-patterns)
+- [References as Numbered Checklists](#references-as-numbered-checklists)
+- [Templates: Scaffold vs Reference Guide](#templates-scaffold-vs-reference-guide)
+- [Cross-Skill Reference Reuse](#cross-skill-reference-reuse)
 - [Workflow and Output Patterns](#workflow-and-output-patterns)
 - [Token Efficiency](#token-efficiency)
 - [Tool Restrictions](#tool-restrictions)
@@ -264,6 +267,104 @@ Best for: Task Contents needing specialized agent behavior.
 | Subagent + `skills:` | New | Main agent delegates | Reference Contents |
 | `context: fork` | Forked | SKILL.md content | Task Contents |
 | `context: fork` + `agent:` | Forked | SKILL.md + agent prompt | Task + custom behavior |
+
+### Pattern 4: Multi-phase orchestration with parallel sub-agents
+
+For skills that spawn multiple specialist sub-agents in a single phase, hand off via file artifacts to the next skill, or split work along a domain axis (BE/FE etc.), there is a separate set of patterns covered in [orchestration-patterns.md](orchestration-patterns.md). Reach for it when your skill is one node in a multi-skill pipeline, or when a single review needs multiple expert lenses applied in parallel. The companion file [workspace-conventions.md](workspace-conventions.md) covers deterministic output paths, snapshot/restore, and pipeline file contracts.
+
+---
+
+## References as Numbered Checklists
+
+When a `references/` file is meant to be **applied** rather than just read (e.g., bug-pattern checklists, design-vs-reality validation, security audits), give every item a stable ID like `LB1`, `RB3`, `XL2`. The IDs let sub-agents return findings as `RB3 FAIL: <reason>` and let the main agent merge results from multiple sub-agents mechanically.
+
+```markdown
+# Backend Bug Patterns
+
+## LB1: Missing tenant filter
+A query that touches a multi-tenant table without filtering by `m_division_id`.
+- How to verify: grep the query, check the WHERE clause.
+- Severity: critical.
+
+## LB2: N+1 in list endpoints
+...
+```
+
+Why this works:
+- Sub-agents have a stable vocabulary to report against.
+- The main agent can deduplicate findings across sub-agents (`LB1` is `LB1` no matter who found it).
+- The user can ask "what does LB3 mean?" and get a precise answer.
+- New items append at the bottom without renumbering, so URLs/links stay stable.
+
+Source: `~/draever/.claude/skills/design-review/references/be-bug-patterns.md` (LB1–LB8), `fe-bug-patterns.md` (RB1–RB8), `cross-layer-parity-patterns.md` (XL1–XLn).
+
+In SKILL.md, list these checklist files in a "Reference Documents" TOC section near the top, with one-line descriptions. Sub-agent prompts then point to the absolute path of the relevant checklist as a bootstrap step (see A1 / A2 in `orchestration-patterns.md`).
+
+---
+
+## Templates: Scaffold vs Reference Guide
+
+Templates in `assets/` (or `templates/`) come in two distinct flavors. SKILL.md must say which kind it is, because the workflow is different.
+
+### Type 1: Scaffold (clone-and-fill)
+
+A skeleton that gets **copied to the output directory** and filled in. Used by skills that produce a fixed set of artifacts.
+
+```
+unsoul-feature-designing/templates/
+├── overview.md       ← copied to <workspace>/overview.md, then edited
+├── backend.md
+├── frontend.md
+├── e2e-testcases.md
+└── references.md
+```
+
+The template is mostly empty headings + section labels. The skill copies it verbatim and then fills the body.
+
+### Type 2: Reference Guide (consult-while-writing)
+
+A structural guide that is **read** for orientation but **never copied**. Used by skills that produce free-form output where the template informs structure rather than dictating it.
+
+```
+video-script-writing/templates/
+├── script-structure.md       ← read to understand the 3-part structure
+├── section-templates.md      ← read for examples of intro/body/outro
+└── duration-guide.md         ← read for time allocation rules
+```
+
+These are essentially mini-references that happen to live in `templates/` because they describe output format. SKILL.md should treat them like references — point at them, don't copy them.
+
+**Pick one type per template file** and say so in SKILL.md:
+
+```markdown
+## Templates
+
+- `templates/overview.md` — **scaffold**. Copy to <workspace>/overview.md and fill in.
+- `templates/duration-guide.md` — **reference**. Read for orientation; do not copy.
+```
+
+---
+
+## Cross-Skill Reference Reuse
+
+A surprising and very effective pattern in production: **one skill's `references/` files are read by another skill's sub-agents as bootstrap material**. This creates a small number of "map" skills that the rest of the skill ecosystem leans on.
+
+Example: `~/draever/.claude/skills/unsoul-backend-mapping/`, `unsoul-frontend-mapping/`, and `unsoul-api-bridge/` exist almost entirely so that other skills' sub-agents can read their `references/*.md` first to understand the codebase structure (route → controller → use case → model, FE page → API call → BE endpoint, etc.).
+
+Skills that consume these references (e.g. `unsoul-feature-designing`, `e2e-testing`, `ticket-intake`) all begin sub-agent prompts with "first read these mapping files, then investigate the actual code." See the bootstrap-then-investigate pattern (A2) in `orchestration-patterns.md`.
+
+**When to build a map skill**:
+
+- Multiple downstream skills need the same codebase orientation.
+- The orientation is large (>500 lines total) and shouldn't be repeated in every consumer.
+- The orientation evolves slowly compared to the consumer skills.
+
+**When NOT to**:
+
+- Only one consumer needs the references — keep them in the consumer.
+- The references would be outdated within days — they'll cause more bugs than they solve.
+
+The map skill itself doesn't need a workflow or sub-agents. It is a reference asset with a thin SKILL.md that exists mainly to give its references a stable home and a discoverable name.
 
 ---
 

@@ -44,13 +44,13 @@ else
 fi
 
 # Validation
-if [[ "$PANE_COUNT" -lt 1 || "$PANE_COUNT" -gt 8 ]]; then
-    echo "Error: PANE_COUNT must be 1-8 (got: $PANE_COUNT)"
+if [[ "$PANE_COUNT" -lt 1 || "$PANE_COUNT" -gt 4 ]]; then
+    echo "Error: PANE_COUNT must be 1-4 (got: $PANE_COUNT)"
     exit 1
 fi
 
-if [[ "$TOTAL_PANES" -gt 9 ]]; then
-    echo "Error: Max 9 total panes (1 orchestrator + 8 workers). Got: $TOTAL_PANES"
+if [[ "$TOTAL_PANES" -gt 5 ]]; then
+    echo "Error: Max 5 total panes (1 orchestrator + 4 workers). Got: $TOTAL_PANES"
     exit 1
 fi
 
