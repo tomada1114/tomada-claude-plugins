@@ -38,6 +38,7 @@ Claude Code拡張開発キット。Skill、Command、Agent、Rulesの作成を�
 | Skill | **tmux-orchestrating** | tmuxで複数のClaude Codeセッションをオーケストレーション。並列タスク実行 |
 | Skill | **team-discussion** | 3体のエージェント（提案者・批評者・統合者）による3ラウンドのマルチ視点ディスカッション。合意形成と実行可能な提案を生成 |
 | Skill | **ccl-harness-engineering** | プロジェクトのClaude Code harness設定を監査。CLAUDE.md、Hooks、リンター、ADR、プリコミット設定を包括的にチェック |
+| Skill | **authoring-goal-prompts** | `/goal`コマンド用プロンプトの作成支援。完了条件・検証方法・スコープ制約・停止ルールを備えた無人実行向けゴールを設計 |
 
 **Use when:**
 - 新しいSkillを作りたい・既存Skillを改善したい
@@ -46,6 +47,7 @@ Claude Code拡張開発キット。Skill、Command、Agent、Rulesの作成を�
 - Claude Codeの出力をキャプチャしたい
 - 複雑な意思決定でマルチ視点ディスカッションを行いたい
 - プロジェクトのharness設定をベストプラクティスに沿って監査したい
+- `/goal`で無人実行させるためのプロンプトを作りたい
 
 ---
 

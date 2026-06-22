@@ -13,7 +13,7 @@ tomada-claude-plugins/
 ├── .claude-plugin/
 │   └── marketplace.json      # Marketplace definition (required)
 ├── claude-dev-kit/           # Plugin: Claude Code extension development
-│   └── skills/               # 6 skills (skill creation, bootstrap, capture, tmux orchestration, team discussion, harness audit)
+│   └── skills/               # 7 skills (skill creation, bootstrap, capture, tmux orchestration, team discussion, harness audit, goal prompt authoring)
 ├── git-workflow/             # Plugin: Git workflow automation
 │   └── commands/             # smart-commit
 ├── agile-tools/              # Plugin: Agile development tools
