@@ -1,6 +1,6 @@
 ---
 name: capturing-claudecode
-description: Capture Claude Code terminal output and interactive UI screens via tmux. Launch a single Claude Code pane, send commands or keystrokes, capture screen output, and save to markdown files. Use PROACTIVELY when capturing Claude Code output, recording terminal sessions, screen capture, UI navigation capture, tmux capture, recording Claude responses, キャプチャ, 画面記録, 出力記録. Examples: <example>Context: User wants to capture Claude output user: 'Helloの出力を記録して' assistant: 'I will use capturing-claudecode skill' <commentary>Triggered by capture request</commentary></example>
+description: "Capture Claude Code terminal output and interactive UI screens via tmux. Launch a single Claude Code pane, send commands or keystrokes, capture screen output, and save to markdown files. Use PROACTIVELY when capturing Claude Code output, recording terminal sessions, screen capture, UI navigation capture, tmux capture, recording Claude responses, キャプチャ, 画面記録, 出力記録. Examples: <example>Context: User wants to capture Claude output user: 'Helloの出力を記録して' assistant: 'I will use capturing-claudecode skill' <commentary>Triggered by capture request</commentary></example>"
 argument-hint: [capture task description]
 ---
 

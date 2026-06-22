@@ -1,6 +1,6 @@
 ---
 name: ui-ux-designing
-description: Design UI/UX concepts for apps and web services through systematic research and questioning. Use PROACTIVELY when designing app interfaces, determining visual direction, creating design systems, choosing color schemes, or establishing UX patterns. Examples: <example>Context: User wants to design an app user: 'UI/UXのデザインコンセプトを決めたい' assistant: 'I will use ui-ux-designing skill' <commentary>Triggered by design concept request</commentary></example> <example>Context: User building new feature user: 'この機能の見た目どうしよう' assistant: 'I will use ui-ux-designing skill' <commentary>Triggered by visual design question</commentary></example>
+description: "Design UI/UX concepts for apps and web services through systematic research and questioning. Use PROACTIVELY when designing app interfaces, determining visual direction, creating design systems, choosing color schemes, or establishing UX patterns. Examples: <example>Context: User wants to design an app user: 'UI/UXのデザインコンセプトを決めたい' assistant: 'I will use ui-ux-designing skill' <commentary>Triggered by design concept request</commentary></example> <example>Context: User building new feature user: 'この機能の見た目どうしよう' assistant: 'I will use ui-ux-designing skill' <commentary>Triggered by visual design question</commentary></example>"
 ---
 
 # UI/UX Designing

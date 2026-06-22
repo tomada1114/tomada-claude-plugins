@@ -1,6 +1,6 @@
 ---
 name: designing-wireframes
-description: Create ASCII wireframes, user flow diagrams, and cross-cutting specifications for UI/UX visualization. Use PROACTIVELY when user mentions wireframe, UI design, UX flow, screen layout, screen design, user flow, or asks to visualize screens. Examples: <example>Context: User needs screen design user: 'Create wireframes for this feature' assistant: 'I will use designing-wireframes skill' <commentary>Triggered by wireframe request</commentary></example> <example>Context: After requirements are detailed user: 'Let me design the screens' assistant: 'I will use designing-wireframes skill' <commentary>Triggered by screen design request</commentary></example>
+description: "Create ASCII wireframes, user flow diagrams, and cross-cutting specifications for UI/UX visualization. Use PROACTIVELY when user mentions wireframe, UI design, UX flow, screen layout, screen design, user flow, or asks to visualize screens. Examples: <example>Context: User needs screen design user: 'Create wireframes for this feature' assistant: 'I will use designing-wireframes skill' <commentary>Triggered by wireframe request</commentary></example> <example>Context: After requirements are detailed user: 'Let me design the screens' assistant: 'I will use designing-wireframes skill' <commentary>Triggered by screen design request</commentary></example>"
 ---
 
 # Wireframe Designer

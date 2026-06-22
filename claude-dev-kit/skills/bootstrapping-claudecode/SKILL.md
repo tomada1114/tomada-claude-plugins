@@ -1,6 +1,6 @@
 ---
 name: bootstrapping-claudecode
-description: Claude Code ベストプラクティスの対話形式セットアップウィザード。Use PROACTIVELY when setting up new projects, configuring Claude Code, adding agents/rules/hooks, or when user mentions "bootstrap", "setup claude", "configure claude code", "add agents", "add rules", "セットアップ", "初期設定", "ブートストラップ". Examples: <example>Context: User wants to set up Claude Code user: 'Claude Codeをセットアップしたい' assistant: 'I will use bootstrapping-claudecode skill' <commentary>Triggered by setup request</commentary></example>
+description: "Claude Code ベストプラクティスの対話形式セットアップウィザード。Use PROACTIVELY when setting up new projects, configuring Claude Code, adding agents/rules/hooks, or when user mentions \"bootstrap\", \"setup claude\", \"configure claude code\", \"add agents\", \"add rules\", \"セットアップ\", \"初期設定\", \"ブートストラップ\". Examples: <example>Context: User wants to set up Claude Code user: 'Claude Codeをセットアップしたい' assistant: 'I will use bootstrapping-claudecode skill' <commentary>Triggered by setup request</commentary></example>"
 ---
 
 # Claude Code Bootstrap Wizard

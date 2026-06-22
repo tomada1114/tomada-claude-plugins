@@ -1,6 +1,6 @@
 ---
 name: converting-to-wordpress-swell
-description: Convert HTML, Markdown, or plain text to WordPress Gutenberg block format for SWELL theme. Use PROACTIVELY when converting content to WordPress, SWELL theme formatting, Gutenberg blocks, WordPress記事変換, SWELL形式, ブログ記事変換, or working with wp:paragraph, wp:heading, wp:list, swl-marker. Examples: <example>Context: User has markdown or HTML to convert user: 'Convert this article to WordPress format' assistant: 'I will use converting-to-wordpress-swell skill' <commentary>Triggered by WordPress conversion request</commentary></example>
+description: "Convert HTML, Markdown, or plain text to WordPress Gutenberg block format for SWELL theme. Use PROACTIVELY when converting content to WordPress, SWELL theme formatting, Gutenberg blocks, WordPress記事変換, SWELL形式, ブログ記事変換, or working with wp:paragraph, wp:heading, wp:list, swl-marker. Examples: <example>Context: User has markdown or HTML to convert user: 'Convert this article to WordPress format' assistant: 'I will use converting-to-wordpress-swell skill' <commentary>Triggered by WordPress conversion request</commentary></example>"
 ---
 
 # WordPress SWELL Theme Format Converter

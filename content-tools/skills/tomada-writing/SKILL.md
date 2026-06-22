@@ -1,7 +1,7 @@
 ---
 name: tomada-writing
 allowed-tools: Read, Edit, Write, Bash, Task, Grep, Glob, AskUserQuestion
-description: とまだ式の技術記事執筆・改善スキル。Use PROACTIVELY when user mentions「とまだ式」「記事を書いて」「Zenn記事」「技術記事執筆」「リライト」or requests article writing, rewriting, improvement in Japanese. Plan modeで構成ヒアリング後に執筆開始。Pre-Writing Phaseで構成案を事前評価し、サブエージェントによる7軸並列評価で95点以上を目指す。 Examples: <example>Context: User requests article user: '記事を書いて' assistant: 'I will use tomada-writing skill' <commentary>Triggered by article writing request</commentary></example> <example>Context: Rewrite request user: 'この記事をリライトして' assistant: 'I will use tomada-writing skill' <commentary>Triggered by rewrite request</commentary></example>
+description: "とまだ式の技術記事執筆・改善スキル。Use PROACTIVELY when user mentions「とまだ式」「記事を書いて」「Zenn記事」「技術記事執筆」「リライト」or requests article writing, rewriting, improvement in Japanese. Plan modeで構成ヒアリング後に執筆開始。Pre-Writing Phaseで構成案を事前評価し、サブエージェントによる7軸並列評価で95点以上を目指す。 Examples: <example>Context: User requests article user: '記事を書いて' assistant: 'I will use tomada-writing skill' <commentary>Triggered by article writing request</commentary></example> <example>Context: Rewrite request user: 'この記事をリライトして' assistant: 'I will use tomada-writing skill' <commentary>Triggered by rewrite request</commentary></example>"
 ---
 
 # とまだ式記事執筆スキル

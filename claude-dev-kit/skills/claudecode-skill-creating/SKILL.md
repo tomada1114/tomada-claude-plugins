@@ -1,6 +1,6 @@
 ---
 name: claudecode-skill-creating
-description: Create, audit, refactor, or troubleshoot Claude Code skills via explicit command. Modes: new (scaffold a fresh skill), audit (run validate + audit scripts and write a report), convert (turn an existing doc into a skill), troubleshoot (diagnose activation, frontmatter, or link issues), add-subagents (introduce multi-phase orchestration). Accepts a skill name or path as the second argument.
+description: "Create, audit, refactor, or troubleshoot Claude Code skills via explicit command. Modes: new (scaffold a fresh skill), audit (run validate + audit scripts and write a report), convert (turn an existing doc into a skill), troubleshoot (diagnose activation, frontmatter, or link issues), add-subagents (introduce multi-phase orchestration). Accepts a skill name or path as the second argument."
 argument-hint: "[new|audit|convert|troubleshoot|add-subagents] [skill-name-or-path]"
 ---
 

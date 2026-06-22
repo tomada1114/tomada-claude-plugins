@@ -1,6 +1,6 @@
 ---
 name: tmux-orchestrating
-description: Orchestrate multiple Claude Code sessions via tmux. Self-contained with setup/cleanup scripts, queue-based task tracking, and report-based completion detection. Use PROACTIVELY when running parallel tasks, multi-agent workflows, orchestrating Claude instances, tmux automation, or when user mentions orchestration, parallel execution, multi-agent, オーケストレーション, 並列実行, マルチエージェント. Examples: <example>Context: User wants parallel execution user: '2つのタスクを並列で実行して' assistant: 'I will use tmux-orchestrating skill' <commentary>Triggered by parallel execution request</commentary></example>
+description: "Orchestrate multiple Claude Code sessions via tmux. Self-contained with setup/cleanup scripts, queue-based task tracking, and report-based completion detection. Use PROACTIVELY when running parallel tasks, multi-agent workflows, orchestrating Claude instances, tmux automation, or when user mentions orchestration, parallel execution, multi-agent, オーケストレーション, 並列実行, マルチエージェント. Examples: <example>Context: User wants parallel execution user: '2つのタスクを並列で実行して' assistant: 'I will use tmux-orchestrating skill' <commentary>Triggered by parallel execution request</commentary></example>"
 argument-hint: [goal or task description]
 allowed-tools: Bash, Write, Read
 ---
