@@ -1,0 +1,8 @@
+{
+  "name": "tomada-kit",
+  "version": "1.0.0",
+  "description": "とまだのClaude Codeスキル集。スキル作成、要件詳細化、ワイヤーフレーム、Issue駆動開発、モデル委譲、プロンプト整形など",
+  "author": {
+    "name": "tomada1114"
+  }
+}

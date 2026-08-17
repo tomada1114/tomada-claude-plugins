@@ -8,3 +8,11 @@
 # Temporary
 *.tmp
 *.bak
+
+# Python
+__pycache__/
+*.pyc
+
+# Local Claude Code state (must never be published)
+.claude/
+settings.local.json

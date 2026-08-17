@@ -3,26 +3,13 @@
   "owner": {
     "name": "tomada1114"
   },
+  "version": "1",
   "plugins": [
     {
-      "name": "claude-dev-kit",
-      "source": "./claude-dev-kit",
-      "description": "Claude Code拡張開発キット。Skill、Command、Agent、Rulesの作成ガイド"
-    },
-    {
-      "name": "git-workflow",
-      "source": "./git-workflow",
-      "description": "Gitワークフロー効率化。smart-commitコマンド"
-    },
-    {
-      "name": "agile-tools",
-      "source": "./agile-tools",
-      "description": "アジャイル開発ツール。要件詳細化、ワイヤーフレーム、UI/UX、Issue作成"
-    },
-    {
-      "name": "content-tools",
-      "source": "./content-tools",
-      "description": "コンテンツ制作ツール。とまだ式技術記事執筆、WordPress(SWELL)変換"
+      "name": "tomada-kit",
+      "source": "./tomada-kit",
+      "description": "とまだのClaude Codeスキル集。スキル作成、要件詳細化、ワイヤーフレーム、Issue駆動開発、モデル委譲、プロンプト整形など",
+      "version": "1.0.0"
     }
   ]
 }
