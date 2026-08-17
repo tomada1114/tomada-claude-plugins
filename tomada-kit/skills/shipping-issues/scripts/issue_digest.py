@@ -6,23 +6,30 @@ Fetches open issues (and open PRs, to detect work already in flight) via the
 enter a context window.
 
 Beyond the mechanical readiness flags (BLOCKED-BY / HAS-OPEN-PR /
-NOT-READY-LABEL) it computes two things the ordering decision needs:
+NOT-READY-LABEL) it computes three things the ordering decision needs:
 
   * reverse dependency edges — how many *other* open issues this one unblocks,
     which is the single strongest "do this first" signal;
   * a heuristic priority score built from unblock count, priority labels,
     leverage keywords (CI, schema, interface, security, breakage…), milestone,
-    and staleness.
+    and staleness;
+  * a priority *tier* — the `priority: P0`…`P3` label if the issue already
+    carries one (or a recognized equivalent), otherwise a suggested tier derived
+    from the score, printed as `~P1`.
 
-The score is a *ranking hint*, not a verdict. It is computed from the raw issue
-bodies even when `--body-chars 0` keeps that prose out of the caller's context,
-so the index-only pass is still ranked. Confirm the top candidates against
+**The label is the persisted ranking.** A labeled backlog is ranked by reading
+labels alone — no issue prose has to be re-analyzed on every run. Suggested
+tiers exist to be written back by `apply_priority_labels.py`, after which they
+become confirmed ones. The score survives as the within-tier tie-breaker and as
+the input to those suggestions; it is a *ranking hint*, not a verdict, and is
+computed from raw issue bodies even when `--body-chars 0` keeps that prose out
+of the caller's context. Confirm suggested tiers against
 references/priority-rubric.md before acting on them.
 
 Usage:
     issue_digest.py [--label L]... [--assignee A] [--milestone M]
                     [--issue N]... [--limit N] [--body-chars N]
-                    [--rank-only] [--no-rank] [--json]
+                    [--rank-only] [--select N] [--no-rank] [--json]
 
 Output (default: markdown). `--json` emits the same data as a JSON object for
 programmatic consumers.
@@ -57,6 +64,12 @@ CLOSING_RE = re.compile(
 )
 BARE_REF_RE = re.compile(r"(?<![\w/])#(\d+)")
 
+
+def normalize_label(name: str) -> str:
+    """`Priority: P0`, `priority/P0` and ` p0 ` all collapse to one lookup key."""
+    return re.sub(r"\s*[:/]\s*", ":", name.strip().lower())
+
+
 READY_NEGATIVE_LABELS = {
     "blocked",
     "on hold",
@@ -73,20 +86,46 @@ READY_NEGATIVE_LABELS = {
     "draft",
 }
 
-# Explicit priority signals, by exact (lower-cased) label name.
+# Explicit priority signals, by normalized label name (see normalize_label:
+# `Priority: P0`, `priority/p0` and `p0 ` all arrive here as one key).
 PRIORITY_LABEL_WEIGHTS = {
-    "p0": 8, "priority:p0": 8, "priority/p0": 8, "sev1": 8, "severity:1": 8,
-    "critical": 8, "urgent": 8, "security": 8, "incident": 8, "blocker": 8,
-    "p1": 5, "priority:high": 5, "priority/high": 5, "high priority": 5,
-    "high-priority": 5, "regression": 5,
-    "important": 4, "broken": 4,
+    "sev1": 8, "severity:1": 8, "security": 8, "incident": 8,
+    "regression": 5, "important": 4, "broken": 4,
     "bug": 3, "defect": 3,
-    "p2": 1, "priority:medium": 1, "priority/medium": 1,
     "enhancement": 0, "feature": 0,
     "documentation": -1, "docs": -1, "chore": -1,
-    "p3": -2, "p4": -2, "priority:low": -2, "priority/low": -2,
-    "low priority": -2, "low-priority": -2, "nice to have": -2,
-    "nice-to-have": -2, "someday": -2,
+    "p4": -2,
+}
+
+# The four labels this skill writes. The tier IS the persisted ranking: it is
+# read on every later run so issue prose never has to be re-analyzed. Colors and
+# descriptions are what apply_priority_labels.py creates the labels with.
+TIER_ORDER = ["P0", "P1", "P2", "P3"]
+TIER_LABELS = {
+    "P0": ("priority: P0", "b60205",
+           "Ship now - unblocks other issues or damage is being taken"),
+    "P1": ("priority: P1", "d93f0b",
+           "Do next - leverage on the ground later issues stand on"),
+    "P2": ("priority: P2", "fbca04",
+           "Normal - self-contained, nothing waits on it"),
+    "P3": ("priority: P3", "0e8a16",
+           "Defer - nice-to-have"),
+}
+
+# Label vocabularies that already express a tier, recognized on read so a repo
+# with its own convention is ranked from its existing labels instead of being
+# relabeled. Only names that mean *priority* belong here — a topic label like
+# `security` or `bug` stays in PRIORITY_LABEL_WEIGHTS as a score signal.
+TIER_ALIASES = {
+    "priority:p0": "P0", "p0": "P0", "priority:critical": "P0",
+    "critical": "P0", "urgent": "P0", "incident": "P0", "blocker": "P0",
+    "priority:p1": "P1", "p1": "P1", "priority:high": "P1",
+    "high priority": "P1", "high-priority": "P1",
+    "priority:p2": "P2", "p2": "P2", "priority:medium": "P2",
+    "medium priority": "P2", "medium-priority": "P2",
+    "priority:p3": "P3", "p3": "P3", "priority:low": "P3",
+    "low priority": "P3", "low-priority": "P3",
+    "nice to have": "P3", "nice-to-have": "P3", "someday": "P3",
 }
 
 # Leverage: work whose value spills over onto other issues. Matched against
@@ -125,6 +164,17 @@ UNBLOCK_CAP = 12
 REFERENCE_CAP = 3
 STALE_DAYS = 180
 FRESH_DAYS = 30
+
+# Score thresholds for suggesting a tier on an unlabeled issue. They mirror the
+# rubric's axes: unblocking others or active damage is P0 outright; the leverage
+# keywords that improve shared ground are P1; the rest falls out of the score.
+# 14 is roughly "unblocks nothing but carries two leverage hits and a priority
+# label"; 8 is one strong leverage hit; 3 is any positive signal at all.
+SUGGEST_P0_SCORE = 14
+SUGGEST_P1_SCORE = 8
+SUGGEST_P2_SCORE = 3
+URGENT_LEVERAGE = {"security", "breakage"}
+FOUNDATION_LEVERAGE = {"infra", "schema", "interface", "foundation", "test-harness"}
 
 
 def run_gh(args: list[str]) -> Any:
@@ -186,11 +236,46 @@ def days_since(iso_date: str) -> int | None:
     return (_dt.date.today() - d).days
 
 
-def score_issue(rec: dict[str, Any], raw_body: str) -> tuple[int, list[str]]:
-    """Heuristic priority score plus a human-readable breakdown.
+def canonical_tier(labels: list[str]) -> str | None:
+    """The issue's priority tier from its labels, or None if it carries none.
+
+    Highest tier wins when an issue somehow carries two (a repo migrating from
+    `critical` to `priority: P1` can briefly have both).
+    """
+    tiers = {TIER_ALIASES[n] for n in map(normalize_label, labels) if n in TIER_ALIASES}
+    return min(tiers, key=TIER_ORDER.index) if tiers else None
+
+
+def suggest_tier(rec: dict[str, Any], hits: set[str], score: int) -> tuple[str, str]:
+    """Tier to write on an issue that has none, plus the one-line reason.
+
+    Deliberately mechanical: this runs over the whole backlog for free, and the
+    rubric's research pass only has to correct the handful it gets wrong.
+    """
+    if rec["unblocks_open"]:
+        return "P0", "unblocks " + ",".join(f"#{n}" for n in rec["unblocks_open"])
+    urgent = sorted(hits & URGENT_LEVERAGE)
+    if urgent:
+        return "P0", "+".join(urgent)
+    if score >= SUGGEST_P0_SCORE:
+        return "P0", f"score {score}"
+    foundation = sorted(hits & FOUNDATION_LEVERAGE)
+    if foundation:
+        return "P1", "+".join(foundation)
+    if score >= SUGGEST_P1_SCORE:
+        return "P1", f"score {score}"
+    if score >= SUGGEST_P2_SCORE:
+        return "P2", f"score {score}"
+    return "P3", f"score {score}"
+
+
+def score_issue(rec: dict[str, Any], raw_body: str) -> tuple[int, list[str], set[str]]:
+    """Heuristic priority score, a readable breakdown, and the leverage hits.
 
     Weighted toward *impact on other work*: unblocking other open issues and
-    touching shared foundations outrank a self-contained nice-to-have.
+    touching shared foundations outrank a self-contained nice-to-have. Labels
+    that are themselves a tier are skipped — the tier is applied as a sort key,
+    so counting it here too would drown the signals that break within-tier ties.
     """
     score = 0
     parts: list[str] = []
@@ -208,7 +293,10 @@ def score_issue(rec: dict[str, Any], raw_body: str) -> tuple[int, list[str]]:
         parts.append(f"referenced×{n_ref}(+{pts})")
 
     for lbl in rec["labels"]:
-        w = PRIORITY_LABEL_WEIGHTS.get(lbl.strip().lower())
+        key = normalize_label(lbl)
+        if key in TIER_ALIASES:
+            continue
+        w = PRIORITY_LABEL_WEIGHTS.get(key)
         if w:
             score += w
             parts.append(f"label:{lbl}({w:+d})")
@@ -238,7 +326,22 @@ def score_issue(rec: dict[str, Any], raw_body: str) -> tuple[int, list[str]]:
             score += 1
             parts.append("fresh(+1)")
 
-    return score, parts
+    return score, parts, set(hits)
+
+
+def tier_cell(rec: dict[str, Any]) -> str:
+    """`P1` for a written label, `~P1` for one this script is only suggesting.
+
+    `P2(~P0)` means the written label is *lower* than the signals now justify —
+    usually a label written before the issue started blocking something. The
+    label still ranks; the marker is the prompt to re-label it.
+    """
+    tier, sugg = rec["priority_tier"], rec["suggested_tier"]
+    if not tier:
+        return f"~{sugg}"
+    if TIER_ORDER.index(sugg) < TIER_ORDER.index(tier):
+        return f"{tier}(~{sugg})"
+    return tier
 
 
 def readiness(rec: dict[str, Any]) -> str:
@@ -263,6 +366,10 @@ def main() -> int:
                    help="truncate issue bodies to this many chars; 0 omits them")
     p.add_argument("--rank-only", action="store_true",
                    help="print only the priority ranking table")
+    p.add_argument("--select", nargs="?", type=int, const=1, default=None,
+                   metavar="N",
+                   help="print only the top N READY issues (default 1) plus label "
+                        "coverage — the cheapest way to get the pick")
     p.add_argument("--no-rank", action="store_true",
                    help="omit the priority ranking table")
     p.add_argument("--json", action="store_true", dest="as_json")
@@ -360,20 +467,42 @@ def main() -> int:
                         "draft": pr["isDraft"]} if pr else None,
             "body": squeeze(body, args.body_chars),
         }
-        rec["priority_score"], rec["score_reasons"] = score_issue(rec, body)
+        rec["priority_score"], rec["score_reasons"], hits = score_issue(rec, body)
+        rec["priority_tier"] = canonical_tier(labels)
+        rec["suggested_tier"], rec["suggested_reason"] = suggest_tier(
+            rec, hits, rec["priority_score"]
+        )
+        # What the ordering actually uses: the label when there is one, the
+        # suggestion otherwise, so a half-labeled backlog still ranks sanely.
+        rec["effective_tier"] = rec["priority_tier"] or rec["suggested_tier"]
         rec["readiness"] = readiness(rec)
         records.append(rec)
 
     ranked = sorted(
         records,
-        key=lambda r: (r["readiness"] != "READY", -r["priority_score"], r["number"]),
+        key=lambda r: (
+            r["readiness"] != "READY",
+            TIER_ORDER.index(r["effective_tier"]),
+            r["priority_tier"] is None,  # a written label outranks a guess
+            -r["priority_score"],
+            r["number"],
+        ),
     )
 
+    labeled = [r for r in records if r["priority_tier"]]
+    unlabeled = [r for r in records if not r["priority_tier"]]
     payload = {
         "open_issue_count": len(records),
         "open_pr_count": len(prs),
+        "label_coverage": {
+            "labeled": len(labeled),
+            "total": len(records),
+            "complete": not unlabeled,
+            "unlabeled": [r["number"] for r in unlabeled],
+        },
         "ranking": [
             {"number": r["number"], "score": r["priority_score"],
+             "tier": r["priority_tier"], "suggested_tier": r["suggested_tier"],
              "readiness": r["readiness"], "reasons": r["score_reasons"]}
             for r in ranked
         ],
@@ -385,21 +514,57 @@ def main() -> int:
         print()
         return 0
 
+    cov = payload["label_coverage"]
+    if not records:
+        coverage_line = "labels: 0/0 — no open issue matches the filter"
+    elif cov["complete"]:
+        coverage_line = (
+            f"labels: {cov['labeled']}/{cov['total']} COMPLETE — "
+            "rank by label; no research pass needed"
+        )
+    else:
+        shown = ",".join(f"#{n}" for n in cov["unlabeled"][:15])
+        more = "…" if len(cov["unlabeled"]) > 15 else ""
+        coverage_line = (
+            f"labels: {cov['labeled']}/{cov['total']} — unlabeled: {shown}{more} "
+            "(~Pn = suggested; write them with apply_priority_labels.py --backfill)"
+        )
+
+    if args.select is not None:
+        print(coverage_line)
+        picks = [r for r in ranked if r["readiness"] == "READY"][: args.select]
+        for i, r in enumerate(picks):
+            print(f"{'select' if i == 0 else 'next  '}: #{r['number']} "
+                  f"[{tier_cell(r)}] {r['title']} "
+                  f"(score {r['priority_score']} · {' · '.join(r['score_reasons']) or '—'})")
+        if not picks:
+            print("select: none — no READY issue matches the filter")
+        # Held issues explain why the pick is what it is; the top of that list
+        # is where a merge will free something up, so 10 is plenty.
+        held = [r for r in ranked if r["readiness"] != "READY"]
+        if held:
+            more = f" (+{len(held) - 10} more)" if len(held) > 10 else ""
+            print("held: " + ", ".join(
+                f"#{r['number']}[{tier_cell(r)}] {r['readiness']}" for r in held[:10])
+                + more)
+        return 0
+
     print(f"# Open issues ({len(records)}) · open PRs ({len(prs)})\n")
     if not records:
         print("_No open issues match the filter._")
         return 0
+    print(coverage_line + "\n")
 
     if not args.no_rank:
-        print("## Priority ranking (heuristic — verify against priority-rubric.md)\n")
-        print("| issue | score | readiness | signals |")
-        print("|---|---|---|---|")
+        print("## Priority ranking (label tier first, score breaks ties)\n")
+        print("| issue | priority | score | readiness | signals |")
+        print("|---|---|---|---|---|")
         for r in ranked:
             title = r["title"].replace("|", "\\|")
             if len(title) > 60:
                 title = title[:59] + "…"
             reasons = " · ".join(r["score_reasons"]) or "—"
-            print(f"| #{r['number']} {title} | {r['priority_score']} | "
+            print(f"| #{r['number']} {title} | {tier_cell(r)} | {r['priority_score']} | "
                   f"{r['readiness']} | {reasons} |")
         print()
         if args.rank_only:
@@ -422,8 +587,8 @@ def main() -> int:
         if flags:
             head += "  ⟨" + " | ".join(flags) + "⟩"
         print(head)
-        meta = [f"score={r['priority_score']}", f"labels={r['labels'] or '-'}",
-                f"updated={r['updated_at']}"]
+        meta = [f"priority={tier_cell(r)}", f"score={r['priority_score']}",
+                f"labels={r['labels'] or '-'}", f"updated={r['updated_at']}"]
         if r["assignees"]:
             meta.append(f"assignees={r['assignees']}")
         if r["milestone"]:

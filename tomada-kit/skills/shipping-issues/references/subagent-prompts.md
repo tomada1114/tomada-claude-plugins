@@ -9,17 +9,23 @@ fully specified pass/fail → `sonnet`. <!-- derived from orchestrating-models �
 
 Placeholders in `{braces}` are filled by the parent before spawning.
 
-## Priority research and triage (`sonnet`)
+## Priority research and labeling (`sonnet`)
 
-Spawned only when the digest exceeds ~15 issues or the top rows of the ranking
-table are close enough that the pick needs evidence. For a handful of issues,
-read the ranking table directly — the round-trip costs more than it saves.
+Spawned only when more than ~3 open issues still lack a `priority:` label, or
+when the top rows of a labeled backlog are close enough that the pick needs
+evidence. On a fully labeled backlog, `issue_digest.py --select` is the answer
+and no spawn is warranted.
+
+The agent writes the labels itself — that is the point of the spawn. The parent
+gets the pick and a summary line; the per-issue tier list never crosses back.
 
 ```
-Intent: I am about to implement and ship GitHub issues in {owner}/{repo}. I need
-the single highest-priority shippable issue (and the order for the rest), with
-the evidence behind that ranking. I will act on your ordering directly, so an
-unverified claim costs me a full implement/PR/CI cycle.
+Intent: I am about to implement and ship GitHub issues in {owner}/{repo}. Priority
+in this repo is stored as `priority: P0`…`P3` labels, and {unlabeled_count} open
+issues have no label yet. I need those labels written, and the single
+highest-priority shippable issue back, with the evidence behind it. I will act on
+your ordering directly, so an unverified claim costs me a full implement/PR/CI
+cycle — and a wrong label costs every later run too.
 
 Read first, in this order:
   "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/references/priority-rubric.md
@@ -28,23 +34,39 @@ Read first, in this order:
 Then run and read the full-body digest (do not paste its raw output back to me):
   python3 "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/issue_digest.py {filters}
 
-The digest's score is a heuristic. Run the research pass from priority-rubric.md
-on the top 3–5 rows only, and verify each claim you repeat:
+`~Pn` in the priority column is a suggested tier the script computed but has not
+written; `P2(~P0)` is a written label the signals now say is too low. Run the
+research pass from priority-rubric.md on the top 3–5 rows only, and verify each
+claim you repeat:
   gh issue view <n> --comments        (shortlisted issues only)
   grep for the symbols/paths the body names, to confirm ripple/leverage
   gh run list --branch {default_branch} --limit 5   (only if an issue claims CI/main is broken)
 
+Then write the tiers — one call, both halves:
+  python3 "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/apply_priority_labels.py \
+      --backfill --set <n>=<tier> --set <m>=<tier> --quiet
+
+`--backfill` takes the script's suggestion for every issue you did not examine;
+each `--set` overrides one you did, including any `P2(~P0)` you confirmed. Do not
+re-tier an issue you have no evidence about — the suggestion is better than a
+guess. Exit code 2 means the token cannot write labels here: report that instead,
+and rank from the suggestions.
+
 Return exactly these sections, nothing else:
 
+## Labels
+- <the apply_priority_labels.py summary line, verbatim>
+- overrides: #N P2->P0 <one-line reason>   (only the --set ones, one line each)
+
 ## Selected
-- #N — <title> — score <n>
+- #N — <title> — <tier>
   - unblocks: <#M, #K and why each is genuinely blocked, or "none">
   - leverage: <what shared ground it touches, with the path you verified, or "none">
   - urgency: <damage being taken now, with evidence, or "none">
   - likely files: <paths> — est. size S/M/L
 
 ## Order after that
-- #N — one-line reason it comes next — likely files — S/M/L
+- #N <tier> — one-line reason it comes next — likely files — S/M/L
 
 ## Blocked
 - #N — blocked by #M (explicit | inferred: <which rule from dependency-triage.md>)
@@ -55,9 +77,6 @@ Return exactly these sections, nothing else:
 ## Parallel-safe groups
 - [#A, #B] — disjoint file sets
 - serialize: #C (touches {lockfile/CI/schema})
-
-## Score overrides
-- #N — the score said <x>, I ranked it <higher/lower> because <reason>
 
 If the top two are genuinely tied on every axis of the rubric, list both under
 "Unresolved" with the trade-off rather than picking one.

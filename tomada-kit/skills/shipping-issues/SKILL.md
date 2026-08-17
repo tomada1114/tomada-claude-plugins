@@ -1,6 +1,6 @@
 ---
 name: shipping-issues
-description: "Survey the open GitHub Issues, rank them by whether they unblock other issues, how far their impact spreads, and whether skipping them causes rework, then implement the top one, open a PR that auto-closes the issue (Closes #N), watch CI until it is green, merge to main, and confirm the issue actually closed. With no argument it ships only the single highest-priority issue; pass \"all\" to work through every issue in dependency order (independent ones in parallel worktrees). Issue data collection, CI watching, and fix retries are delegated to scripts and sub-agents to save tokens. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, work through the open issues, or finish off every issue."
+description: "Rank the open GitHub Issues by their `priority: P0`-`P3` labels — backfilling a label, from whether an issue unblocks others and how far its impact spreads, wherever one is missing — then implement the top one, open a PR that auto-closes the issue (Closes #N), watch CI until it is green, merge to main, and confirm the issue actually closed. With no argument it ships only the single highest-priority issue; pass \"all\" to work through every issue in dependency order (independent ones in parallel worktrees). Issue data collection, CI watching, and fix retries are delegated to scripts and sub-agents to save tokens. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, work through the open issues, or finish off every issue."
 argument-hint: "[all | <issue number> | (empty = one issue)]"
 ---
 
@@ -31,7 +31,8 @@ Issue だけ") — apply it as `issue_digest.py` flags.
 Reads: the current repo's open issues and PRs via `gh`; the project's own
 `CLAUDE.md` / `AGENTS.md` for conventions.
 
-Writes: branches, PRs, merge commits on the remote, issue closures, plus a run
+Writes: `priority: P0`…`P3` labels on the repo's open issues (the persisted
+ranking), branches, PRs, merge commits on the remote, issue closures, plus a run
 record at `~/.claude/shipping-issues/<owner>__<repo>/run.md` (appended, never
 deleted) so a re-run knows what already landed.
 
@@ -48,43 +49,73 @@ tree is a warning: ask whether to stash, commit, or proceed before creating any
 branch. Note the reported `default_branch` and `branch_protection` — both decide
 how step 6 lands.
 
-### 1. Index and rank the issues
+### 1. Rank — by label, not by re-reading the backlog
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/issue_digest.py --body-chars 0 [--label L] [--assignee A] [--issue N]
+python3 "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/issue_digest.py --select [--label L] [--assignee A]
 ```
 
-Bodies stay out of this context (`--body-chars 0`) but are still scored. The
-output leads with a `## Priority ranking` table — score, readiness, and the
-signals behind each score — followed by the per-issue index with `BLOCKED-BY`,
-`UNBLOCKS`, `HAS-OPEN-PR`, and `NOT-READY-LABEL` flags. Add `--rank-only` when
-the table alone is enough.
+Priority lives on GitHub as a `priority: P0`…`P3` label, so a ranked backlog
+costs one script call to re-read. `--select` prints three lines — label
+coverage, the pick, and what is held back — and nothing else. The tier is the
+primary sort key; the heuristic score only orders issues *within* a tier, and a
+BLOCKED issue is never selected.
 
-### 2. Research and select
+The coverage line decides what happens next:
 
-The score ranks; it does not choose. Read
-[references/priority-rubric.md](references/priority-rubric.md) and run its
-research pass on the top candidates. Priority means, in order: **unblocks other
-issues > leverage on shared ground > must-be-first ordering > damage being taken
-right now.** A self-contained nice-to-have never outranks those, however easy.
+- `labels: N/N COMPLETE`, no `(~Pn)` marker on the top rows — the backlog is
+  already ranked. **Skip step 2**: ship the issue on the `select:` line.
+- anything else — the `~Pn` cells are suggestions the script computed but never
+  wrote. Go to step 2 once, and later runs get the cheap path.
 
-Apply the readiness gate and dependency rules from
-[references/dependency-triage.md](references/dependency-triage.md).
+`P2(~P0)` means a written label now sits below what the signals justify —
+usually written before the issue started blocking something. Re-label it in
+step 2 rather than ranking around it, even on an otherwise complete backlog.
 
-Who does the reading:
+For the whole picture — per-issue `BLOCKED-BY`, `UNBLOCKS`, `HAS-OPEN-PR` flags
+— drop `--select` (add `--body-chars 0` to keep the prose out) or use
+`--rank-only` for just the table.
 
-- **≤3 plausible candidates** — re-run the digest for just those
-  (`--issue N --issue M`) and read them here.
-- **more than that, tangled dependency edges, or a close top-two** — delegate to
-  a `sonnet` sub-agent with the Priority research template in
-  [references/subagent-prompts.md](references/subagent-prompts.md). It reads the
-  bodies and returns the selection with evidence, not the prose.
+### 2. Label the unlabeled — once, and not in this context
 
-Create the run record directory if it does not exist, then record and show the
-selection in the rubric's shape — chosen issue, the evidence lines, runner-up,
-deferred — before implementing. **Proceed on that pick without asking.** Ask via
-`AskUserQuestion` only when the top two are genuinely tied on every axis, or the
-top issue needs a product decision before it can be implemented at all.
+Labeling is a script pass, not a reading pass. Who runs it depends only on how
+many issues need judgment — and it runs **once**, not once per caller:
+
+- **≤3 unlabeled or mis-tiered issues** — do it here. Read just those
+  (`issue_digest.py --issue N --issue M`) against the rubric, then one call:
+
+  ```bash
+  python3 "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/apply_priority_labels.py --backfill --set N=P0 --quiet
+  ```
+
+- **more than that, tangled dependency edges, or a close top-two** — spawn one
+  `sonnet` sub-agent with the Priority research template in
+  [references/subagent-prompts.md](references/subagent-prompts.md) and let it
+  make that same call. It reads the bodies, applies the rubric, and returns the
+  selection with evidence — not the prose, not the per-issue tier list. Do not
+  run the backfill yourself first; the agent's call covers both halves.
+
+`--backfill` creates the four labels if the repo lacks them and writes the
+suggested tier to every open issue that has none; each `--set` overrides one the
+research pass judged differently. No issue body reaches this context either way,
+and the output is one summary line. Run it without asking. Exit code 2
+(`NO_WRITE_ACCESS`) means this token cannot write labels here — rank from the
+`~Pn` suggestions for this run, say so in the report, and do not retry.
+
+[references/priority-rubric.md](references/priority-rubric.md) defines what each
+tier means and when a label is worth overriding; the readiness gate and
+dependency rules are in
+[references/dependency-triage.md](references/dependency-triage.md). Priority
+means, in order: **unblocks other issues > leverage on shared ground >
+must-be-first ordering > damage being taken right now.** A self-contained
+nice-to-have never outranks those, however easy.
+
+Re-run `--select` after labeling, then create the run record directory if it
+does not exist and record the selection in the rubric's shape — chosen issue,
+evidence lines, runner-up, deferred. **Proceed on that pick without asking.**
+Ask via `AskUserQuestion` only when the top two are genuinely tied on every
+axis, or the top issue needs a product decision before it can be implemented at
+all.
 
 ### 3. Implement, with the issue link built in
 
@@ -161,8 +192,10 @@ Merge automatically on `verdict: PASS`. Three cases need different handling:
 
 Append every outcome to the run record as it happens, in both modes. In `all`
 mode, also rebase every still-in-flight branch onto the updated default branch
-after each merge, before its CI run — and re-rank the remaining issues, since a
-merged blocker can move a dependent from BLOCKED to top of the list.
+after each merge, before its CI run — and re-rank the remaining issues with
+`issue_digest.py --select`, since a merged blocker can move a dependent from
+BLOCKED to top of the list. That re-rank is one script call now that priority is
+labeled; do not re-run the research pass per merge.
 
 ### 7. Clean up — once, at the end, script only
 
@@ -181,7 +214,9 @@ with `--force`.
 
 ### 8. Report
 
-Open with the selection rationale in one line — why this issue was first — then
+Open with the selection rationale in one line — why this issue was first, by
+tier — and, when step 2 wrote labels, one line for that (`labeled 9 issues: 2
+P0, 3 P1, …`, straight from the script's summary). Then
 per issue: `#N <title> → PR #M → MERGED, issue CLOSED | AUTO-ARMED | FAILED(<why>)
 | SKIPPED(<why>)`. Flag any issue left open behind a merged PR explicitly; that
 is the failure mode this skill exists to prevent.
@@ -191,11 +226,18 @@ ones that hit the retry ceiling — with the specific reason each.
 
 ## Cost discipline
 
-The main context holds the ranking table, the selection, and the verdicts,
-nothing else. Issue bodies go to the triage agent, diffs stay in the
-implementation agent, CI logs stay in the repair agent. If you find yourself
-about to read a full `gh` JSON blob or a workflow log in the main context, that
-is the signal to delegate instead.
+The main context holds the selection and the verdicts, nothing else. Issue
+bodies go to the triage agent, diffs stay in the implementation agent, CI logs
+stay in the repair agent. If you find yourself about to read a full `gh` JSON
+blob or a workflow log in the main context, that is the signal to delegate
+instead.
+
+Labeling is the cheap half of this by design: the backfill is a pure script pass
+with a one-line summary, and re-deriving priority from issue prose happens once
+per issue — ever — because the answer is written back to GitHub. On a labeled
+backlog the whole ranking step is `--select`, three lines, no sub-agent. Never
+re-read bodies to reconstruct a priority a label already carries; if a label
+looks wrong, fix the label.
 
 Sub-agent count scales with issue count, not with thoroughness: one triage
 (optional), one implementation per issue, one CI-repair per PR.

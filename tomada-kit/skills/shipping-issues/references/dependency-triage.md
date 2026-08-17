@@ -45,9 +45,10 @@ other's branch can drift.
 ## Ordering rules
 
 1. Topologically sort by dependency edges (explicit + inferred above).
-2. Within a level, order by priority score and the rubric in
-   [priority-rubric.md](priority-rubric.md); break remaining ties with
-   "touches fewer files" and then "older".
+2. Within a level, order by `priority:` label tier, then by the digest's score
+   within a tier (see [priority-rubric.md](priority-rubric.md) for what each
+   tier means); break remaining ties with "touches fewer files" and then
+   "older".
 3. Cycles are a data problem, not something to break arbitrarily. Report the
    cycle and ask which edge to drop.
 
