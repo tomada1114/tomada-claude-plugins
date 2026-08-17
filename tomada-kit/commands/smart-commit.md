@@ -1,103 +1,103 @@
 ---
-description: "変更内容を自動分析し、関連する変更ごとにグループ化して適切な粒度のコミットを作成する"
+description: "Analyze the working tree, group related changes, and create commits at a sensible granularity"
 ---
 
 # Smart Commit Command
 
-変更内容を自動的に分析し、関連する変更ごとにグループ化して適切なコミットを作成します。
+Analyze the current changes, group related ones together, and create appropriately scoped commits.
 
-## タスク
+## Task
 
-1. **変更状況の確認**
-   - `git status` で変更ファイルを確認
-   - `git diff` で staged/unstaged の変更内容を確認
-   - すでに staged されているファイルがあれば、それを優先的に処理
-   - **機密情報ファイルのみ除外し、それ以外はすべてコミット対象として扱う**
+1. **Survey the changes**
+   - `git status` for the changed files
+   - `git diff` for staged/unstaged content
+   - If anything is already staged, handle it first
+   - **Exclude only secret-bearing files; treat everything else as committable**
 
-2. **変更のグループ化**
-   変更内容とファイルタイプに基づいて、以下のルールでグループ化:
+2. **Group the changes**
+   Group by content and file type, using these rules:
 
-   - **テスト関連** (`__tests__/`, `.test.ts`, `.test.tsx`):
-     - プレフィックス: `test:`
-     - 新規テスト → "test: add ..."
-     - テスト修正 → "test: fix ..."
-     - テスト改善 → "test: improve ..."
+   - **Tests** (`__tests__/`, `.test.ts`, `.test.tsx`):
+     - Prefix: `test:`
+     - New tests → "test: add ..."
+     - Test fixes → "test: fix ..."
+     - Test improvements → "test: improve ..."
 
-   - **ドキュメント** (`.md`, `docs/`, `CLAUDE.md`, `README.md`):
-     - プレフィックス: `docs:`
-     - 新規 → "docs: add ..."
-     - 更新 → "docs: update ..."
+   - **Documentation** (`.md`, `docs/`, `CLAUDE.md`, `README.md`):
+     - Prefix: `docs:`
+     - New → "docs: add ..."
+     - Updated → "docs: update ..."
 
-   - **設定ファイル** (`.json`, `.config.js`, `tailwind.config.js`, `.claude/`):
-     - プレフィックス: `chore:`
-     - "chore: update ..." または "chore: configure ..."
+   - **Configuration** (`.json`, `.config.js`, `tailwind.config.js`, `.claude/`):
+     - Prefix: `chore:`
+     - "chore: update ..." or "chore: configure ..."
 
-   - **UI/コンポーネント** (`src/components/`, `src/app/`, `.tsx`):
-     - 新機能 → `feat:` (add, implement)
-     - 既存修正 → `refactor:` (update, improve, refactor)
-     - バグ修正 → `fix:` (fix)
+   - **UI / components** (`src/components/`, `src/app/`, `.tsx`):
+     - New feature → `feat:` (add, implement)
+     - Change to existing code → `refactor:` (update, improve, refactor)
+     - Bug fix → `fix:` (fix)
 
-   - **ビジネスロジック** (`src/domain/`, `src/application/`, `src/infrastructure/`):
-     - 新機能 → `feat:`
-     - リファクタリング → `refactor:`
-     - バグ修正 → `fix:`
+   - **Business logic** (`src/domain/`, `src/application/`, `src/infrastructure/`):
+     - New feature → `feat:`
+     - Refactoring → `refactor:`
+     - Bug fix → `fix:`
 
-   - **スタイル/デザイン** (`src/ui/`, `tokens.ts`, スタイル関連の変更):
-     - `style:` または `feat:` (デザインシステム更新の場合)
+   - **Styles / design** (`src/ui/`, `tokens.ts`, style-related changes):
+     - `style:`, or `feat:` for design-system updates
 
-3. **コミット・プッシュの実行**
-   各グループごとに:
-   - 関連ファイルを `git add` でステージング
-   - 簡潔で明確なコミットメッセージを生成 (日本語、1行)
-   - 変更の「なぜ」ではなく「何を」を記述
-   - `git commit -m "メッセージ"` で一行形式でコミット（HEREDOC不使用）
-   - `git push` 実行
+3. **Commit and push**
+   For each group:
+   - Stage the related files with `git add`
+   - Write a short, clear commit message (English, one line)
+   - Describe *what* changed, not *why*
+   - Commit with the one-line form `git commit -m "message"` (no HEREDOC)
+   - Run `git push`
 
-4. **最終確認**
-   - 全コミット完了後に `git status` で残りの変更を確認
-   - 未コミットのファイルが残っている場合は理由を説明（機密情報ファイルが除外される想定）
+4. **Final check**
+   - After every commit, run `git status` to see what remains
+   - If files are still uncommitted, explain why (secret-bearing files are the expected case)
 
-## 重要な注意事項
+## Important notes
 
-- **1グループ = 1コミット**: 関連する変更をまとめて単一のコミットに
-- **atomic commits**: 各コミットは独立して意味を持つこと
-- **機密情報チェック**: 以下のファイルは絶対にコミットしない
-  - `.env`、`.env.local`、`.env.production` などの環境変数ファイル
-  - `**/credentials.json`、`**/secrets.json`、`**/private-key.json` などの明示的な機密情報ファイル
-  - `**/*password*`、`**/*secret*`、`**/*key*.pem` などの機密情報を含むファイル名パターン
-- **基本方針**: 上記の機密情報ファイル以外は、**すべてコミット対象とする**
-  - 設定ファイル (`.claude/`, `*.json`, `*.md`)
-  - ドキュメント (`*.md`, `CLAUDE.md`, `README.md`)
-  - ソースコード (`*.ts`, `*.tsx`, `*.js`, `*.jsx`)
-  - テストファイル (`*.test.*`, `__tests__/`)
-  - すべての作業中ファイルを積極的にコミット
-- **実行前の状態確認**: 最初に現在のブランチと変更状況を表示
-- **エラーハンドリング**: コミットが失敗した場合は理由を説明し、次のグループに進む
+- **One group = one commit**: related changes belong in a single commit
+- **Atomic commits**: each commit must stand on its own
+- **Secret check**: never commit these files
+  - Environment files such as `.env`, `.env.local`, `.env.production`
+  - Explicit secret files such as `**/credentials.json`, `**/secrets.json`, `**/private-key.json`
+  - Filename patterns implying secrets, such as `**/*password*`, `**/*secret*`, `**/*key*.pem`
+- **Default policy**: everything other than the secret files above **is committable**
+  - Configuration (`.claude/`, `*.json`, `*.md`)
+  - Documentation (`*.md`, `CLAUDE.md`, `README.md`)
+  - Source code (`*.ts`, `*.tsx`, `*.js`, `*.jsx`)
+  - Tests (`*.test.*`, `__tests__/`)
+  - Commit work-in-progress files freely
+- **Report state first**: show the current branch and change set before doing anything
+- **Error handling**: if a commit fails, explain why and move on to the next group
 
-## 使用例
+## Example
 
 ```bash
-# 使い方
+# Usage
 /smart-commit
 
-# 実行例:
-# グループ1: test: デザインシステムコンポーネントのテスト追加
+# Sample run:
+# Group 1: test: add tests for design-system components
 #   - src/components/ui/list-item/__tests__/list-item.test.tsx
 #   - src/components/ui/typography/__tests__/typography.test.tsx
 #
-# グループ2: feat: デザインシステムコンポーネントの改善
+# Group 2: feat: improve design-system components
 #   - src/components/ui/list-item/index.tsx
 #   - src/components/ui/typography/index.tsx
 #
-# グループ3: chore: デザイントークンとTailwind設定を更新
+# Group 3: chore: update design tokens and Tailwind config
 #   - src/ui/tokens.ts
 #   - tailwind.config.js
 ```
 
-## 実装の開始
+## Getting started
 
-上記のルールに従って、変更内容を分析し、適切にグループ化してコミットを実行してください。
+Follow the rules above: analyze the changes, group them, and create the commits.
 
-## 補足
+## Note
 
-- 作業途中だと思われるファイルでもコミット対象とする。
+- Commit files even when they look like work in progress.

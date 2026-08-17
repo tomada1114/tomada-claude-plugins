@@ -34,7 +34,7 @@
 
 | Command | Description |
 |---|---|
-| **smart-commit** | 変更内容を自動分析し、関連する変更ごとにグループ化して適切な粒度のコミットを作成する |
+| **smart-commit** | Analyze the working tree, group related changes, and create commits at a sensible granularity |
 
 ## Requirements
 

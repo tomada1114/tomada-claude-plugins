@@ -196,7 +196,9 @@ Use when reviewing an existing skill for health, drift, or bloat.
 ### What the audit checks
 
 - **Validate-level** (errors block): missing SKILL.md, missing frontmatter, missing/invalid `name`, missing description, description >1024 chars, body >800 lines, broken relative links.
-- **Editorial** (warnings/hints): trigger-style headings leaked into the body (`A001`), duplicate headings (`A002`), orphan references files (`A003`), still-pure auto-trigger framing in description (`A005`), legacy prompt phrasings in SKILL.md or `references/` (`A006`), a references file linking to another references file (`A007`), a references file over 100 lines with no table of contents (`A008`).
+- **Editorial** (warnings/hints): trigger-style headings leaked into the body (`A001`), duplicate headings (`A002`), orphan references files (`A003`), still-pure auto-trigger framing in description (`A005`), legacy prompt phrasings in SKILL.md or `references/` (`A006`), a references file linking to another references file (`A007`), a references file over 100 lines with no table of contents (`A008`), Japanese text in SKILL.md frontmatter (`A009`).
+
+`A009` covers frontmatter only — `description`, `argument-hint`, and every other field must be English. Skill *content* is exempt: the body, `references/`, `scripts/` and `templates/` may hold Japanese freely, because some skills exist to produce Japanese text. There is no opt-out, since a skill whose subject is Japanese still describes itself in English.
 
 `A006` is a hint, not a verdict — it pattern-matches wording and cannot read intent. Confirm each hit against [references/prompt-authoring.md](references/prompt-authoring.md) before proposing a rewrite. A file that legitimately quotes these phrasings (a style guide, this skill's own references) can opt out with an `audit-ignore-file: A006` HTML comment in its first 5 lines; a single line opts out with an `audit-ignore: A006` comment on that line.
 

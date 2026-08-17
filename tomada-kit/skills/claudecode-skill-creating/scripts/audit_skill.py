@@ -30,6 +30,13 @@ Wraps validate_skill.py and adds editorial / structural checks:
         Contents in their first 40 lines (neither a "Table of
         Contents"/"Contents"/"ToC" heading nor 3+ same-file anchor links).
         Same opt-out mechanism as A006 (see below), code `A008`.
+  A009  SKILL.md frontmatter containing Japanese text. Frontmatter is
+        English-only: `description` is what Claude reads to pick a skill,
+        and `argument-hint` is shown in the CLI. Skill *content* is exempt —
+        the body, references/, scripts/ and templates/ may hold Japanese
+        freely, since some skills exist to produce Japanese text. There is
+        no opt-out: a skill whose subject is Japanese still describes
+        itself in English.
 
 Usage:
     audit_skill.py <skill-path> [--json] [--report <path>]
@@ -128,6 +135,41 @@ LEGACY_PHRASINGS: list[tuple[re.Pattern[str], str]] = [
         "fixed progress-update scaffolding — current models already pace updates well",
     ),
 ]
+
+
+# A009: hiragana, katakana, or CJK ideographs. Punctuation-only ranges are
+# deliberately excluded — an English description *about* Japanese may quote
+# 「」 or 、 without itself being Japanese.
+JAPANESE_RE = re.compile(r"[぀-ゟ゠-ヿ一-鿿]")
+
+
+def find_japanese_frontmatter(
+    fields: dict[str, str],
+) -> list[validate_skill.Finding]:
+    """A009: flag Japanese text in SKILL.md frontmatter.
+
+    Frontmatter is English-only: `description` is the text Claude reads when
+    choosing a skill, and `argument-hint` is surfaced in the CLI. The skill's
+    own content is out of scope by design — a skill that writes Japanese
+    articles or SNS copy legitimately carries Japanese in its body,
+    references, templates and scripts.
+    """
+    findings: list[validate_skill.Finding] = []
+    for key, value in fields.items():
+        match = JAPANESE_RE.search(value)
+        if not match:
+            continue
+        findings.append(
+            validate_skill.Finding(
+                "warning",
+                "A009",
+                f"frontmatter field '{key}' contains Japanese text "
+                f"(first at '{match.group(0)}') — frontmatter is English-only; "
+                f"skill content (body, references/, scripts/) is exempt",
+                "SKILL.md frontmatter",
+            )
+        )
+    return findings
 
 
 TOC_HEADING_RE = re.compile(
@@ -344,6 +386,9 @@ def audit(skill_path: Path) -> tuple[validate_skill.Report, list[validate_skill.
             extras.extend(
                 scan_legacy_phrasings(md.read_text(encoding="utf-8"), rel)
             )
+
+    # A009: Japanese in frontmatter (content is deliberately not scanned)
+    extras.extend(find_japanese_frontmatter(fields))
 
     # A007 / A008: reference-to-reference links and missing ToCs
     if refs_dir.exists():
