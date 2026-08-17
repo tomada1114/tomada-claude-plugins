@@ -142,19 +142,20 @@ If the issue cannot be implemented as written, stop before creating a branch and
 return only UNRESOLVED with what is missing.
 ```
 
-## CI watch and repair (`sonnet`)
+## CI repair (`sonnet`, spawned only on FAIL)
 
-Fully specified pass/fail work — `sonnet`. Escalate to `opus` only if the same
-failure survives two repair attempts.
+Fully specified pass/fail work — `sonnet`. The parent runs `ci_watch.sh` in its
+own context first (a green first watch needs no agent) and spawns this only on
+a `FAIL` verdict. Escalate to `opus` only if the same failure survives two
+repair attempts.
 
 ```
 Intent: PR #{pr} implements issue #{n} and will be merged as soon as CI is green.
-I need it green, or a clear statement of why it cannot be.
+Its CI just failed: {failing_check_names_from_parent_watch}. I need it green, or
+a clear statement of why it cannot be.
 
-Run:
+Start by reading the failing logs:
   "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/ci_watch.sh {pr} --timeout 1800
-
-If verdict is PASS, return immediately.
 
 If verdict is NO_CHECKS, this repo has no CI on this PR. Do not merge on that
 alone: run the project's own verification command in the branch worktree at

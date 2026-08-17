@@ -151,10 +151,16 @@ confirmation, not duplicated work.
 
 ### 5. CI to green
 
-Spawn a `sonnet` sub-agent per PR with the CI watch template. It runs
-`ci_watch.sh`, and on failure reads the logs, fixes the branch, pushes, and
-re-watches — up to **3 attempts**. If the same failure survives two attempts,
-re-spawn on `opus` with the accumulated failure detail.
+Run `ci_watch.sh <pr> --timeout 1800` in the main context first — its output is
+a short verdict, and most PRs go green on the first watch, so a sub-agent spawn
+would buy nothing. In `all` mode with several PRs in flight, background the
+watches (`run_in_background`) instead of serializing them.
+
+Only on `FAIL`, spawn a `sonnet` sub-agent per failing PR with the CI repair
+template. It reads the failing logs the script printed, fixes the branch in its
+worktree, pushes, and re-watches — up to **3 attempts**. If the same failure
+survives two attempts, re-spawn on `opus` with the accumulated failure detail.
+CI logs stay in the repair agent; the main context gets its verdict lines only.
 
 A green CI is the goal. A check that passes because a test was deleted, skipped,
 or weakened is a failed outcome and gets reported as such — same for a "flaky"

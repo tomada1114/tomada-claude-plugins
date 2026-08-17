@@ -75,12 +75,17 @@ done
 
 # --- 3. remote branches (opt-in) --------------------------------------------
 if [ "$remote" -eq 1 ]; then
+  # Prune first: with delete_branch_on_merge, origin refs vanish at merge time
+  # while the local remote-tracking refs linger; pushing a delete for one of
+  # those fails ("remote ref does not exist") and would abort the whole script.
+  run git -C "$repo_root" fetch --prune --quiet
   git -C "$repo_root" branch -r --format='%(refname:short)' |
   sed -n 's|^origin/||p' |
   while IFS= read -r br; do
     [ "$br" = "$default_branch" ] || [ "$br" = "HEAD" ] && continue
     if deletable "$br"; then
-      run git -C "$repo_root" push origin --delete "$br"
+      run git -C "$repo_root" push origin --delete "$br" ||
+        { echo "SKIPPED (push --delete failed — likely already gone on origin): $br"; continue; }
       echo "deleted remote branch: origin/$br"
     fi
   done
