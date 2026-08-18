@@ -123,7 +123,21 @@ Do:
      "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/link_check.sh <pr> --issue {n} --fix
    Report its verdict verbatim. Do not return until it says LINKED, or explain
    why it cannot.
-7. Do NOT clean up after yourself — no `rm`, no worktree removal, no branch
+7. Self-review the branch before it reaches CI. Run Claude Code's built-in
+   review skill over your work, twice, applying its fixes each time:
+     /code-review low --fix
+   `low` is the effort level; `--fix` applies the findings to the working tree
+   and does not commit them. So, per pass: read what it changed, commit it on
+   its own (`review: <what was fixed>`), and push. Only then start the second
+   pass, so it sees the fixed code. Re-run the step 4 verification command after
+   the second pass and report that final result under VERIFY.
+   Fix the cause, never the check: clearing a finding by deleting a test,
+   loosening an assertion, or silencing a warning is a failed outcome — say so
+   under UNRESOLVED instead. A finding outside issue #{n}'s scope does not get
+   fixed here; it goes under FOLLOW-UPS and the parent files it.
+   If the review skill is not reachable from your context, report
+   REVIEW: UNAVAILABLE and move on — do not hand-roll a substitute review.
+8. Do NOT clean up after yourself — no `rm`, no worktree removal, no branch
    deletion; the parent runs one batch cleanup at the end. If you produced
    gitignored artifacts (fixtures, bench outputs) in a worktree, copy them into
    the main checkout at {repo root} before returning or they will be lost.
@@ -135,8 +149,21 @@ BASE: <branch the PR targets>
 LINK: <link_check.sh verdict — LINKED | NOT_LINKED(<detail>) | WRONG_BASE>
 CHANGED: <file list>
 VERIFY: <exact command run> -> <pass/fail + the failing output if any>
+REVIEW: <pass 1: N findings, M applied | pass 2: N findings, M applied>
+        <or "UNAVAILABLE" + why>
 SCOPE-NOTES: <anything in the issue you did not implement, and why>
+FOLLOW-UPS: <defects you saw that are NOT this issue, one per line as
+             `file:line — what is wrong — what prevents it today`, or "none">
 UNRESOLVED: <judgment calls you had to make, or "none">
+
+FOLLOW-UPS is how a real defect you must not fix here still survives the run —
+the parent files it as its own issue (SKILL.md step 6.5). Report it there
+rather than widening this PR, and rather than staying silent about it. Always
+include what currently prevents it (a guard at another layer, a provider that
+filters the input, a caller that cannot reach it) or "nothing": the parent tiers
+the issue on exactly that, and "nothing" versus "an adapter drops it first" is
+the difference between a live bug and a missing defense layer. Do not file the
+issue yourself — you see only your own worktree.
 
 If the issue cannot be implemented as written, stop before creating a branch and
 return only UNRESOLVED with what is missing.
@@ -177,8 +204,17 @@ LOCAL-VERIFY: <command -> pass/fail, or "n/a (CI present)">
 FIXES: <one line per repair commit, or "none">
 REMAINING-FAILURE: <check name + the 5 most relevant log lines, or "none">
 MERGE-STATE: <mergeable / merge_state / review_decision from the script>
+FOLLOW-UPS: <defects the failure exposed that are NOT this PR's to fix, one per
+             line as `file:line — what is wrong — what prevents it today`, or
+             "none">
 UNRESOLVED: <anything needing a human, or "none">
 ```
+
+A CI failure is a good detector of pre-existing problems — a flaky job with a
+real race behind it, a check that only passes because of ordering, a fixture
+that has been wrong for months. Put those under FOLLOW-UPS with what currently
+prevents them, so the parent can file them (SKILL.md step 6.5); fix only what
+makes *this* PR green.
 
 ## Merge and issue closure (no spawn)
 

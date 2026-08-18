@@ -32,7 +32,8 @@ Reads: the current repo's open issues and PRs via `gh`; the project's own
 `CLAUDE.md` / `AGENTS.md` for conventions.
 
 Writes: `priority: P0`…`P3` labels on the repo's open issues (the persisted
-ranking), branches, PRs, merge commits on the remote, issue closures, plus a run
+ranking), branches, PRs, merge commits on the remote, issue closures, **new
+follow-up issues for defects found along the way** (step 6.5), plus a run
 record at `~/.claude/shipping-issues/<owner>__<repo>/run.md` (appended, never
 deleted) so a re-run knows what already landed.
 
@@ -128,12 +129,13 @@ Two constraints exist so the issue closes itself on merge:
 - the PR body carries **`Closes #N`** — a bare `#N` mention closes nothing;
 - the PR targets the **default branch** — GitHub's auto-close only fires there.
 
-The sub-agent returns branch, PR URL, base, link verdict, changed files, and the
-exact verification command it ran — not the diff. Sub-agents never clean up
-after themselves (no `rm`, no worktree removal — that all happens once, in
-step 7), and must copy any gitignored artifacts they produced (fixtures, bench
-outputs) into the main checkout before returning, because worktrees are deleted
-at the end of the run.
+The sub-agent returns branch, PR URL, base, link verdict, changed files, the
+exact verification command it ran, the self-review result (`REVIEW:`, step 4.5),
+and any out-of-scope defects it saw (`FOLLOW-UPS`, fed to step 6.5) — not the
+diff. Sub-agents never clean up after themselves (no `rm`, no worktree removal
+— that all happens once, in step 7), and must copy any gitignored artifacts
+they produced (fixtures, bench outputs) into the main checkout before
+returning, because worktrees are deleted at the end of the run.
 
 ### 4. Verify the auto-close link
 
@@ -148,6 +150,41 @@ PR targets a non-default branch — retarget it (`gh pr edit <pr> --base
 
 The implementation agent already runs this; re-running here is a one-line
 confirmation, not duplicated work.
+
+### 4.5 Self-review before CI — `/code-review low --fix`, twice
+
+Between the PR existing and CI judging it there is one cheap pass that catches
+what CI cannot: correctness bugs, dead reuse, needless complexity. Claude Code's
+built-in review skill does it and applies its own fixes:
+
+```
+/code-review low --fix
+```
+
+`low` is the effort level — fewer findings, high confidence, no speculation.
+`--fix` hands the findings to a sub-agent that applies them to the working tree;
+it does not commit, so each pass ends with a commit and a push.
+
+**The implementation agent runs both passes, inside its own worktree**, as the
+last thing it does before returning. It is the only context whose working tree
+*is* the PR branch, and `--fix` writes to the working tree. Driving it from here
+would either review the wrong checkout or pull the whole diff and every finding
+into this context — exactly what step 3 delegated away.
+
+Two passes, always: the second reviews the code as the first pass changed it.
+Both land on the branch before step 5 starts, so CI is watched on the reviewed
+code rather than on the pre-review commit.
+
+Step 5's rule applies to review fixes too: a finding is cleared by fixing the
+cause, never by deleting a test, loosening an assertion, or silencing a check. A
+finding outside the shipped issue's scope is not fixed here either — it comes
+back under `FOLLOW-UPS` and is filed in step 6.5.
+
+The agent reports `REVIEW:` with per-pass finding and fix counts. `UNAVAILABLE`
+(the skill is not reachable from a sub-agent context) is not a run failure: when
+the branch is checked out in this context — single-issue mode, no worktree — run
+the two passes here instead, committing and pushing each one; otherwise note it
+in the report and go on to CI.
 
 ### 5. CI to green
 
@@ -203,6 +240,63 @@ after each merge, before its CI run — and re-rank the remaining issues with
 BLOCKED to top of the list. That re-rank is one script call now that priority is
 labeled; do not re-run the research pass per merge.
 
+### 6.5 File the findings the run turned up
+
+Shipping an issue surfaces defects that are not that issue: a sibling of the
+bug just fixed, a latent gap the diff walked past, a scope the implementation
+agent deliberately declined. Each one is a finding the run paid for. Fixing it
+inline silently widens a PR that is about to auto-merge; saying it only in the
+final report loses it the moment the conversation ends. File it.
+
+**File — do not fix inline — when any of these hold:**
+
+- it needs its own tests, schema change, or design decision;
+- it changes behavior outside the shipped issue's stated scope;
+- the implementation agent already returned it under `SCOPE-NOTES` or
+  `FOLLOW-UPS` as something it declined on purpose;
+- the fix would push a green PR back through CI for a reason unrelated to its
+  own issue.
+
+**Do not file** what a one-line edit inside the current diff covers and the
+issue's own tests already exercise, nor a restatement of the issue being
+shipped, nor a speculative "we could someday" with no observed defect behind it.
+An issue nobody will act on costs the next run's ranking pass real attention.
+
+**Verify before filing.** A sub-agent's out-of-scope observation is a lead, not
+a fact — it saw the code while working on something else. Read the lines it
+names and confirm the defect is real, and confirm what actually prevents it
+today. That check routinely changes the tier: a gap that sounds severe but is
+already blocked at an adapter boundary is a missing defense layer (P3), not a
+live bug (P1). File what you verified, including the mitigation, never the
+agent's summary taken on faith. If it does not survive the check, say so in the
+report and file nothing.
+
+Write the body to a file, then:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/file_followup.py \
+    --title "<repo's title convention>" --body-file <path> \
+    --tier P2 --label <area label> --found-while <n>
+```
+
+`--tier` is required and follows
+[references/priority-rubric.md](references/priority-rubric.md) — the same rubric
+step 2 ranks by, so the finding enters the backlog already ordered against
+everything else. The script resolves the tier label the repo *already* uses
+(`p2` stays `p2`; a second `priority: P2` vocabulary would split the backlog in
+two), drops `--label` values the repo lacks instead of failing, and echoes the
+resolved repo. Exit 2 (`NO_WRITE_ACCESS`) means report the finding in step 8
+instead. Add `--repo OWNER/NAME` whenever cwd may not be the repo being shipped.
+
+Give the body what the next session needs and cannot cheaply re-derive: the
+observed defect with `file:line`, why it matters in this codebase's terms, **what
+currently prevents it and why that is not enough**, the invariants a fix must not
+break (quote the canonical doc), and a completion checklist. Name the open design
+questions and leave them open rather than deciding them here.
+
+File as you go, right after the PR that surfaced the finding lands — not batched
+at the end, where an interrupted run loses them all.
+
 ### 7. Clean up — once, at the end, script only
 
 ```bash
@@ -227,6 +321,11 @@ per issue: `#N <title> → PR #M → MERGED, issue CLOSED | AUTO-ARMED | FAILED(
 | SKIPPED(<why>)`. Flag any issue left open behind a merged PR explicitly; that
 is the failure mode this skill exists to prevent.
 
+Then, when step 6.5 filed anything, one line per follow-up: `filed #N <title>
+[tier] — found while shipping #M`. Also state the findings you checked and did
+*not* file, with what prevented them — a verified non-issue is a result, and
+silence reads as "nothing was noticed".
+
 Then list what was left undone — blocked issues, ones needing clarification,
 ones that hit the retry ceiling — with the specific reason each.
 
@@ -246,7 +345,12 @@ re-read bodies to reconstruct a priority a label already carries; if a label
 looks wrong, fix the label.
 
 Sub-agent count scales with issue count, not with thoroughness: one triage
-(optional), one implementation per issue, one CI-repair per PR.
+(optional), one implementation per issue, one CI-repair per PR. The two
+`/code-review low --fix` passes (step 4.5) add no spawn from here either — they
+run inside the implementation agent, and only their finding counts come back.
+Filing a follow-up (step 6.5) never adds a spawn — the agent that found it already
+returned the lead in `FOLLOW-UPS`, and confirming it costs a couple of targeted
+reads in the main context, which is also what makes the tier trustworthy.
 
 Model assignments (triage and CI watch on `sonnet`, implementation on `opus`,
 escalation to `opus` after two failed repairs) are baked-in conclusions from
