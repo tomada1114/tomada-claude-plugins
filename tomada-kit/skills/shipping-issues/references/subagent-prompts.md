@@ -115,7 +115,9 @@ Do:
 4. Add or update the tests that cover the change, and run the project's own
    verification command (check its CLAUDE.md/AGENTS.md/justfile/Makefile for it).
    Report the exact command — the parent needs it if this repo has no CI.
-5. Commit and push. Open the PR against {default_branch} with a body whose FIRST
+5. Commit in coherent increments, and push as soon as the first coherent commit
+   exists — a stopped agent's worktree keeps only what was pushed. Then open
+   the PR against {default_branch} with a body whose FIRST
    line after the summary is exactly:  Closes #{n}
    (not "see #{n}", not "related to #{n}" — those do not close anything), plus a
    summary and a test plan.
@@ -135,6 +137,10 @@ Do:
    (`review: <what was fixed>`), and push before any next pass, so it sees the
    fixed code. Re-run the step 4 verification command after the final pass and
    report that final result under VERIFY.
+   The pass count is a ceiling: after the final pass there is no further
+   review round. Findings still open at that point go under UNRESOLVED (in
+   scope) or FOLLOW-UPS (out of scope) — the parent merges and files them
+   rather than iterating.
    Fix the cause, never the check: clearing a finding by deleting a test,
    loosening an assertion, or silencing a warning is a failed outcome — say so
    under UNRESOLVED instead. A finding outside issue #{n}'s scope does not get
@@ -145,6 +151,8 @@ Do:
    deletion; the parent runs one batch cleanup at the end. If you produced
    gitignored artifacts (fixtures, bench outputs) in a worktree, copy them into
    the main checkout at {repo root} before returning or they will be lost.
+   Do not watch CI or wait on anything after your final push either — the
+   parent watches CI; return as soon as the review passes have landed.
 
 Return exactly:
 BRANCH: <name>
@@ -159,6 +167,11 @@ SCOPE-NOTES: <anything in the issue you did not implement, and why>
 FOLLOW-UPS: <defects you saw that are NOT this issue, one per line as
              `file:line — what is wrong — what prevents it today`, or "none">
 UNRESOLVED: <judgment calls you had to make, or "none">
+
+Every value in that return must come from a command output in this session —
+the parent re-verifies the PR, CI, and closure against GitHub, so a remembered
+or assumed value is caught and costs a full re-check. If a step did not run,
+say so instead of filling the field.
 
 FOLLOW-UPS is how a real defect you must not fix here still survives the run —
 the parent files it as its own issue (SKILL.md step 6.5). Report it there
@@ -194,7 +207,9 @@ alone: run the project's own verification command in the branch worktree at
 
 If verdict is FAIL: read the failing logs the script printed, fix the cause in
 the branch worktree at {worktree_path}, commit, push, and re-run ci_watch.sh.
-Repeat at most {max_retries} times total.
+Repeat at most {max_retries} times total. ci_watch.sh is your only wait
+primitive — it blocks until checks settle; never write a sleep/poll loop
+around `gh` instead.
 
 Fix the failure, not the check. Deleting, skipping, or weakening a test to make
 CI pass is a failed outcome — if the test is genuinely wrong, say so in

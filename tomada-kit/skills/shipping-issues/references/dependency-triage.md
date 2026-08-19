@@ -35,6 +35,16 @@ phrasings. These edges only appear on reading:
   issues that implement it.
 - **Config-before-feature** — a settings/validation issue precedes features
   that read those settings.
+- **Append-target collision** — a changelog, release-notes file, decision log,
+  or generated index that every PR appends to conflicts both-added even when
+  the code paths are disjoint. Find such files once, before grouping (what did
+  the last few merged PRs all touch?); branches that both append to one are a
+  same-file collision.
+- **Shared-cause duplication** — two issues that are symptoms of one underlying
+  defect (the same rename, the same missing guard) produce the same hunks
+  independently. If two shortlisted issues name the same symbol or the same
+  failure, ship one first and rebase the other on the result — or report them
+  as one issue.
 - **Umbrella issues** — an epic listing `- [ ] #12 #13 #14` is not itself
   implementable. Treat it as a container: ship the children, leave the epic.
 
@@ -65,7 +75,8 @@ Two issues may run in parallel worktrees only when **all** hold:
   grepping for the symbols/paths named in each issue body — a two-minute check
   that prevents a merge conflict pileup.
 - Neither changes shared infrastructure (dependency manifests, CI config,
-  lockfiles, migrations, schema). Anything touching those is serialized, always.
+  lockfiles, migrations, schema) or a shared append-target file (changelog,
+  decision log). Anything touching those is serialized, always.
 
 Cap parallelism at 3 concurrent worktrees. Beyond that, main drifts faster than
 branches can rebase and the conflict cost exceeds the wall-clock saving.

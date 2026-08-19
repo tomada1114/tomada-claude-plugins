@@ -137,6 +137,15 @@ diff. Sub-agents never clean up after themselves (no `rm`, no worktree removal
 they produced (fixtures, bench outputs) into the main checkout before
 returning, because worktrees are deleted at the end of the run.
 
+That return is a claim, not a verified fact. Steps 4–6 re-establish every
+merge-gating fact — the PR exists, CI's verdict, the issue's final state — from
+script output in this context, so a report of "PR opened, CI green" changes
+nothing about which steps run, and nothing is deleted or declared done on a
+sub-agent's say-so. Push discipline is the other half of that insurance: the
+template has the agent push as soon as its first coherent commit exists, so an
+agent stopped mid-run loses at most its uncommitted tail, and step 7's script
+skips dirty worktrees rather than deleting them.
+
 ### 4. Verify the auto-close link
 
 ```bash
@@ -177,12 +186,26 @@ it does not commit, so each pass ends with a commit and a push.
 
 **The implementation agent runs the review, inside its own worktree**, as the
 last thing it does before returning. It is the only context whose working tree
-*is* the PR branch, and `--fix` writes to the working tree. Driving it from here
-would either review the wrong checkout or pull the whole diff and every finding
-into this context — exactly what step 3 delegated away.
+*is* the PR branch: `/code-review` forks in the calling session's cwd and
+`--fix` writes to that working tree, so run from here it reviews the wrong
+checkout — a worktree's branch is invisible to it. That holds for any extra
+pre-merge pass too: more review happens inside the worktree (spawn an agent
+there), or not at all.
 
 Every pass lands on the branch before step 5 starts, so CI is watched on the
 reviewed code rather than on the pre-review commit.
+
+Two rules keep the passes convergent. Each pass runs on a settled branch — the
+previous pass's fixes are committed and pushed before the next starts, and
+nothing pushes while a pass runs — so a finding that cites lines the head no
+longer has is stale, not unresolved. And the pass count is a ceiling, not a
+floor: when the final pass still returns findings, there is no further round —
+in-scope leftovers go under `UNRESOLVED`, out-of-scope ones under `FOLLOW-UPS`,
+the PR merges anyway, and step 6.5 files what survived. When a finding is
+relayed to another context for fixing, pass the defect — file, line, what is
+wrong — never the reviewer's proposed patch: the fixer re-derives the fix in
+the code it can see, because a patch written without that context is how a
+review fix causes the next regression.
 
 Step 5's rule applies to review fixes too: a finding is cleared by fixing the
 cause, never by deleting a test, loosening an assertion, or silencing a check. A
@@ -200,7 +223,9 @@ and pushing each one; otherwise note it in the report and go on to CI.
 Run `ci_watch.sh <pr> --timeout 1800` in the main context first — its output is
 a short verdict, and most PRs go green on the first watch, so a sub-agent spawn
 would buy nothing. In `all` mode with several PRs in flight, background the
-watches (`run_in_background`) instead of serializing them.
+watches (`run_in_background`) instead of serializing them. `ci_watch.sh` is the
+run's only wait primitive — one blocking call per wait; neither this context
+nor any sub-agent hand-rolls a `sleep`/poll loop around `gh`.
 
 Only on `FAIL`, spawn a `sonnet` sub-agent per failing PR with the CI repair
 template. It reads the failing logs the script printed, fixes the branch in its
