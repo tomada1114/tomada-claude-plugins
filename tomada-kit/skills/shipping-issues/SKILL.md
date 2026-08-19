@@ -342,7 +342,7 @@ at the end, where an interrupted run loses them all.
 ### 7. Clean up — once, at the end, script only
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/cleanup_run.sh [--remote] [--dry-run]
+"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/cleanup_run.sh [--remote] [--dry-run] [--merged-only]
 ```
 
 All deletion goes through this one script, in one batch after the last merge.
@@ -353,6 +353,19 @@ harness `worktree-agent-*` branches, and branches whose PR is merged;
 `--remote` extends that to the same refs on origin. A worktree with
 uncommitted files is skipped and listed — salvage what matters, then rerun
 with `--force`.
+
+**The worktree pass is not merge-gated by default: it removes every worktree
+under that root, including one another session is mid-run in.** That is correct
+at the end of a run this skill owns end to end, and wrong everywhere else. When
+other sessions may be working in the same repo — or when cleaning up outside a
+run, purely to reclaim disk — pass `--merged-only`, which keeps any worktree
+whose branch has no merged PR (or still has an open one). Worktrees are
+expensive to leave lying around: each one carries its own `.venv` and type-check
+caches, so a few stale ones can add up to gigabytes.
+
+A repo can wrap that safe mode in its own task runner, so cleanup does not
+depend on this skill's path — `swing-copilot` exposes it as
+`just worktree-clean [--dry-run]`. Prefer such a recipe when the repo has one.
 
 End the run with the local default branch fast-forwarded
 (`git checkout <default> && git pull --ff-only`). The merges landed on the
