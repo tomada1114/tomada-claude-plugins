@@ -123,14 +123,18 @@ Do:
      "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/link_check.sh <pr> --issue {n} --fix
    Report its verdict verbatim. Do not return until it says LINKED, or explain
    why it cannot.
-7. Self-review the branch before it reaches CI. Run Claude Code's built-in
-   review skill over your work, twice, applying its fixes each time:
-     /code-review low --fix
-   `low` is the effort level; `--fix` applies the findings to the working tree
-   and does not commit them. So, per pass: read what it changed, commit it on
-   its own (`review: <what was fixed>`), and push. Only then start the second
-   pass, so it sees the fixed code. Re-run the step 4 verification command after
-   the second pass and report that final result under VERIFY.
+7. Self-review the branch before it reaches CI, with the effort level chosen
+   from the diff you just produced:
+   - Heavy diff (touches a schema, storage layer, or public contract; adds or
+     bumps a dependency; or rewires behavior across several modules): one pass
+     of  /code-review high --fix
+   - Anything else: /code-review low --fix, twice — the second pass reviews the
+     code as the first pass changed it.
+   `--fix` applies the findings to the working tree and does not commit them.
+   So, per pass: read what it changed, commit it on its own
+   (`review: <what was fixed>`), and push before any next pass, so it sees the
+   fixed code. Re-run the step 4 verification command after the final pass and
+   report that final result under VERIFY.
    Fix the cause, never the check: clearing a finding by deleting a test,
    loosening an assertion, or silencing a warning is a failed outcome — say so
    under UNRESOLVED instead. A finding outside issue #{n}'s scope does not get
@@ -149,7 +153,7 @@ BASE: <branch the PR targets>
 LINK: <link_check.sh verdict — LINKED | NOT_LINKED(<detail>) | WRONG_BASE>
 CHANGED: <file list>
 VERIFY: <exact command run> -> <pass/fail + the failing output if any>
-REVIEW: <pass 1: N findings, M applied | pass 2: N findings, M applied>
+REVIEW: <effort level + per pass: N findings, M applied>
         <or "UNAVAILABLE" + why>
 SCOPE-NOTES: <anything in the issue you did not implement, and why>
 FOLLOW-UPS: <defects you saw that are NOT this issue, one per line as

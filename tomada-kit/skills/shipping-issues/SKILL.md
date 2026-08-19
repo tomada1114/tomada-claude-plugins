@@ -151,40 +151,49 @@ PR targets a non-default branch — retarget it (`gh pr edit <pr> --base
 The implementation agent already runs this; re-running here is a one-line
 confirmation, not duplicated work.
 
-### 4.5 Self-review before CI — `/code-review low --fix`, twice
+### 4.5 Self-review before CI — effort scaled to the diff
 
-Between the PR existing and CI judging it there is one cheap pass that catches
+Between the PR existing and CI judging it there is one review pass that catches
 what CI cannot: correctness bugs, dead reuse, needless complexity. Claude Code's
-built-in review skill does it and applies its own fixes:
+built-in review skill does it and applies its own fixes. The implementation
+agent picks the effort level from the diff it just produced:
 
-```
-/code-review low --fix
-```
+- **Heavy diff** — touches a schema, storage layer, or public contract; adds or
+  bumps a dependency; or rewires behavior across several modules — one pass:
 
-`low` is the effort level — fewer findings, high confidence, no speculation.
+  ```
+  /code-review high --fix
+  ```
+
+  `high` reaches in a single pass what `low` needs repetition for, and
+  re-reviewing a large diff in full costs more than the second pass catches.
+
+- **Anything else** — `/code-review low --fix`, **twice**: the second pass
+  reviews the code as the first pass changed it. `low` returns fewer,
+  high-confidence findings — the right depth for a small, contained diff.
+
 `--fix` hands the findings to a sub-agent that applies them to the working tree;
 it does not commit, so each pass ends with a commit and a push.
 
-**The implementation agent runs both passes, inside its own worktree**, as the
+**The implementation agent runs the review, inside its own worktree**, as the
 last thing it does before returning. It is the only context whose working tree
 *is* the PR branch, and `--fix` writes to the working tree. Driving it from here
 would either review the wrong checkout or pull the whole diff and every finding
 into this context — exactly what step 3 delegated away.
 
-Two passes, always: the second reviews the code as the first pass changed it.
-Both land on the branch before step 5 starts, so CI is watched on the reviewed
-code rather than on the pre-review commit.
+Every pass lands on the branch before step 5 starts, so CI is watched on the
+reviewed code rather than on the pre-review commit.
 
 Step 5's rule applies to review fixes too: a finding is cleared by fixing the
 cause, never by deleting a test, loosening an assertion, or silencing a check. A
 finding outside the shipped issue's scope is not fixed here either — it comes
 back under `FOLLOW-UPS` and is filed in step 6.5.
 
-The agent reports `REVIEW:` with per-pass finding and fix counts. `UNAVAILABLE`
-(the skill is not reachable from a sub-agent context) is not a run failure: when
-the branch is checked out in this context — single-issue mode, no worktree — run
-the two passes here instead, committing and pushing each one; otherwise note it
-in the report and go on to CI.
+The agent reports `REVIEW:` with the chosen effort level and per-pass finding
+and fix counts. `UNAVAILABLE` (the skill is not reachable from a sub-agent
+context) is not a run failure: when the branch is checked out in this context —
+single-issue mode, no worktree — run the same passes here instead, committing
+and pushing each one; otherwise note it in the report and go on to CI.
 
 ### 5. CI to green
 
@@ -262,6 +271,14 @@ issue's own tests already exercise, nor a restatement of the issue being
 shipped, nor a speculative "we could someday" with no observed defect behind it.
 An issue nobody will act on costs the next run's ranking pass real attention.
 
+An operational action is not an issue either: something resolved by running an
+existing command or skill, or by changing a machine or account setting, changes
+nothing in the repository, so no PR can ever close it. Report it in step 8 as an
+operator action instead. The same test applies to the backlog itself — an
+existing open issue that turns out to be purely operational is not shippable;
+close it with a comment naming the action that resolves it, and record the
+closure in the report.
+
 **Verify before filing.** A sub-agent's out-of-scope observation is a lead, not
 a fact — it saw the code while working on something else. Read the lines it
 names and confirm the defect is real, and confirm what actually prevents it
@@ -312,6 +329,12 @@ harness `worktree-agent-*` branches, and branches whose PR is merged;
 uncommitted files is skipped and listed — salvage what matters, then rerun
 with `--force`.
 
+End the run with the local default branch fast-forwarded
+(`git checkout <default> && git pull --ff-only`). The merges landed on the
+remote; a checkout still sitting on pre-merge code hands a stale base to the
+next run — and to anything else that executes from this working copy on a
+schedule.
+
 ### 8. Report
 
 Open with the selection rationale in one line — why this issue was first, by
@@ -324,7 +347,10 @@ is the failure mode this skill exists to prevent.
 Then, when step 6.5 filed anything, one line per follow-up: `filed #N <title>
 [tier] — found while shipping #M`. Also state the findings you checked and did
 *not* file, with what prevented them — a verified non-issue is a result, and
-silence reads as "nothing was noticed".
+silence reads as "nothing was noticed". Operator actions the run surfaced
+(resolved by running a command or changing a setting, not by a PR) get their own
+lines here — the backlog will never show them, so the report is their only
+record.
 
 Then list what was left undone — blocked issues, ones needing clarification,
 ones that hit the retry ceiling — with the specific reason each.
@@ -345,9 +371,9 @@ re-read bodies to reconstruct a priority a label already carries; if a label
 looks wrong, fix the label.
 
 Sub-agent count scales with issue count, not with thoroughness: one triage
-(optional), one implementation per issue, one CI-repair per PR. The two
-`/code-review low --fix` passes (step 4.5) add no spawn from here either — they
-run inside the implementation agent, and only their finding counts come back.
+(optional), one implementation per issue, one CI-repair per PR. The self-review
+passes (step 4.5) add no spawn from here either — they run inside the
+implementation agent, and only the effort level and finding counts come back.
 Filing a follow-up (step 6.5) never adds a spawn — the agent that found it already
 returned the lead in `FOLLOW-UPS`, and confirming it costs a couple of targeted
 reads in the main context, which is also what makes the tier trustworthy.
