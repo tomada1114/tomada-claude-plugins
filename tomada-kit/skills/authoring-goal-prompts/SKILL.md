@@ -66,7 +66,9 @@ unless the user names another. Gather, in order:
 5. **Design** — when the task involves choices (architecture, interfaces, naming, approach, library),
    make them now and record decision + rationale + rejected alternative. The lead designs; the executor executes.
 
-For a broad/uncertain scope, dispatch an `Explore` agent for items 1 and 3 in parallel.
+> **Claude Code**: for a broad/uncertain scope, dispatch an `Explore` agent for items 1 and 3 in parallel.
+> **Codex / no `Task` fan-out**: read items 1 and 3 sequentially in the main context instead — same
+> result, more time (see [Codex constraints](references/codex-notes.md)).
 
 Resolve everything you can here by investigation — only genuine, goal-defining unknowns reach Phase 4.
 

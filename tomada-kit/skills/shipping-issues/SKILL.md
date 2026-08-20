@@ -41,8 +41,12 @@ deleted) so a re-run knows what already landed.
 
 ### 0. Preflight
 
+Script paths below are skill-relative (`scripts/...`, `references/...`); the
+main context resolves them from this skill's own directory on either
+platform.
+
 ```bash
-"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/preflight.sh
+scripts/preflight.sh
 ```
 
 `verdict: BLOCKED` stops the run — report the blocker and stop. A dirty working
@@ -53,7 +57,7 @@ how step 6 lands.
 ### 1. Rank — by label, not by re-reading the backlog
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/issue_digest.py --select [--label L] [--assignee A]
+python3 scripts/issue_digest.py --select [--label L] [--assignee A]
 ```
 
 Priority lives on GitHub as a `priority: P0`…`P3` label, so a ranked backlog
@@ -86,15 +90,23 @@ many issues need judgment — and it runs **once**, not once per caller:
   (`issue_digest.py --issue N --issue M`) against the rubric, then one call:
 
   ```bash
-  python3 "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/apply_priority_labels.py --backfill --set N=P0 --quiet
+  python3 scripts/apply_priority_labels.py --backfill --set N=P0 --quiet
   ```
 
-- **more than that, tangled dependency edges, or a close top-two** — spawn one
-  `sonnet` sub-agent with the Priority research template in
-  [references/subagent-prompts.md](references/subagent-prompts.md) and let it
-  make that same call. It reads the bodies, applies the rubric, and returns the
-  selection with evidence — not the prose, not the per-issue tier list. Do not
-  run the backfill yourself first; the agent's call covers both halves.
+- **more than that, tangled dependency edges, or a close top-two** — hand off
+  the Priority research template in
+  [references/subagent-prompts.md](references/subagent-prompts.md):
+
+  > **Claude Code**: spawn one `sonnet` sub-agent with that template. It reads
+  > the bodies, applies the rubric, and returns the selection with evidence —
+  > not the prose, not the per-issue tier list.
+  > **Codex / no sub-agent mechanism**: the main context reads
+  > `references/subagent-prompts.md` skill-relatively itself and performs the
+  > same read → rubric → `apply_priority_labels.py` steps inline, in this
+  > context, before continuing.
+
+  Do not run the backfill yourself first; that call covers both halves either
+  way.
 
 `--backfill` creates the four labels if the repo lacks them and writes the
 suggested tier to every open issue that has none; each `--set` overrides one the
@@ -114,15 +126,23 @@ nice-to-have never outranks those, however easy.
 Re-run `--select` after labeling, then create the run record directory if it
 does not exist and record the selection in the rubric's shape — chosen issue,
 evidence lines, runner-up, deferred. **Proceed on that pick without asking.**
-Ask via `AskUserQuestion` only when the top two are genuinely tied on every
-axis, or the top issue needs a product decision before it can be implemented at
-all.
+Ask the user directly, in plain conversation, and wait for their reply, only
+when the top two are genuinely tied on every axis, or the top issue needs a
+product decision before it can be implemented at all.
 
 ### 3. Implement, with the issue link built in
 
-One issue = one branch = one PR. Spawn an `opus` sub-agent per issue with the
-Implementation template. For a parallel group, spawn them in a single message
-with `isolation: "worktree"`; serialize everything else.
+One issue = one branch = one PR, following the Implementation template in
+[references/subagent-prompts.md](references/subagent-prompts.md).
+
+> **Claude Code**: spawn an `opus` sub-agent per issue with that template. For
+> a parallel group, spawn them in a single message with `isolation:
+> "worktree"` (cap 3); serialize everything else.
+> **Codex / no sub-agent mechanism**: the main context reads the same
+> template skill-relatively and works through issues one at a time in the
+> checkout (or one worktree at a time), following the same steps inline. This
+> collapses the fan-out speed parallelism of `all` mode to serial — a time
+> increase only, with phase order (rank → implement → CI → merge) unchanged.
 
 Two constraints exist so the issue closes itself on merge:
 
@@ -149,7 +169,7 @@ skips dirty worktrees rather than deleting them.
 ### 4. Verify the auto-close link
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/link_check.sh <pr> --issue <n> --fix
+scripts/link_check.sh <pr> --issue <n> --fix
 ```
 
 Cheap, and it is the one check that decides whether this run actually closes
@@ -213,25 +233,40 @@ finding outside the shipped issue's scope is not fixed here either — it comes
 back under `FOLLOW-UPS` and is filed in step 6.5.
 
 The agent reports `REVIEW:` with the chosen effort level and per-pass finding
-and fix counts. `UNAVAILABLE` (the skill is not reachable from a sub-agent
-context) is not a run failure: when the branch is checked out in this context —
+and fix counts. `UNAVAILABLE` — the skill is not reachable from a sub-agent
+context, or the run is under Codex, where this built-in skill does not exist
+at all — is not a run failure: when the branch is checked out in this context —
 single-issue mode, no worktree — run the same passes here instead, committing
 and pushing each one; otherwise note it in the report and go on to CI.
 
 ### 5. CI to green
 
-Run `ci_watch.sh <pr> --timeout 1800` in the main context first — its output is
-a short verdict, and most PRs go green on the first watch, so a sub-agent spawn
-would buy nothing. In `all` mode with several PRs in flight, background the
-watches (`run_in_background`) instead of serializing them. `ci_watch.sh` is the
-run's only wait primitive — one blocking call per wait; neither this context
-nor any sub-agent hand-rolls a `sleep`/poll loop around `gh`.
+Run `scripts/ci_watch.sh <pr> --timeout 1800` in the main context first — its
+output is a short verdict, and most PRs go green on the first watch, so a
+sub-agent spawn would buy nothing.
 
-Only on `FAIL`, spawn a `sonnet` sub-agent per failing PR with the CI repair
-template. It reads the failing logs the script printed, fixes the branch in its
-worktree, pushes, and re-watches — up to **3 attempts**. If the same failure
-survives two attempts, re-spawn on `opus` with the accumulated failure detail.
-CI logs stay in the repair agent; the main context gets its verdict lines only.
+> **Claude Code**: in `all` mode with several PRs in flight, background the
+> watches (`run_in_background`) instead of serializing them.
+> **Codex / no background execution**: run `ci_watch.sh` per PR sequentially,
+> one wait at a time.
+
+`ci_watch.sh` is the run's only wait primitive — one blocking call per wait;
+neither this context nor any sub-agent hand-rolls a `sleep`/poll loop around
+`gh`.
+
+Only on `FAIL`, hand off the CI repair template in
+[references/subagent-prompts.md](references/subagent-prompts.md):
+
+> **Claude Code**: spawn a `sonnet` sub-agent per failing PR with that
+> template. It reads the failing logs the script printed, fixes the branch in
+> its worktree, pushes, and re-watches — up to **3 attempts**. If the same
+> failure survives two attempts, re-spawn on `opus` with the accumulated
+> failure detail. CI logs stay in the repair agent; the main context gets its
+> verdict lines only.
+> **Codex / no sub-agent mechanism**: the main context reads the same
+> template skill-relatively and performs the same repair steps inline, one PR
+> at a time, up to the same 3-attempt ceiling before escalating its own
+> effort on the accumulated failure detail.
 
 A green CI is the goal. A check that passes because a test was deleted, skipped,
 or weakened is a failed outcome and gets reported as such — same for a "flaky"
@@ -246,7 +281,7 @@ before merging.
 ### 6. Merge and confirm the issue closed
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/land_pr.sh <pr> --issue <n>
+scripts/land_pr.sh <pr> --issue <n>
 ```
 
 `--issue` makes the script re-check the closing link before merging and confirm
@@ -316,7 +351,7 @@ report and file nothing.
 Write the body to a file, then:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/file_followup.py \
+python3 scripts/file_followup.py \
     --title "<repo's title convention>" --body-file <path> \
     --tier P2 --label <area label> --found-while <n>
 ```
@@ -342,7 +377,7 @@ at the end, where an interrupted run loses them all.
 ### 7. Clean up — once, at the end, script only
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/cleanup_run.sh [--remote] [--dry-run] [--merged-only]
+scripts/cleanup_run.sh [--remote] [--dry-run] [--merged-only]
 ```
 
 All deletion goes through this one script, in one batch after the last merge.
@@ -417,12 +452,15 @@ returned the lead in `FOLLOW-UPS`, and confirming it costs a couple of targeted
 reads in the main context, which is also what makes the tier trustworthy.
 
 Model assignments (triage and CI watch on `sonnet`, implementation on `opus`,
-escalation to `opus` after two failed repairs) are baked-in conclusions from
-`orchestrating-models` §2 — the dividing line is spec completeness. Implementation
-stays delegated even when the main model is Opus: a deliberate exception to that
-skill's Opus-main "do it yourself" default, bought for context isolation — the
-diff, the repo exploration, and the CI logs are never needed in the main context
-again. <!-- derived from orchestrating-models §2 -->
+escalation to `opus` after two failed repairs) are baked-in conclusions — the
+dividing line is spec completeness — and apply as stated on both platforms.
+Implementation stays delegated even when the main model is Opus: a deliberate
+exception to the Opus-main "do it yourself" default, bought for context
+isolation — the diff, the repo exploration, and the CI logs are never needed
+in the main context again. (When running under Claude Code, these assignments
+are derived from `orchestrating-models` §2, a Claude-Code-only skill; that
+citation is not something Codex can resolve, but the assignments themselves
+hold regardless.)
 
 ## Stop conditions
 
@@ -433,3 +471,24 @@ is the base branch, not the change).
 
 In `all` mode, a single failed issue does not stop the run — mark it FAILED,
 skip anything that depended on it, and continue.
+
+## Codex での制約(best-effort 劣化)
+
+- Task ベースのサブエージェント起動(priority research、per-issue implementation、
+  CI repair)→ Codex では main context が
+  [references/subagent-prompts.md](references/subagent-prompts.md) を
+  skill-relative に読み、同じ手順を逐次インラインで実行する(サブエージェント機構は
+  使わない)。
+- `all` モードでの issue 間並列実装(`isolation: "worktree"`、cap 3)→ Codex では
+  一度に 1 issue/worktree ずつの逐次実行(所要時間が増えるだけで、rank → implement
+  → CI → merge のフェーズ順序は保たれる)。
+- `all` モードでの `run_in_background` による CI-watch 並列化 → Codex では
+  `ci_watch.sh` を PR ごとに逐次実行する。
+- `AskUserQuestion` → 通常の対話文でユーザーに直接質問し、回答を待つ。
+- `/code-review`(step 4.5 の Claude Code 組み込みセルフレビュー)→ Codex では
+  完全に UNAVAILABLE。既存の UNRESOLVED / `REVIEW: UNAVAILABLE` フォールバックが
+  レビュー抜きでのマージを既にカバーしている。
+- `orchestrating-models` §2 の引用(モデル割り当ての根拠)→ Codex では参照先が
+  存在しない(このスキルは Claude Code 専用で bridge されていない)。sonnet/opus
+  のモデル割り当て自体は両プラットフォームで有効な結論として残る。引用先だけが
+  無効になる。

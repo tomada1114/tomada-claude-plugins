@@ -1,6 +1,6 @@
 ---
 name: ui-ux-designing
-description: "Design UI/UX concepts for apps and web services through systematic research and questioning. Use PROACTIVELY when designing app interfaces, determining visual direction, creating design systems, choosing color schemes, or establishing UX patterns. Examples: <example>Context: User wants to design an app user: 'I want to settle the UI/UX design concept' assistant: 'I will use ui-ux-designing skill' <commentary>Triggered by design concept request</commentary></example> <example>Context: User building new feature user: 'How should this feature look?' assistant: 'I will use ui-ux-designing skill' <commentary>Triggered by visual design question</commentary></example>"
+description: "Design UI/UX concepts for apps and web services through systematic research and questioning (UI/UXデザイン、デザインコンセプト決定、配色・カラースキーム、デザインシステム設計). Use PROACTIVELY when designing app interfaces, determining visual direction, creating design systems, choosing color schemes, or establishing UX patterns. Examples: <example>Context: User wants to design an app user: 'I want to settle the UI/UX design concept' assistant: 'I will use ui-ux-designing skill' <commentary>Triggered by design concept request</commentary></example> <example>Context: User building new feature user: 'How should this feature look?' assistant: 'I will use ui-ux-designing skill' <commentary>Triggered by visual design question</commentary></example>"
 ---
 
 # UI/UX Designing
@@ -12,11 +12,11 @@ description: "Design UI/UX concepts for apps and web services through systematic
 ```
 Phase 1: 要件確認
     ↓
-Phase 2: 競合/人気アプリのUX調査 (WebSearch)
+Phase 2: 競合/人気アプリのUX調査 (WebSearch / 同等の調査手段)
     ↓
-Phase 3: デザイン方向性の決定 (AskUserQuestion)
+Phase 3: デザイン方向性の決定 (AskUserQuestion / 対話で確認)
     ↓
-Phase 4: 詳細要素の決定 (AskUserQuestion)
+Phase 4: 詳細要素の決定 (AskUserQuestion / 対話で確認)
     ↓
 Phase 5: デザインコンセプトドキュメント生成
 ```
@@ -27,7 +27,8 @@ Phase 5: デザインコンセプトドキュメント生成
 
 ## Phase 2: 競合/人気アプリのUX調査
 
-`WebSearch` で関連アプリのUXを調査する（3つ以上）。
+> **Claude Code**: `WebSearch` で関連アプリのUXを調査する（3つ以上）。
+> **Codex / WebSearch が無い環境**: 同等の web 検索ツールがあれば使用する。無ければユーザーに参考アプリ名・URL・スクリーンショットの提供を依頼して調査する（調査観点・3アプリ以上の原則は維持）。
 
 **調査クエリ例:**
 ```
@@ -42,7 +43,8 @@ Phase 5: デザインコンセプトドキュメント生成
 
 ## Phase 3: デザイン方向性の決定
 
-`AskUserQuestion` で選択肢を提示し、大きな方向性を決める（このバッチ確認の原則はPhase 4にも適用）。
+> **Claude Code**: `AskUserQuestion` で選択肢を提示し、大きな方向性を決める（このバッチ確認の原則はPhase 4にも適用）。
+> **Codex / AskUserQuestion が無い環境**: 同じ選択肢を通常の文章でユーザーに提示し、回答を待つ（バッチ確認の原則はPhase 4にも適用）。
 
 ### 質問カテゴリ
 
@@ -55,7 +57,8 @@ Phase 5: デザインコンセプトドキュメント生成
 
 ## Phase 4: 詳細要素の決定
 
-方向性が決まったら、`AskUserQuestion` で詳細を詰める。
+> **Claude Code**: 方向性が決まったら、`AskUserQuestion` で詳細を詰める。
+> **Codex / AskUserQuestion が無い環境**: 方向性が決まったら、同じ要領で通常の文章でユーザーに詳細を確認する。
 
 ### 質問カテゴリ
 
@@ -128,4 +131,9 @@ Phase 5: デザインコンセプトドキュメント生成
 
 - [design-concept-template.md](templates/design-concept-template.md) - デザインコンセプトテンプレート
 
-> Codex での制約と両対応に関する補足は `references/codex-notes.md` を参照。
+## Codex での制約（best-effort 劣化）
+
+- `AskUserQuestion`（Phase 1・3・4 の各確認）→ Codex では通常対話で同じ選択肢を提示して確認する。「質問設計の原則」（選択肢2〜4個・トレードオフ説明・`（推奨）`明示・3-4個ずつバッチ化）はそのまま適用する。
+- `WebSearch`（Phase 2）→ Codex では同等の web 検索ツールがあれば使用し、無ければユーザー提供の参考情報（アプリ名・URL・スクリーンショット）で調査する（調査観点・3アプリ以上の原則は維持）。
+
+詳細は `references/codex-notes.md` を参照。

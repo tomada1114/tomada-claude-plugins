@@ -1,14 +1,14 @@
 ---
 name: designing-wireframes
-description: "Create ASCII wireframes, user flow diagrams, and cross-cutting specifications for UI/UX visualization. Use PROACTIVELY when user mentions wireframe, UI design, UX flow, screen layout, screen design, user flow, or asks to visualize screens. Examples: <example>Context: User needs screen design user: 'Create wireframes for this feature' assistant: 'I will use designing-wireframes skill' <commentary>Triggered by wireframe request</commentary></example> <example>Context: After requirements are detailed user: 'Let me design the screens' assistant: 'I will use designing-wireframes skill' <commentary>Triggered by screen design request</commentary></example>"
+description: "Create ASCII wireframes, user flow diagrams, and cross-cutting specifications for UI/UX visualization (ワイヤーフレーム、画面設計、UI/UXフロー). Use PROACTIVELY when user mentions wireframe, UI design, UX flow, screen layout, screen design, user flow, or asks to visualize screens. Examples: <example>Context: User needs screen design user: 'Create wireframes for this feature' assistant: 'I will use designing-wireframes skill' <commentary>Triggered by wireframe request</commentary></example> <example>Context: After requirements are detailed user: 'Let me design the screens' assistant: 'I will use designing-wireframes skill' <commentary>Triggered by screen design request</commentary></example>"
 ---
 
 # Wireframe Designer
 
 Create ASCII wireframes, user flow diagrams, and cross-cutting specifications for UI/UX visualization.
 
-**Before this skill**: Use `refining-requirements` to clarify ambiguous requirements.
-**After this skill**: Use `planning-tickets` for GitHub Issues creation.
+**Before this skill**: Use `refining-requirements` to clarify ambiguous requirements. (Dual-platform: resolves by name on Claude Code via `Skill`, and on Codex via its skill bridge.)
+**After this skill**: Use `planning-tickets` for GitHub Issues creation. (`planning-tickets` has not yet been converted for dual-platform use as of this writing — under Codex this name reference may not resolve correctly until `planning-tickets` is bridged; treat this handoff as Claude-Code-confirmed for now.)
 
 ## Workflow
 
@@ -192,3 +192,8 @@ Based on user decisions from `refining-requirements`, add all 4 sections below t
 - When uncertain, default to platform conventions (iOS/Android) and ask the user about specific UI decisions; refer to `wireframe-patterns.md` for component examples.
 
 > Codex での両対応に関する補足は `references/codex-notes.md` を参照。
+
+## Codex での制約（best-effort 劣化）
+- このスキル自体の手順（ASCII ワイヤーフレーム・フロー図・横断セクション作成）に Claude 専用構文（`Task`/`AskUserQuestion`/MCP/`.claude/` 絶対パス）は無く、機能的な劣化は無い（詳細は `references/codex-notes.md`）。
+- `refining-requirements` への Before ハンドオフは両対応済みで、Claude/Codex どちらでも名前解決できる。
+- `planning-tickets` への After ハンドオフは、`planning-tickets` 側が本記事時点で未両対応化のため、Codex では名前参照が解決しない可能性がある。`planning-tickets` の両対応化・bridge が完了するまでは、この後続ステップを Claude Code 側で確認する運用にすること。

@@ -114,4 +114,8 @@ Exact procedure and label/milestone bootstrap commands: [reference.md](reference
 
 ## Platform compatibility (Claude Code / Codex)
 
-Platform-neutral: uses only `gh` and `git` CLIs and skill-relative references (`templates/`, `reference.md`), with no Claude-only constructs (`Task`, `AskUserQuestion`, MCP tools, or hardcoded `.claude/` paths). Runs identically on Claude Code and Codex CLI with **no degradation**. On Codex the skill folder is reached via a symlink in `~/.codex/skills/` (Topology A); the real folder stays under `.claude/skills/`.
+Platform-neutral: uses only `gh` and `git` CLIs and skill-relative references (`templates/`, `reference.md`), with no Claude-only session or path constructs. Runs identically on Claude Code and Codex CLI with **no degradation**. On Codex the skill folder is reached via a symlink in `~/.codex/skills/` (Topology A); the real folder stays under the skill's own directory.
+
+## Codex での制約（best-effort 劣化）
+
+- なし。本スキルは `gh`/`git` CLI とスキル相対参照のみで構成され、Claude 専用機構（並列 `Task`、`AskUserQuestion`、MCP、ハードコード絶対パス）を使用しないため、Codex 上でも劣化なく同一に動作する。

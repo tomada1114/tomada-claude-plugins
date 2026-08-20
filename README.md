@@ -17,14 +17,14 @@ Run `/plugin` to browse interactively.
 |---|---|
 | **authoring-goal-prompts** | Author a self-contained prompt for Claude Code's /goal command, run unattended in a separate session — a… |
 | **claudecode-skill-creating** | Create, audit, refactor, convert, or troubleshoot Claude Code skills. |
-| **designing-wireframes** | Create ASCII wireframes, user flow diagrams, and cross-cutting specifications for UI/UX visualization. |
+| **designing-wireframes** | Create ASCII wireframes, user flow diagrams, and cross-cutting specifications for UI/UX visualization… |
 | **dual-platform-skills** | Convert one existing skill (Claude Code origin or Codex origin) into a layout that works on both Claude Code… |
 | **orchestrating-models** | Playbook for choosing models and deciding what to delegate. |
 | **planning-tickets** | Plan and create GitHub Issues with agile/scrum methodology. |
 | **refining-prompts** | Polish a rough instruction (often dictated by voice) into a precise prompt that can be handed straight to… |
 | **refining-requirements** | Clarify ambiguous requirements through structured questioning and produce detailed, implementation-ready… |
 | **shipping-issues** | Rank the open GitHub Issues, implement the top one, then drive it through PR, CI, merge to main, and close |
-| **ui-ux-designing** | Design UI/UX concepts for apps and web services through systematic research and questioning. |
+| **ui-ux-designing** | Design UI/UX concepts for apps and web services through systematic research and questioning (UI/UXデザイン… |
 
 ## Commands
 

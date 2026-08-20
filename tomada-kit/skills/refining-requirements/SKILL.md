@@ -112,4 +112,9 @@ Save the document as `requirements.md` in the project root, or update the existi
 - Track which phases are complete with `TodoWrite`.
 - Suggest `designing-wireframes` after completion if UI screens need to be designed.
 
-> Codex で実行する場合の制約と代替手順は `references/codex-notes.md` を参照。
+## Codex での制約（best-effort 劣化）
+
+- `AskUserQuestion`（Phase 0・Phase 2）→ Codex では同じ質問・選択肢を通常の文章で提示し、回答を待つ形に変換。バッチ化・具体的な選択肢・トレードオフ提示の原則は両対応で不変。
+- `TodoWrite` による進捗追跡 → Codex では作業メモ内のチェックリストで代替。
+
+詳細と、後続スキル（`designing-wireframes` / `planning-tickets`、いずれも両対応・bridge 済み）の解決方針は [references/codex-notes.md](references/codex-notes.md) を参照。
