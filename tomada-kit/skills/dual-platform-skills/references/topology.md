@@ -1,3 +1,4 @@
+<!-- platform-annex -->
 # Topology A — 配置設計
 
 採用する唯一の配置方式。**実体は `.claude/skills/<name>/`、Codex 側はそこへの symlink**。

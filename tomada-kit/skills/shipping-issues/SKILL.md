@@ -2,6 +2,8 @@
 name: shipping-issues
 description: "Rank the open GitHub Issues by their `priority: P0`-`P3` labels — backfilling a label, from whether an issue unblocks others and how far its impact spreads, wherever one is missing — then implement the top one, open a PR that auto-closes the issue (Closes #N), watch CI until it is green, merge to main, and confirm the issue actually closed. With no argument it ships only the single highest-priority issue; pass \"all\" to work through every issue in dependency order (independent ones in parallel worktrees). Issue data collection, CI watching, and fix retries are delegated to scripts and sub-agents to save tokens. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, work through the open issues, or finish off every issue."
 argument-hint: "[all | <issue number> | (empty = one issue)]"
+metadata:
+  platforms: claude-code, codex
 ---
 
 # Shipping Issues
@@ -34,8 +36,9 @@ Reads: the current repo's open issues and PRs via `gh`; the project's own
 Writes: `priority: P0`…`P3` labels on the repo's open issues (the persisted
 ranking), branches, PRs, merge commits on the remote, issue closures, **new
 follow-up issues for defects found along the way** (step 6.5), plus a run
-record at `~/.claude/shipping-issues/<owner>__<repo>/run.md` (appended, never
-deleted) so a re-run knows what already landed.
+record at
+`${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/shipping-issues/<owner>__<repo>/run.md`
+(appended, never deleted) so a re-run knows what already landed.
 
 ## Workflow
 
@@ -97,13 +100,12 @@ many issues need judgment — and it runs **once**, not once per caller:
   the Priority research template in
   [references/subagent-prompts.md](references/subagent-prompts.md):
 
-  > **Claude Code**: spawn one `sonnet` sub-agent with that template. It reads
-  > the bodies, applies the rubric, and returns the selection with evidence —
-  > not the prose, not the per-issue tier list.
-  > **Codex / no sub-agent mechanism**: the main context reads
-  > `references/subagent-prompts.md` skill-relatively itself and performs the
-  > same read → rubric → `apply_priority_labels.py` steps inline, in this
-  > context, before continuing.
+  Delegate this to an independent `sonnet` worker using that template where
+  delegation is available; otherwise the main context reads the same template
+  skill-relatively and performs the same read → rubric →
+  `apply_priority_labels.py` steps inline, before continuing. Either way: only
+  the selection with evidence comes back — not the prose, not the per-issue
+  tier list.
 
   Do not run the backfill yourself first; that call covers both halves either
   way.
@@ -135,14 +137,14 @@ product decision before it can be implemented at all.
 One issue = one branch = one PR, following the Implementation template in
 [references/subagent-prompts.md](references/subagent-prompts.md).
 
-> **Claude Code**: spawn an `opus` sub-agent per issue with that template. For
-> a parallel group, spawn them in a single message with `isolation:
-> "worktree"` (cap 3); serialize everything else.
-> **Codex / no sub-agent mechanism**: the main context reads the same
-> template skill-relatively and works through issues one at a time in the
-> checkout (or one worktree at a time), following the same steps inline. This
-> collapses the fan-out speed parallelism of `all` mode to serial — a time
-> increase only, with phase order (rank → implement → CI → merge) unchanged.
+Delegate this to an independent `opus` worker per issue using that template
+where delegation is available — a parallel group uses an isolated work copy
+per issue (cap 3), spawned together in one batch; serialize everything else —
+otherwise the main context reads the same template skill-relatively and works
+through issues one at a time in the checkout (or one worktree at a time),
+following the same steps inline. Either way: phase order (rank → implement →
+CI → merge) stays unchanged; when delegation is unavailable this collapses the
+fan-out speed parallelism of `all` mode to serial — a time increase only.
 
 Two constraints exist so the issue closes itself on merge:
 
@@ -183,34 +185,33 @@ confirmation, not duplicated work.
 ### 4.5 Self-review before CI — effort scaled to the diff
 
 Between the PR existing and CI judging it there is one review pass that catches
-what CI cannot: correctness bugs, dead reuse, needless complexity. Claude Code's
-built-in review skill does it and applies its own fixes. The implementation
-agent picks the effort level from the diff it just produced:
+what CI cannot: correctness bugs, dead reuse, needless complexity. A
+self-review pass, run when one is available, does it and applies its own
+fixes. The implementation agent picks the effort level from the diff it just
+produced:
 
 - **Heavy diff** — touches a schema, storage layer, or public contract; adds or
-  bumps a dependency; or rewires behavior across several modules — one pass:
-
-  ```
-  /code-review high --fix
-  ```
+  bumps a dependency; or rewires behavior across several modules — one pass at
+  high effort, applying its findings.
 
   `high` reaches in a single pass what `low` needs repetition for, and
   re-reviewing a large diff in full costs more than the second pass catches.
 
-- **Anything else** — `/code-review low --fix`, **twice**: the second pass
-  reviews the code as the first pass changed it. `low` returns fewer,
-  high-confidence findings — the right depth for a small, contained diff.
+- **Anything else** — one pass at low effort, applying its findings, **twice**:
+  the second pass reviews the code as the first pass changed it. `low` returns
+  fewer, high-confidence findings — the right depth for a small, contained
+  diff.
 
-`--fix` hands the findings to a sub-agent that applies them to the working tree;
-it does not commit, so each pass ends with a commit and a push.
+Applying findings hands them off to be written into the working tree; that
+does not commit them, so each pass ends with a commit and a push.
 
 **The implementation agent runs the review, inside its own worktree**, as the
 last thing it does before returning. It is the only context whose working tree
-*is* the PR branch: `/code-review` forks in the calling session's cwd and
-`--fix` writes to that working tree, so run from here it reviews the wrong
-checkout — a worktree's branch is invisible to it. That holds for any extra
-pre-merge pass too: more review happens inside the worktree (spawn an agent
-there), or not at all.
+*is* the PR branch: a self-review pass runs in the calling session's cwd and
+applying its findings writes to that working tree, so run from here it
+reviews the wrong checkout — a worktree's branch is invisible to it. That
+holds for any extra pre-merge pass too: more review happens inside the
+worktree (spawn an agent there), or not at all.
 
 Every pass lands on the branch before step 5 starts, so CI is watched on the
 reviewed code rather than on the pre-review commit.
@@ -233,11 +234,11 @@ finding outside the shipped issue's scope is not fixed here either — it comes
 back under `FOLLOW-UPS` and is filed in step 6.5.
 
 The agent reports `REVIEW:` with the chosen effort level and per-pass finding
-and fix counts. `UNAVAILABLE` — the skill is not reachable from a sub-agent
-context, or the run is under Codex, where this built-in skill does not exist
-at all — is not a run failure: when the branch is checked out in this context —
-single-issue mode, no worktree — run the same passes here instead, committing
-and pushing each one; otherwise note it in the report and go on to CI.
+and fix counts. `UNAVAILABLE` — no self-review pass is reachable from a
+sub-agent context, or none exists on this platform at all — is not a run
+failure: when the branch is checked out in this context — single-issue mode,
+no worktree — run the same passes here instead, committing and pushing each
+one; otherwise note it in the report and go on to CI.
 
 ### 5. CI to green
 
@@ -245,10 +246,9 @@ Run `scripts/ci_watch.sh <pr> --timeout 1800` in the main context first — its
 output is a short verdict, and most PRs go green on the first watch, so a
 sub-agent spawn would buy nothing.
 
-> **Claude Code**: in `all` mode with several PRs in flight, background the
-> watches (`run_in_background`) instead of serializing them.
-> **Codex / no background execution**: run `ci_watch.sh` per PR sequentially,
-> one wait at a time.
+In `all` mode with several PRs in flight, run the watches concurrently where
+that is available instead of serializing them; otherwise run `ci_watch.sh` per
+PR sequentially, one wait at a time.
 
 `ci_watch.sh` is the run's only wait primitive — one blocking call per wait;
 neither this context nor any sub-agent hand-rolls a `sleep`/poll loop around
@@ -257,16 +257,15 @@ neither this context nor any sub-agent hand-rolls a `sleep`/poll loop around
 Only on `FAIL`, hand off the CI repair template in
 [references/subagent-prompts.md](references/subagent-prompts.md):
 
-> **Claude Code**: spawn a `sonnet` sub-agent per failing PR with that
-> template. It reads the failing logs the script printed, fixes the branch in
-> its worktree, pushes, and re-watches — up to **3 attempts**. If the same
-> failure survives two attempts, re-spawn on `opus` with the accumulated
-> failure detail. CI logs stay in the repair agent; the main context gets its
-> verdict lines only.
-> **Codex / no sub-agent mechanism**: the main context reads the same
-> template skill-relatively and performs the same repair steps inline, one PR
-> at a time, up to the same 3-attempt ceiling before escalating its own
-> effort on the accumulated failure detail.
+Delegate this to an independent `sonnet` worker per failing PR using that
+template where delegation is available; otherwise the main context reads the
+same template skill-relatively and performs the same repair steps inline, one
+PR at a time. Either way: it reads the failing logs the script printed, fixes
+the branch in its worktree, pushes, and re-watches — up to **3 attempts**
+total. If the same failure survives two attempts, escalate to `opus` with the
+accumulated failure detail (re-spawning on `opus` where delegation is
+available, or raising its own effort inline otherwise). CI logs stay with the
+worker doing the repair; the main context gets its verdict lines only.
 
 A green CI is the goal. A check that passes because a test was deleted, skipped,
 or weakened is a failed outcome and gets reported as such — same for a "flaky"
@@ -457,10 +456,9 @@ dividing line is spec completeness — and apply as stated on both platforms.
 Implementation stays delegated even when the main model is Opus: a deliberate
 exception to the Opus-main "do it yourself" default, bought for context
 isolation — the diff, the repo exploration, and the CI logs are never needed
-in the main context again. (When running under Claude Code, these assignments
-are derived from `orchestrating-models` §2, a Claude-Code-only skill; that
-citation is not something Codex can resolve, but the assignments themselves
-hold regardless.)
+in the main context again. (See `orchestrating-models` §2 for the reasoning
+behind these assignments; [references/platform-notes.md](references/platform-notes.md)
+notes where that citation resolves.)
 
 ## Stop conditions
 
@@ -472,23 +470,6 @@ is the base branch, not the change).
 In `all` mode, a single failed issue does not stop the run — mark it FAILED,
 skip anything that depended on it, and continue.
 
-## Codex での制約(best-effort 劣化)
+## Platform notes
 
-- Task ベースのサブエージェント起動(priority research、per-issue implementation、
-  CI repair)→ Codex では main context が
-  [references/subagent-prompts.md](references/subagent-prompts.md) を
-  skill-relative に読み、同じ手順を逐次インラインで実行する(サブエージェント機構は
-  使わない)。
-- `all` モードでの issue 間並列実装(`isolation: "worktree"`、cap 3)→ Codex では
-  一度に 1 issue/worktree ずつの逐次実行(所要時間が増えるだけで、rank → implement
-  → CI → merge のフェーズ順序は保たれる)。
-- `all` モードでの `run_in_background` による CI-watch 並列化 → Codex では
-  `ci_watch.sh` を PR ごとに逐次実行する。
-- `AskUserQuestion` → 通常の対話文でユーザーに直接質問し、回答を待つ。
-- `/code-review`(step 4.5 の Claude Code 組み込みセルフレビュー)→ Codex では
-  完全に UNAVAILABLE。既存の UNRESOLVED / `REVIEW: UNAVAILABLE` フォールバックが
-  レビュー抜きでのマージを既にカバーしている。
-- `orchestrating-models` §2 の引用(モデル割り当ての根拠)→ Codex では参照先が
-  存在しない(このスキルは Claude Code 専用で bridge されていない)。sonnet/opus
-  のモデル割り当て自体は両プラットフォームで有効な結論として残る。引用先だけが
-  無効になる。
+詳細は [references/platform-notes.md](references/platform-notes.md) を参照。

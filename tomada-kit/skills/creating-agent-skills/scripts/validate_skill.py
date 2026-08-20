@@ -14,6 +14,10 @@ Checks:
     6. SKILL.md body <= 500 lines (warning at 500, error at 800).
     7. Relative links to references/, assets/, scripts/, examples/ resolve.
     8. No single code block in SKILL.md exceeds 25 lines (warning; move logic to scripts/).
+    9. Dual-platform neutrality (N1-N4, delegated to dual-platform-skills/scripts/neutrality_lint.py):
+       no raw Claude-only tool names or platform-namespaced paths in body text when
+       metadata.platforms declares codex support (error), or a metadata.platforms-missing
+       warning otherwise. Skipped entirely if platforms is declared claude-code only.
 
 Output:
     Human-readable by default, machine-readable with --json.
@@ -25,6 +29,7 @@ Exit codes:
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
 import sys
@@ -34,6 +39,23 @@ from pathlib import Path
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$")
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 CODE_BLOCK_RE = re.compile(r"^```[^\n]*\n(.*?)^```", re.DOTALL | re.MULTILINE)
+
+
+def _load_neutrality_lint():
+    """Import dual-platform-skills' neutrality_lint.py from its canonical location —
+    no duplicate copy here (both skills are expected to be bridged side by side; see
+    dual-platform-skills/references/topology.md). Returns None if it cannot be found,
+    so validate() degrades to skipping check 9 rather than crashing.
+    """
+    mod_path = (Path(__file__).resolve().parent.parent.parent
+                / "dual-platform-skills" / "scripts" / "neutrality_lint.py")
+    if not mod_path.exists():
+        return None
+    spec = importlib.util.spec_from_file_location("neutrality_lint", mod_path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod  # must register before exec — dataclass field resolution needs it
+    spec.loader.exec_module(mod)
+    return mod
 
 
 @dataclass
@@ -229,6 +251,22 @@ def validate(skill_path: Path) -> Report:
             continue
         if not target_path.exists():
             report.add("error", "E041", f"broken link: {target}", "SKILL.md")
+
+    # Dual-platform neutrality (check 9) — delegates to neutrality_lint.py rather than
+    # reimplementing the pattern set here (would drift out of sync otherwise).
+    nl = _load_neutrality_lint()
+    if nl is not None:
+        try:
+            nl_report = nl.lint(skill_path)
+            for f in nl_report.findings:
+                rel = f.file
+                try:
+                    rel = str(Path(f.file).relative_to(skill_path))
+                except ValueError:
+                    pass
+                report.add(f.level, f.code, f.message, rel)
+        except Exception as e:  # noqa: BLE001 — neutrality check is best-effort, never block the rest
+            report.add("warning", "W060", f"neutrality_lint.py could not run: {e}", "SKILL.md")
 
     return report
 

@@ -28,11 +28,11 @@ your ordering directly, so an unverified claim costs me a full implement/PR/CI
 cycle — and a wrong label costs every later run too.
 
 Read first, in this order:
-  "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/references/priority-rubric.md
-  "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/references/dependency-triage.md
+  {SKILL_DIR}/references/priority-rubric.md
+  {SKILL_DIR}/references/dependency-triage.md
 
 Then run and read the full-body digest (do not paste its raw output back to me):
-  python3 "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/issue_digest.py {filters}
+  python3 {SKILL_DIR}/scripts/issue_digest.py {filters}
 
 `~Pn` in the priority column is a suggested tier the script computed but has not
 written; `P2(~P0)` is a written label the signals now say is too low. Run the
@@ -43,7 +43,7 @@ claim you repeat:
   gh run list --branch {default_branch} --limit 5   (only if an issue claims CI/main is broken)
 
 Then write the tiers — one call, both halves:
-  python3 "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/apply_priority_labels.py \
+  python3 {SKILL_DIR}/scripts/apply_priority_labels.py \
       --backfill --set <n>=<tier> --set <m>=<tier> --quiet
 
 `--backfill` takes the script's suggestion for every issue you did not examine;
@@ -122,17 +122,18 @@ Do:
    (not "see #{n}", not "related to #{n}" — those do not close anything), plus a
    summary and a test plan.
 6. Confirm GitHub actually registered the link, and repair it if not:
-     "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/link_check.sh <pr> --issue {n} --fix
+     {SKILL_DIR}/scripts/link_check.sh <pr> --issue {n} --fix
    Report its verdict verbatim. Do not return until it says LINKED, or explain
    why it cannot.
 7. Self-review the branch before it reaches CI, with the effort level chosen
-   from the diff you just produced:
+   from the diff you just produced. Run a self-review pass if one is
+   available; if not, report REVIEW: UNAVAILABLE and continue:
    - Heavy diff (touches a schema, storage layer, or public contract; adds or
      bumps a dependency; or rewires behavior across several modules): one pass
-     of  /code-review high --fix
-   - Anything else: /code-review low --fix, twice — the second pass reviews the
-     code as the first pass changed it.
-   `--fix` applies the findings to the working tree and does not commit them.
+     at high effort, applying its findings to the working tree.
+   - Anything else: one pass at low effort, applying its findings, twice — the
+     second pass reviews the code as the first pass changed it.
+   Applying findings updates the working tree but does not commit them.
    So, per pass: read what it changed, commit it on its own
    (`review: <what was fixed>`), and push before any next pass, so it sees the
    fixed code. Re-run the step 4 verification command after the final pass and
@@ -145,8 +146,8 @@ Do:
    loosening an assertion, or silencing a warning is a failed outcome — say so
    under UNRESOLVED instead. A finding outside issue #{n}'s scope does not get
    fixed here; it goes under FOLLOW-UPS and the parent files it.
-   If the review skill is not reachable from your context, report
-   REVIEW: UNAVAILABLE and move on — do not hand-roll a substitute review.
+   If a self-review pass is not available, report REVIEW: UNAVAILABLE and
+   continue — do not hand-roll a substitute review.
 8. Do NOT clean up after yourself — no `rm`, no worktree removal, no branch
    deletion; the parent runs one batch cleanup at the end. If you produced
    gitignored artifacts (fixtures, bench outputs) in a worktree, copy them into
@@ -199,7 +200,7 @@ Its CI just failed: {failing_check_names_from_parent_watch}. I need it green, or
 a clear statement of why it cannot be.
 
 Start by reading the failing logs:
-  "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/ci_watch.sh {pr} --timeout 1800
+  {SKILL_DIR}/scripts/ci_watch.sh {pr} --timeout 1800
 
 If verdict is NO_CHECKS, this repo has no CI on this PR. Do not merge on that
 alone: run the project's own verification command in the branch worktree at
@@ -240,7 +241,7 @@ makes *this* PR green.
 Landing is one script call and a verdict read — run it in the main context:
 
 ```
-"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/shipping-issues/scripts/land_pr.sh {pr} --issue {n}
+{SKILL_DIR}/scripts/land_pr.sh {pr} --issue {n}
 ```
 
 `--issue {n}` makes the script re-check the closing link before merging (and

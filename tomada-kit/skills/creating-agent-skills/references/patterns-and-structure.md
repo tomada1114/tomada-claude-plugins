@@ -1,3 +1,4 @@
+<!-- platform-annex -->
 # Skills Structure and Patterns
 
 This document covers directory structure, integration patterns, workflow patterns, and best practices for Claude Code skills.

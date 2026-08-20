@@ -4,8 +4,10 @@
 Usage:
     classify_skill.py <skill-path> [--json]
 
-Detects Claude-Code-specific constructs that block or complicate running the same
-skill under OpenAI Codex CLI, then assigns a Tier:
+Scans SKILL.md + references/**/*.md + templates/**/*.md for Claude-Code-specific
+constructs that block or complicate running the same skill under OpenAI Codex CLI,
+then assigns a Tier. `construct_locations` in the output gives file:line detail for
+every hit (used by skill-analyzer to plan edits outside SKILL.md, not just inside it):
 
     A = trivially dual-platform (only name/description-ish; no orchestration)
     B = medium (extra frontmatter / AskUserQuestion / MCP / hardcoded paths / single subagent)
@@ -60,6 +62,7 @@ class Classification:
     tier: str = "A"
     claude_frontmatter_fields: list[str] = field(default_factory=list)
     constructs: dict[str, int] = field(default_factory=dict)
+    construct_locations: list[dict] = field(default_factory=list)
     dependent_subagents: list[str] = field(default_factory=list)
     cross_skill_refs: list[str] = field(default_factory=list)
     references_files: int = 0
@@ -150,35 +153,58 @@ def classify(skill_path: Path) -> Classification:
     c.claude_frontmatter_fields = [k for k in keys if k in CLAUDE_FM_FIELDS]
     body = "\n".join(text.splitlines()[body_start:])
 
-    # Count construct hits across SKILL.md body (references/ are shared core, scanned separately).
-    for label, rx in PATTERNS.items():
-        hits = len(rx.findall(body))
-        if hits:
-            c.constructs[label] = hits
+    # Count construct hits across SKILL.md body + references/**/*.md + templates/**/*.md.
+    # SKILL.md line numbers account for the frontmatter offset; other files count from their own line 1.
+    def _scan(label_text: str, line_offset: int, file_label: str) -> None:
+        lines = label_text.splitlines()
+        for label, rx in PATTERNS.items():
+            for i, line in enumerate(lines, start=1 + line_offset):
+                for m in rx.finditer(line):
+                    c.constructs[label] = c.constructs.get(label, 0) + 1
+                    c.construct_locations.append({
+                        "label": label, "file": file_label, "line": i, "match": m.group(0),
+                    })
+
+    _scan(body, body_start, "SKILL.md")
+    for sub in ("references", "templates"):
+        d = skill_path / sub
+        if d.is_dir():
+            for f in sorted(d.rglob("*.md")):
+                _scan(f.read_text(encoding="utf-8"), 0, str(f.relative_to(skill_path)))
+
+    # Combined text for subagent/cross-skill detection: SKILL.md (full, incl. frontmatter,
+    # matching prior behavior for CLAUDE_AGENT_REF_RE/CLAUDE_SKILL_REF_RE) + references/templates.
+    extra_text_parts = []
+    for sub in ("references", "templates"):
+        d = skill_path / sub
+        if d.is_dir():
+            for f in sorted(d.rglob("*.md")):
+                extra_text_parts.append(f.read_text(encoding="utf-8"))
+    all_text = text + "\n" + "\n".join(extra_text_parts)
+    all_body_lowered = (body + "\n" + "\n".join(extra_text_parts)).lower()
 
     # Dependent subagents: subagent_type values + .claude/agents references +
-    # registry name matches (agent names from .claude/agents that appear in the body).
+    # registry name matches (agent names from .claude/agents that appear anywhere in the skill).
     deps: set[str] = set()
-    for m in SUBAGENT_TYPE_RE.finditer(body):
+    for m in SUBAGENT_TYPE_RE.finditer(all_body_lowered):
         deps.add(m.group(1).lower())
-    for m in CLAUDE_AGENT_REF_RE.finditer(text):
+    for m in CLAUDE_AGENT_REF_RE.finditer(all_text):
         deps.add(m.group(1).split("/")[-1].lower())
-    lowered = body.lower()
     a_reg = agent_registry(skill_path)
     for agent_name in a_reg:
-        if len(agent_name) >= 5 and re.search(rf"(?<![a-z0-9-]){re.escape(agent_name)}(?![a-z0-9-])", lowered):
+        if len(agent_name) >= 5 and re.search(rf"(?<![a-z0-9-]){re.escape(agent_name)}(?![a-z0-9-])", all_body_lowered):
             deps.add(agent_name)
     c.dependent_subagents = sorted(deps)
 
     # Cross-skill references: (a) explicit .claude/skills/<name>/ paths, AND
-    # (b) sibling/user skill NAMES that appear in the body (catches Skill-tool / /name calls).
+    # (b) sibling/user skill NAMES that appear anywhere in the skill (catches Skill-tool / /name calls).
     cross: set[str] = set()
-    for m in CLAUDE_SKILL_REF_RE.finditer(text):
+    for m in CLAUDE_SKILL_REF_RE.finditer(all_text):
         if m.group(1) != c.skill_name:
             cross.add(m.group(1))
     for sk_name in skill_registry(skill_path):
         if sk_name != c.skill_name and len(sk_name) >= 5 and \
-                re.search(rf"(?<![a-z0-9-]){re.escape(sk_name)}(?![a-z0-9-])", lowered):
+                re.search(rf"(?<![a-z0-9-]){re.escape(sk_name)}(?![a-z0-9-])", all_body_lowered):
             cross.add(sk_name)
     c.cross_skill_refs = sorted(cross)
 

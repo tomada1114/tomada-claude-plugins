@@ -60,7 +60,7 @@ STOP RULES:
 ```
 CONTEXT: [Project facts the goal session won't infer quickly. When bundled, list EVERY sibling by
        absolute path with a read-first order: "Before any work, read in order:
-       1. /Users/.../.claude/goal-prompts/<slug>/design.md — the target design; implement it, don't redesign
+       1. ${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/<slug>/design.md — the target design; implement it, don't redesign
        2. .../examples.md — patterns to imitate verbatim  3. .../checklist.yaml — work queue".
        Keep inline context to a few lines; externalize anything bulky.]
 

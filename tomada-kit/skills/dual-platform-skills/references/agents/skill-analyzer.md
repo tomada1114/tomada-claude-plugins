@@ -1,3 +1,4 @@
+<!-- platform-annex -->
 # Subagent prompt: skill-analyzer (read-only)
 
 Role: 変換対象スキルを深読みし、両対応化の「変換プラン」を作る。**ファイルは編集しない**。
@@ -15,10 +16,10 @@ Recommended `subagent_type`: `Explore`（読取専用）。
 4. リポジトリ直下 `CLAUDE.md`（あれば）の「Sub-Agent Activation Rules」表など、**ファイル外で宣言されたサブエージェント対応**
 
 ## 手順
-1. SKILL.md 本文を読み、プラットフォーム依存箇所を**行レベル**で特定（Task/Skill/AskUserQuestion/context:fork/MCP/tmux//batch/絶対 `.claude/` パス）。
+1. SKILL.md 本文と `references/**/*.md`・`templates/**/*.md` を読み、プラットフォーム依存箇所を**ファイル:行レベル**で特定（Task/Skill/AskUserQuestion/TodoWrite/context:fork/MCP/tmux//batch/絶対 `.claude/` パス/`CLAUDE_PLUGIN_ROOT`/独自状態パス）。`classify_skill.py --json` の `construct_locations` を出発点に、誤検出を除外し漏れを補完する。
 2. classify の dependent_subagents/cross_skill_refs を**実体で確認**（誤検出を除外、漏れを補完）。各サブエージェントは定義ファイルの有無で `extractable` を判定（無ければ undefined）。
 3. cross-skill を **(a) データ参照（references/scripts を読む）** と **(b) 実行（Skill で他スキルを起動）** に分類し、R5 で各々の resolution を決める。
-4. transformation-rules の R1〜R9 を各箇所に当てはめ、編集方針を決める。
+4. transformation-rules の R1〜R13 を各箇所に当てはめ、編集方針を決める。**R11**: 代替表現が使用箇所にインラインで置けるか（置けないなら理由を `analyzer_blockers` へ）。**R12**: 状態パスが `~/.claude/<name>/` なら新規約への書き換えを edits に含める。
 5. Codex で**失われる/劣化する**機能を列挙。ルールで判断できない箇所は `analyzer_blockers` に具体的に書く（変換スキル自体の改善材料）。
 
 ## 出力（このテキストだけを返す＝JSON）
@@ -27,8 +28,9 @@ Recommended `subagent_type`: `Explore`（読取専用）。
   "name": "<skill name>",
   "tier": "A|B|C",
   "edits": [
-    {"rule":"R2","location":"SKILL.md L42","change":"絶対パス→references/x.md"},
-    {"rule":"R3","location":"SKILL.md '## Phase1'","change":"Task並列→条件分岐表現"}
+    {"rule":"R2","file":"SKILL.md","location":"L42","change":"絶対パス→references/x.md"},
+    {"rule":"R3","file":"SKILL.md","location":"'## Phase1'","change":"Task並列→中立表現に置換"},
+    {"rule":"R6","file":"references/priority-rubric.md","location":"L116","change":"AskUserQuestion→中立表現"}
   ],
   "subagents_to_extract": [
     {"name":"heading-evaluator","source":"<path or 'undefined'>","kind":"registered|prompt-include","extractable":true,"why":"score-checkが並列起動"}

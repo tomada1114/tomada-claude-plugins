@@ -113,11 +113,12 @@ Deferred: #7 umbrella (ship its children), #21 NEEDS-CLARIFICATION (no acceptanc
 Labels written: #12 P0, #9 P1, #21 P2 (+6 backfilled by score)
 ```
 
-Proceed on that pick without asking. Ask via `AskUserQuestion` only when the
-top two are genuinely tied on all four axes and cost a full implement/PR/CI
-cycle to get wrong, or when the highest-priority issue needs a product decision
-before it can be implemented. A wrong-but-clearly-argued pick is recoverable;
-a stalled run is not.
+Proceed on that pick without asking. Ask the user directly, in plain
+conversation, and wait for their reply, only when the top two are genuinely
+tied on all four axes and cost a full implement/PR/CI cycle to get wrong, or
+when the highest-priority issue needs a product decision before it can be
+implemented. A wrong-but-clearly-argued pick is recoverable; a stalled run is
+not.
 
 ## `all` mode
 

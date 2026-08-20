@@ -38,6 +38,12 @@ Wraps validate_skill.py and adds editorial / structural checks:
         no opt-out: a skill whose subject is Japanese still describes
         itself in English.
 
+  N1-N4 Dual-platform neutrality — inherited automatically, not a separate
+        check here. `validate_skill.validate()` (this script's base `report`)
+        already runs dual-platform-skills/scripts/neutrality_lint.py and folds
+        its N1-N4 findings in, so they appear in every audit report without
+        duplicate logic. See validate_skill.py's own docstring (check 9).
+
 Usage:
     audit_skill.py <skill-path> [--json] [--report <path>]
 

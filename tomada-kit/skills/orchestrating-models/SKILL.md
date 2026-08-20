@@ -34,7 +34,7 @@ description: "Playbook for choosing models and deciding what to delegate. The de
 
 判断基準: **仕様が確定していれば Sonnet、仕様に穴が残るなら Opus**。「安いモデルに投げたが仕様が足りず聞き返された」は Opus に投げるべきだった合図。
 
-**この表と判断基準が正本。** claudecode-skill-creating(スキル作成時に新スキルへ焼き込む表)と各ワークフロースキル(shipping-issues、refining-prompts 等)のモデル割当は、ここからの派生コピー。改訂はまずここで行い、`grep -rl 'derived from orchestrating-models' ~/.claude/skills` で派生先を洗い出して追随させる。
+**この表と判断基準が正本。** creating-agent-skills(スキル作成時に新スキルへ焼き込む表)と各ワークフロースキル(shipping-issues、refining-prompts 等)のモデル割当は、ここからの派生コピー。改訂はまずここで行い、`grep -rl 'derived from orchestrating-models' ~/.claude/skills` で派生先を洗い出して追随させる。
 
 **ワークフロースキルへの焼き込み:** 実行のたびに結論が同じになる静的な割当(段ごとのモデル指定)は、対象スキルからこのスキルを実行時に参照させない。結論と分水嶺の 1 行(仕様確定度)を対象スキルへベタ書きし、由来を `<!-- derived from orchestrating-models §2 -->` で示す。実行時参照が見合うのは、結論が実行時の状況でしか決まらない判断だけ。
 

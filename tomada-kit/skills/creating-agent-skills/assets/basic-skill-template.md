@@ -2,6 +2,8 @@
 name: your-skill-name
 description: What this skill produces, then the triggers — "Use when [concrete situation], [concrete situation], or working with [artifact or keyword]." Triggers belong here and nowhere else; a "When to Use" heading in the body never reaches the model at selection time.
 # allowed-tools: Read, Grep, Glob
+metadata:
+  platforms: claude-code, codex   # or just `claude-code` if this skill is inherently Claude-only
 ---
 
 # [Skill Name]

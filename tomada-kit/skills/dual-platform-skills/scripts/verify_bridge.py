@@ -9,12 +9,19 @@ Checks (Topology A):
     V2  frontmatter has name + description                                [error]
     V3  Codex-incompatible frontmatter fields present (name/description    [warning]
         /metadata only is ideal for Codex)
-    V4  body has NO absolute `.claude/...` paths (break under Codex —      [warning]
-        use relative intra-skill paths instead)
-    V5  cross-skill references to OTHER skills (won't resolve on Codex     [warning]
-        unless those are bridged too / inlined)
+    V4  body (SKILL.md + references/**/*.md + templates/**/*.md) has NO   [warning]
+        absolute `.claude/...` paths (break under Codex — use relative
+        intra-skill paths instead)
+    V5  cross-skill references to OTHER skills, scanned across the same   [warning]
+        file set as V4 (won't resolve on Codex unless those are bridged
+        too / inlined)
     V6  a Codex symlink resolves to this real skill                        [warning if none found]
     V7  relative intra-skill links in SKILL.md resolve (also via symlink)  [error if broken]
+    V8  neutrality_lint.py reports zero errors (raw tool names / platform  [error if any, when
+        paths / off-convention state dirs leaking into body text)          metadata.platforms
+                                                                             includes codex]
+
+`codex_runnable` in the JSON report is true iff there are no V1/V2/V7/V8 errors.
 
 Looks for Codex symlinks in: $CODEX_HOME/skills (~/.codex/skills) and, if the skill
 is inside a git repo, <repo>/.agents/skills — plus any --codex-link you pass.
@@ -23,6 +30,7 @@ Exit codes: 0 = no errors (warnings ok), 1 = errors, 2 = bad invocation
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import re
@@ -35,6 +43,28 @@ CODEX_OK_FIELDS = {"name", "description", "metadata"}
 ABS_CLAUDE_RE = re.compile(r"(?:^|[\s\(`'\"])((?:~|\$HOME|/)[^\s\)`'\"]*\.claude/[^\s\)`'\"]+)")
 CROSS_SKILL_RE = re.compile(r"\.claude/skills/([a-z0-9][a-z0-9-]*)/")
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+
+
+def _load_neutrality_lint():
+    """Import the sibling neutrality_lint.py module without requiring package structure."""
+    mod_path = Path(__file__).resolve().parent / "neutrality_lint.py"
+    spec = importlib.util.spec_from_file_location("neutrality_lint", mod_path)
+    mod = importlib.util.module_from_spec(spec)
+    # Must register before exec: dataclasses resolves field types via sys.modules[cls.__module__],
+    # which is None until the module is registered — leaving it unregistered breaks @dataclass.
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def body_files(real: Path) -> list[Path]:
+    """SKILL.md + references/**/*.md + templates/**/*.md — the same file set neutrality_lint.py scans."""
+    files = [real / "SKILL.md"]
+    for sub in ("references", "templates"):
+        d = real / sub
+        if d.is_dir():
+            files.extend(sorted(d.rglob("*.md")))
+    return [f for f in files if f.exists()]
 
 
 @dataclass
@@ -57,6 +87,11 @@ class Report:
     @property
     def errors(self) -> list[Finding]:
         return [f for f in self.findings if f.level == "error"]
+
+    @property
+    def codex_runnable(self) -> bool:
+        blocking = {"V1", "V2", "V7", "V8"}
+        return not any(f.level == "error" and f.code in blocking for f in self.findings)
 
 
 def fm_keys_and_required(text: str) -> tuple[list[str], dict[str, str], int]:
@@ -142,18 +177,35 @@ def verify(real: Path, extra_links: list[str]) -> Report:
 
     body = "\n".join(text.splitlines()[body_start:])
 
-    # V4 — absolute .claude paths in body
-    abs_hits = sorted({m.group(1) for m in ABS_CLAUDE_RE.finditer(body)})
+    # V4/V5 scan SKILL.md body + references/**/*.md + templates/**/*.md (same set neutrality_lint.py
+    # covers), skipping any file marked `<!-- platform-annex -->` — those are the declared place for
+    # platform-specific paths/tool names (rulebook docs, platform-notes.md), same exemption N1-N4 use.
+    try:
+        nl_mod = _load_neutrality_lint()
+        is_annex = nl_mod.is_annex
+    except Exception:
+        is_annex = lambda _text: False  # noqa: E731 — fail open; V8 below will report the load error
+
+    abs_hits: set[str] = set(ABS_CLAUDE_RE.findall(body))
+    cross: set[str] = {m.group(1) for m in CROSS_SKILL_RE.finditer(body) if m.group(1) != r.skill_name}
+    for f in body_files(real):
+        if f.name == "SKILL.md" and f.parent == real:
+            continue  # already scanned via `body` above (SKILL.md minus frontmatter)
+        ftext = f.read_text(encoding="utf-8")
+        if is_annex(ftext):
+            continue
+        abs_hits.update(ABS_CLAUDE_RE.findall(ftext))
+        cross.update(m.group(1) for m in CROSS_SKILL_RE.finditer(ftext) if m.group(1) != r.skill_name)
+
     if abs_hits:
         r.add("warning", "V4",
-              "absolute .claude/ paths break under Codex; rewrite intra-skill refs as relative: "
-              + ", ".join(abs_hits[:6]) + (" …" if len(abs_hits) > 6 else ""))
+              "absolute .claude/ paths break under Codex; rewrite intra-skill refs as relative "
+              "(SKILL.md + references/ + templates/ scanned): "
+              + ", ".join(sorted(abs_hits)[:6]) + (" …" if len(abs_hits) > 6 else ""))
 
-    # V5 — cross-skill refs
-    cross = sorted({m.group(1) for m in CROSS_SKILL_RE.finditer(body) if m.group(1) != r.skill_name})
     if cross:
         r.add("warning", "V5",
-              "references other skills (bridge or inline them for Codex): " + ", ".join(cross))
+              "references other skills (bridge or inline them for Codex): " + ", ".join(sorted(cross)))
 
     # V7 — relative link integrity
     for m in LINK_RE.finditer(body):
@@ -162,6 +214,22 @@ def verify(real: Path, extra_links: list[str]) -> Report:
             continue
         if not (real / tgt).exists():
             r.add("error", "V7", f"broken relative link: {tgt}")
+
+    # V8 — neutrality lint (raw tool names / platform paths / off-convention state dirs in body)
+    try:
+        nl = _load_neutrality_lint()
+        nl_report = nl.lint(real)
+        for f in nl_report.findings:
+            level = "error" if f.level == "error" else "warning"
+            code = "V8" if level == "error" else "V8w"
+            rel = f.file
+            try:
+                rel = str(Path(f.file).relative_to(real))
+            except ValueError:
+                pass
+            r.add(level, code, f"neutrality_lint {f.code} {rel}:{f.line}: {f.message}")
+    except Exception as e:  # noqa: BLE001 — lint is best-effort, never block verify() itself
+        r.add("warning", "V8", f"neutrality_lint.py could not run: {e}")
 
     # V6 — codex symlink presence
     r.codex_links = find_codex_links(real, extra_links)
@@ -174,6 +242,7 @@ def verify(real: Path, extra_links: list[str]) -> Report:
 
 def render_human(r: Report) -> str:
     out = [f"Bridge check: {r.skill_name}  ({r.skill_path})"]
+    out.append("  codex_runnable: " + str(r.codex_runnable))
     out.append("  Codex links: " + (", ".join(r.codex_links) if r.codex_links else "(none)"))
     if not r.findings:
         out.append("  OK — fully bridged, no issues.")
@@ -194,7 +263,9 @@ def main(argv: list[str]) -> int:
     real = Path(argv[1]).expanduser().resolve()
     r = verify(real, extra)
     if "--json" in argv:
-        print(json.dumps(asdict(r), indent=2, ensure_ascii=False))
+        data = asdict(r)
+        data["codex_runnable"] = r.codex_runnable
+        print(json.dumps(data, indent=2, ensure_ascii=False))
     else:
         print(render_human(r))
     return 1 if r.errors else 0

@@ -1,8 +1,10 @@
 ---
 name: refining-prompts
 description: "Polish a rough instruction (often dictated by voice) into a precise prompt that can be handed straight to another agentic coding session (Claude Code, Codex CLI, etc.), and print it in the CLI as a single code block (no file is saved). Runs a light scouting pass with a Sonnet sub-agent only when needed, and questions the user only when needed; the investigating and the thinking are deliberately left as work for the receiving session. When the user wants a /goal prompt for an unattended run, use authoring-goal-prompts instead. Use when the user asks to write a prompt for Claude Code or Codex CLI, turn something into a prompt, tidy up or sharpen an instruction, produce a prompt to hand to another session, or dictates a rough wish or problem and wants a polished instruction. Examples: <example>user: 'Make me a prompt for another session about this design' assistant: 'I will build it with the refining-prompts skill'</example>"
-allowed-tools: Read, Grep, Glob, Bash, Agent, Task, AskUserQuestion
+allowed-tools: Read, Grep, Glob, Bash, Agent, AskUserQuestion
 argument-hint: "[rough instruction, thing to talk through, or problem to solve]"
+metadata:
+  platforms: claude-code, codex
 ---
 
 # Prompt Refiner
@@ -47,13 +49,10 @@ argument-hint: "[rough instruction, thing to talk through, or problem to solve]"
 
 対象プロジェクトの実態でプロンプトの**向き**が変わるときだけ調査する。汎用的な相談はスキップ。
 
-> **Claude Code**: 調査はサブエージェントに委譲する（`Task`, `subagent_type: general-purpose`、
-> `model: sonnet` — 定型的な情報収集のため
-> <!-- derived from orchestrating-models §2（Claude Code 専用参照。orchestrating-models 自体に
->      Codex 版はなく、この注は Claude Code で実行する場合にのみ適用される） -->。
-> 読み取りだけで足りるなら `Explore`）。
-> **Codex**: `Task` に相当する委譲手段がないため、メインセッションが同じ調査を逐次インラインで
-> 行う（サブエージェントによるコンテキスト分離は失われる。詳細は [Codex での制約](#codex-での制約best-effort-劣化)）。
+この調査は、委譲できる環境なら独立した worker に委譲する（モデル選びは `orchestrating-models` §2
+に従う — これは Claude Code 専用の参照なので、Codex では自分の判断で実行の重さを決める）。
+委譲できない環境ではメインセッションが同じ調査を逐次インラインで行い、コンテキスト分離は
+失われるが結果は変わらない。
 
 いずれの場合も、受け取る（残す）のは要約だけ: 関連パス、現状の挙動・エラー、既存の慣習。
 ログ全文や全文 diff は戻させない（該当するエラー文の原文は数行なら可）。
@@ -68,9 +67,7 @@ argument-hint: "[rough instruction, thing to talk through, or problem to solve]"
 
 調査と推測で埋まらない本質的な分岐（目的そのもの、スコープ境界、成果物の形）だけ確認する。
 
-> **Claude Code**: `AskUserQuestion` で確認する。
-> **Codex**: `AskUserQuestion` ツールがないため、通常の文章でユーザーに質問し、回答を待つ
-> （確認する内容・意図は同じ）。
+選択肢を 2〜4 個、トレードオフと推奨を添えて提示し、ユーザーの回答を待つ（1 ラウンド最大 4 問）。
 
 1 ラウンドに限定しない — 相談系では答えを受けて掘り下げる数ラウンドの対話も認める。
 ただし推測で十分な細部を質問で埋めないこと。よく指定されたタスクでは質問ゼロが期待値。
@@ -98,9 +95,10 @@ argument-hint: "[rough instruction, thing to talk through, or problem to solve]"
 - **制約・スコープ** — 触らない範囲、守る慣習、明確な NG。少数精鋭。適用範囲は明示的に書く
   （受け手は文字通り読む。「全セクションに適用、最初だけではない」は冗長ではない）。
 - **成果物・完了の目安** — 何が出てきたら成功か。作業依頼では検証方法も一言。
-- **不明時の挙動** — 「不明点や大きな分岐は進める前にユーザーに確認して（Claude Code なら
-  AskUserQuestion、それ以外では通常の質問で）」を、ヒアリングされながら進めたい依頼には必ず入れる。
-  受け手のプラットフォームが分からない場合は、ツール名を固定せず「確認して」とだけ書いてもよい。
+- **不明時の挙動** — 「不明点や大きな分岐は進める前にユーザーに確認して」を、ヒアリングされながら
+  進めたい依頼には必ず入れる。受け手のプラットフォームが分かっている場合は具体的な確認手段に
+  書き換えてもよいが（詳細は [references/platform-notes.md](references/platform-notes.md)）、
+  分からない場合はツール名を固定せず「確認して」とだけ書く。
 
 貼り付ける長い材料（エラーログ、コード抜粋、仕様の断片）があるならプロンプトの**上部**に置き、
 依頼を末尾にする。材料と指示が混ざるなら見出しか XML タグ（`<error_log>` 等）で区切る。
@@ -131,10 +129,6 @@ argument-hint: "[rough instruction, thing to talk through, or problem to solve]"
 - [ ] 調査はサブエージェント（Sonnet 中心。Claude Code の場合）または逐次インライン（Codex の場合）
       で行い、要約だけ受け取っている
 
-## Codex での制約（best-effort 劣化）
+## Platform notes
 
-- サブエージェント委譲（`Task`, `model: sonnet` / `Explore`）→ Codex では `Task` 相当の機構が
-  ないため、メインセッションが同じ調査を逐次インラインで行う（コンテキスト分離が失われる）
-- `AskUserQuestion`（本スキル自身のヒアリング）→ Codex では通常の対話文＋回答待ちに置換
-- 出力する引き渡しプロンプト内の「不明時は確認して」という一文 → 受け手が Claude Code なら
-  `AskUserQuestion`、それ以外（Codex CLI 等）なら通常の質問に読み替えられる汎用表現にしている
+詳細は [references/platform-notes.md](references/platform-notes.md) を参照。

@@ -141,7 +141,8 @@ trim load-bearing sections (GOAL / DONE WHEN / VERIFY / CONSTRAINTS / STOP RULES
 
 - **Chat-only (default):** the whole prompt fits comfortably (rule of thumb ≤ ~40–60 lines) and
   needs no external docs. Emit one fenced block.
-- **Bundle** to `~/.claude/goal-prompts/<slug>/` when either trigger fires: knowledge only this
+- **Bundle** to `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/<slug>/`
+  when either trigger fires: knowledge only this
   session holds (a design, patterns, findings, pre-answered decisions), or reusable bulk (a
   migration inventory, a design spec with many acceptance criteria, a generated checklist). Write
   `goal.md` (still concise) plus siblings from the standard menu in
@@ -149,8 +150,9 @@ trim load-bearing sections (GOAL / DONE WHEN / VERIFY / CONSTRAINTS / STOP RULES
   **absolute path** and instruct the session to read them first, and put the divergence rule
   (repo beats stale support-file facts; impossible design → fallback or stop, never improvise) in
   `CONSTRAINTS`. This mirrors progressive disclosure: the goal stays small; the bulk loads on
-  demand. `<slug>` is a deterministic kebab-case summary (~4–6 words); the dir is auto git-ignored
-  (under `~/.claude/`) and overwriting it on re-run is intended (idempotent).
+  demand. `<slug>` is a deterministic kebab-case summary (~4–6 words); the dir lives outside any repo
+  tree (under `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/`), so it never needs
+  gitignoring, and overwriting it on re-run is intended (idempotent).
 
 A self-maintained **checklist artifact** is the cleanest way to make "queue empty" measurable for
 backlog/migration goals: have the session maintain `checklist.md` and make `DONE WHEN` = "every item
@@ -225,7 +227,7 @@ The goal references a generated inventory so the prompt stays short:
 GOAL: Every call site of the deprecated getUserV1 is migrated to getUserV2 and the build passes.
 
 CONTEXT: The complete list of call sites (file:line) is in
-  /Users/me/.claude/goal-prompts/getuserv2-migration/inventory.md — read it first and treat it as the work queue.
+  ${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/getuserv2-migration/inventory.md — read it first and treat it as the work queue.
   Mirror the call style already used in src/api/orders.ts.
 
 BASELINE: `npm run build` currently passes; inventory.md lists 41 call sites across 18 files, none migrated yet.
@@ -247,7 +249,7 @@ STOP RULES: Stop after 60 turns and report remaining items. If a call site can't
 `inventory.md` (the bulky sibling) holds the 41-line queue, keeping `goal.md` small.
 
 ### C. Backlog (self-maintained checklist)
-`DONE WHEN: every item in /Users/me/.claude/goal-prompts/<slug>/checklist.md is checked and
+`DONE WHEN: every item in ${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/<slug>/checklist.md is checked and
 `npm test` exits 0; then print GOAL_DONE.` The session maintains the checklist; "queue empty"
 becomes a transcript-visible fact.
 

@@ -1,12 +1,14 @@
 ---
-name: claudecode-skill-creating
-description: "Create, audit, refactor, convert, or troubleshoot Claude Code skills. Takes a free-form natural-language request describing what the user wants done — e.g. \"I want to build a new skill\" / \"audit this skill\" / \"turn this doc into a skill\" / \"it never fires\" / \"split this into sub-agents\" — optionally followed by a skill name or absolute path."
+name: creating-agent-skills
+description: "Create, audit, refactor, convert, or troubleshoot Agent Skills (the shared skill format used by Claude Code and OpenAI Codex CLI — SKILL.md + optional references/scripts/assets). Takes a free-form natural-language request describing what the user wants done — e.g. \"I want to build a new skill\" / \"audit this skill\" / \"turn this doc into a skill\" / \"it never fires\" / \"split this into sub-agents\" — optionally followed by a skill name or absolute path. Triggers on Claude Code skill authoring as well as Codex skill / skill-creator requests."
 argument-hint: "<free-form intent> [skill-name-or-path]"
+metadata:
+  platforms: claude-code, codex
 ---
 
-# claudecode-skill-creating
+# creating-agent-skills
 
-Workshop for building and maintaining Claude Code skills.
+Workshop for building and maintaining Agent Skills — the shared `SKILL.md` format both Claude Code and Codex CLI read natively (see [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md) for what's common vs. per-host). Most guidance here is host-agnostic; the few Claude Code-only mechanics (`Task`, `AskUserQuestion`, plugin `${CLAUDE_PLUGIN_ROOT}`, etc.) are called out explicitly where they appear. <!-- neutrality-ignore: N1 --> <!-- neutrality-ignore: N2 -->
 
 `$ARGUMENTS` is **free-form text**, in any language. There is no mode keyword to parse. Read the user's intent, optionally pick out a skill name or path token, then jump to the matching playbook below. If the request mixes goals (e.g. "audit it, and fix whatever is broken"), chain playbooks in the order implied by the request.
 
@@ -15,13 +17,13 @@ Workshop for building and maintaining Claude Code skills.
 **Input:** free-form natural-language description of the task, optionally including a skill name or absolute path. No fixed positional parameters.
 
 **Outputs depend on the inferred task:**
-- Scaffolding a new skill → directory at `~/.claude/skills/<name>/` (or `<cwd>/.claude/skills/<name>/` with `--scope project`).
-- Auditing → Markdown report at `~/.claude/skills-audit/<skill-name>/report.md`.
+- Scaffolding a new skill → directory at `~/.claude/skills/<name>/` (or `<cwd>/.claude/skills/<name>/` with `--scope project`). Claude Code reads this natively; run `dual-platform-skills` afterward to bridge the same skill onto Codex (Topology A — the real files stay under `.claude/skills/`, Codex reaches them via symlink). <!-- neutrality-ignore: N2 -->
+- Auditing → Markdown report at `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/skills-audit/<skill-name>/report.md`.
 - Converting an existing doc → same layout as scaffolding.
 - Troubleshooting → diagnosis (and optional fix patches) printed in chat.
 - Adding sub-agents → edited SKILL.md + new sub-agent files.
 
-**Bundled scripts** (invoke through `${CLAUDE_SKILL_DIR}`, never a hardcoded `~/.claude/skills/...` path):
+**Bundled scripts** (invoke through `${CLAUDE_SKILL_DIR}`, never a hardcoded `~/.claude/skills/...` path): <!-- neutrality-ignore: N2 -->
 - `scripts/init_skill.sh` — scaffold new skill from template
 - `scripts/validate_skill.py` — frontmatter / line-count / link-integrity checks (JSON or text)
 - `scripts/audit_skill.py` — wraps validate, adds editorial checks, writes Markdown report
@@ -38,7 +40,7 @@ Match signals in `$ARGUMENTS` to a playbook — match on meaning, not wording; t
 | does not work / never fires / not triggering / frontmatter looks wrong / broken links | [Troubleshooting an existing skill](#troubleshooting-an-existing-skill) |
 | sub-agents / parallel / multi-phase / orchestration / "split this skill up" | [Adding sub-agents to a skill](#adding-sub-agents-to-a-skill) |
 
-If a token in the input matches an existing skill name or `~/.claude/skills/...` path, treat it as the target. Otherwise infer or ask.
+If a token in the input matches an existing skill name or `~/.claude/skills/...` path, treat it as the target. Otherwise infer or ask. <!-- neutrality-ignore: N2 -->
 
 ---
 
@@ -180,12 +182,12 @@ Use when reviewing an existing skill for health, drift, or bloat.
 
 ### Procedure
 
-1. Resolve the target path. If the user gave a bare skill name, expand to `~/.claude/skills/<name>`.
+1. Resolve the target path. If the user gave a bare skill name, expand to `~/.claude/skills/<name>`. <!-- neutrality-ignore: N2 -->
 2. Run the audit script and capture both JSON (for parsing) and Markdown (for the user):
    ```bash
-   mkdir -p ~/.claude/skills-audit/<skill-name>
-   python3 ${CLAUDE_SKILL_DIR}/scripts/audit_skill.py <skill-path> \
-     --report ~/.claude/skills-audit/<skill-name>/report.md
+   AUDIT_DIR="${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/skills-audit/<skill-name>"
+   mkdir -p "$AUDIT_DIR"
+   python3 ${CLAUDE_SKILL_DIR}/scripts/audit_skill.py <skill-path> --report "$AUDIT_DIR/report.md"
    ```
 3. Read the report. For each finding above `info`, decide:
    - **Auto-fixable** (broken link, name regex violation, duplicate heading): propose a concrete `Edit` with old/new strings.
@@ -206,7 +208,7 @@ The script cannot see prescriptiveness, missing intent, or unassigned sub-agent 
 
 Findings a script also can't produce, worth checking by hand on any audit:
 
-- **Hardcoded `~/.claude/skills/...` paths** in script invocations — breaks on plugin install and project checkout.
+- **Hardcoded `~/.claude/skills/...` paths** in script invocations — breaks on plugin install and project checkout. <!-- neutrality-ignore: N2 -->
 - **Instructions with no gap behind them.** For the two or three longest sections, ask what the model would do without them. If the answer is "the same thing", that's the highest-value deletion in the file.
 - **Trigger accuracy.** If the complaint is "fires too often" or "never fires", that's the description, and it's measurable — see [references/evaluating-skills.md](references/evaluating-skills.md).
 
@@ -236,7 +238,7 @@ Use when an existing skill isn't behaving as expected.
 2. **Does the frontmatter parse at all?** A malformed YAML block loads the body with *empty* metadata — `/skill-name` keeps working while Claude has no description to match, so nothing looks broken. `claude --debug` prints the parse error.
 3. **Activation issues** (only relevant if the skill is *also* expected to auto-trigger). In order of frequency: trigger keywords in the body instead of the description → `disable-model-invocation: true` → a `paths` glob gating activation → description truncated out of the skill listing (`/doctor`).
 4. **Invoked by command and still wrong?** Activation isn't the problem. Look at `allowed-tools` / `disallowed-tools`, `model` / `effort` overrides, and whether the body's load-bearing rule sits below the point where the model stopped reading.
-5. **Subagent / fork issues:** see [references/orchestration-patterns.md](references/orchestration-patterns.md) — the most common failure is `context: fork` on a Reference-Contents skill (no explicit task → forked agent has nothing to do).
+5. **Subagent / fork issues:** see [references/orchestration-patterns.md](references/orchestration-patterns.md) — the most common failure is `context: fork` on a Reference-Contents skill (no explicit task → forked agent has nothing to do). <!-- neutrality-ignore: N1 -->
 
 For deeper diagnosis flowcharts, load [references/troubleshooting.md](references/troubleshooting.md).
 
@@ -306,8 +308,9 @@ Covered in [references/patterns-and-structure.md](references/patterns-and-struct
 ## Resources
 
 Load on demand:
+- [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md) — write once for both hosts: `metadata.platforms`, agent-neutral body phrasing, the `platform-notes.md` annex convention, state-directory convention. Load this whenever the skill being authored should run on both Claude Code and Codex.
 - [references/prompt-authoring.md](references/prompt-authoring.md) — how to word skill prose and sub-agent prompts for current models: legacy phrasings to remove, sub-agent prompt layers, model and effort assignment, prescriptiveness budget.
-- [references/yaml-spec.md](references/yaml-spec.md) — every frontmatter field (Agent Skills standard + Claude Code extensions), description budget and truncation rules, `$ARGUMENTS` / `${CLAUDE_SKILL_DIR}` substitutions, bash injection.
+- [references/yaml-spec.md](references/yaml-spec.md) — every frontmatter field (Agent Skills standard, Claude Code extensions, Codex extensions), description budget and truncation rules, `$ARGUMENTS` / `${CLAUDE_SKILL_DIR}` substitutions, bash injection.
 - [references/evaluating-skills.md](references/evaluating-skills.md) — eval-driven authoring, baseline comparison, eval case format, the skill-creator plugin, what to watch when Claude navigates a skill.
 - [references/patterns-and-structure.md](references/patterns-and-structure.md) — content type classification (Reference vs Task), Skills vs Slash Commands, storage locations, numbered-checklist references, scaffold-vs-guide templates, workflow shapes, tool restrictions.
 - [references/orchestration-patterns.md](references/orchestration-patterns.md) — subagent invocation and phase handoff patterns (load when building add-subagents skills).
@@ -324,8 +327,9 @@ Examples: [greeting-generator](examples/greeting-generator/) (single-file skill)
 ## Hard rules
 
 - **Never** confuse `disable-model-invocation: true` (user-only) with `user-invocable: false` (Claude-only).
-- **Always** run `validate_skill.py` before declaring a skill done.
-- **Always** reference bundled scripts as `${CLAUDE_SKILL_DIR}/scripts/...`. A hardcoded `~/.claude/skills/<name>/...` breaks on plugin install and project checkout, and runs the wrong copy when both exist. Absolute paths are correct only when calling *another* skill's script.
+- **Always** run `validate_skill.py` before declaring a skill done (it also runs the dual-platform neutrality lint — see [agent-neutral-authoring.md](references/agent-neutral-authoring.md)).
+- **Always** set `metadata.platforms` in frontmatter when scaffolding a new skill. Default to `claude-code, codex` and write the body agent-neutral unless the skill's actual subject is Claude Code itself (then declare `claude-code` only, deliberately — see [agent-neutral-authoring.md](references/agent-neutral-authoring.md)).
+- **Always** reference bundled scripts as `${CLAUDE_SKILL_DIR}/scripts/...`. A hardcoded `~/.claude/skills/<name>/...` breaks on plugin install and project checkout, and runs the wrong copy when both exist. Absolute paths are correct only when calling *another* skill's script. <!-- neutrality-ignore: N2 -->
 - **Always** infer intent from `$ARGUMENTS` rather than demanding a mode keyword. Ask one focused clarifying question only if the request is genuinely ambiguous.
 - **Never** write an instruction telling the model to echo, transcribe, or explain its internal reasoning. On Fable this can trigger the `reasoning_extraction` refusal and force a fallback to an older model. Ask for evidence — citations, command output, the artifact — not for thinking.
 - **Always** specify a model when a skill spawns a sub-agent.

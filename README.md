@@ -16,7 +16,7 @@ Run `/plugin` to browse interactively.
 | Skill | Description |
 |---|---|
 | **authoring-goal-prompts** | Author a self-contained prompt for Claude Code's /goal command, run unattended in a separate session — a… |
-| **claudecode-skill-creating** | Create, audit, refactor, convert, or troubleshoot Claude Code skills. |
+| **creating-agent-skills** | Create, audit, refactor, convert, or troubleshoot Agent Skills (the shared skill format used by Claude Code… |
 | **designing-wireframes** | Create ASCII wireframes, user flow diagrams, and cross-cutting specifications for UI/UX visualization… |
 | **dual-platform-skills** | Convert one existing skill (Claude Code origin or Codex origin) into a layout that works on both Claude Code… |
 | **orchestrating-models** | Playbook for choosing models and deciding what to delegate. |

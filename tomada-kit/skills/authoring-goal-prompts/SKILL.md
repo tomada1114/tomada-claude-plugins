@@ -1,8 +1,10 @@
 ---
 name: authoring-goal-prompts
-description: "Author a self-contained prompt for Claude Code's /goal command, run unattended in a separate session — a lead-to-staff handoff where this (stronger) session researches, designs, and decides, and a (typically weaker) executor model implements. Drafts a goal with measurable done-criteria, transcript-verifiable checks, scope + anti-cheat constraints, and stop rules; packages design intent, code examples, research findings, checklists, and pre-answered decisions as support files in ~/.claude/goal-prompts/<slug>/ whenever the executor would otherwise re-derive them. Use PROACTIVELY when the user mentions /goal, a goal prompt, an unattended or self-driving run, deciding the done-criteria for a goal run, or setting up a long-running autonomous Claude session. Examples: <example>Context: User wants an unattended run user: 'Write the prompt I will hand to /goal' assistant: 'I will use authoring-goal-prompts skill' <commentary>goal-prompt authoring request</commentary></example>"
+description: "Author a self-contained prompt for Claude Code's /goal command, run unattended in a separate session — a lead-to-staff handoff where this (stronger) session researches, designs, and decides, and a (typically weaker) executor model implements. Drafts a goal with measurable done-criteria, transcript-verifiable checks, scope + anti-cheat constraints, and stop rules; packages design intent, code examples, research findings, checklists, and pre-answered decisions as support files in a per-goal state directory whenever the executor would otherwise re-derive them. Use PROACTIVELY when the user mentions /goal, a goal prompt, an unattended or self-driving run, deciding the done-criteria for a goal run, or setting up a long-running autonomous Claude session. Examples: <example>Context: User wants an unattended run user: 'Write the prompt I will hand to /goal' assistant: 'I will use authoring-goal-prompts skill' <commentary>goal-prompt authoring request</commentary></example>"
 allowed-tools: Read, Grep, Glob, Bash, Write, Edit, Task, AskUserQuestion
 argument-hint: "[task to draft a /goal prompt for]"
+metadata:
+  platforms: claude-code, codex
 ---
 
 # Goal Prompt Author
@@ -66,15 +68,16 @@ unless the user names another. Gather, in order:
 5. **Design** — when the task involves choices (architecture, interfaces, naming, approach, library),
    make them now and record decision + rationale + rejected alternative. The lead designs; the executor executes.
 
-> **Claude Code**: for a broad/uncertain scope, dispatch an `Explore` agent for items 1 and 3 in parallel.
-> **Codex / no `Task` fan-out**: read items 1 and 3 sequentially in the main context instead — same
-> result, more time (see [Codex constraints](references/codex-notes.md)).
+For a broad/uncertain scope, delegate items 1 and 3 to run in parallel where the environment
+supports it; otherwise read them sequentially in the main context — same result, more time
+(see [Codex での制約](references/platform-notes.md)).
 
 Resolve everything you can here by investigation — only genuine, goal-defining unknowns reach Phase 4.
 
 ## Phase 2: Choose the handoff package (autonomous)
 
-**The knowledge-transfer test decides — not size.** Bundle to `~/.claude/goal-prompts/<slug>/`
+**The knowledge-transfer test decides — not size.** Bundle to
+`${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/<slug>/`
 whenever the run depends on knowledge that currently exists only in this session: design decisions,
 patterns worth showing as code, research findings, a work inventory, predictable ambiguities you've
 pre-answered. Test each piece: *"could a fresh, smaller-model session plausibly get this wrong if it
@@ -134,7 +137,8 @@ Always bake in:
 Ask **only** if a goal-defining axis cannot be settled by investigation — and only
 for these: the **done-state**, the **scope boundary**, the **verify method**, the **stop ceiling**,
 or a **design fork** whose options are genuinely equal after investigation (record the answer in
-`decisions.md` as "user answer"). Use `AskUserQuestion` — one round, ≤4 questions, concrete options.
+`decisions.md` as "user answer"). Present options with tradeoffs and a recommendation, then wait
+for the user's answer — one round, ≤4 questions, concrete options.
 
 If discovery answered it, do not ask. No question is the expected outcome for well-specified tasks.
 
@@ -150,7 +154,8 @@ Asking first beats redrafting a bundle.
 - Print the concise prompt in one fenced block, ready to paste after `/goal`.
 - If bundled: write the files, then print the directory path, the sibling list (one line each on
   what it carries), and a one-line note — "In a fresh session run `/goal` with the contents of
-  `~/.claude/goal-prompts/<slug>/goal.md` (it references the sibling docs by absolute path)."
+  `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/<slug>/goal.md` (it
+  references the sibling docs by absolute path)."
 - Briefly state which sections you included/omitted and why, plus the baseline you found.
 
 ## Self-QA bar (run before emitting — assume a problem exists)
@@ -189,6 +194,7 @@ Asking first beats redrafting a bundle.
 - [references/goal-authoring-guide.md](references/goal-authoring-guide.md) — evaluator mechanics, failure modes, externalization rule, worked examples (consult while drafting).
 - [references/support-file-guide.md](references/support-file-guide.md) — when to create each support file and the quality rules that make the lead→staff handoff lossless (consult when bundling).
 
-All supporting files are referenced by skill-relative paths, so they resolve identically on Claude Code and (via the `~/.codex/skills/` symlink) on Codex.
+All supporting files are referenced by skill-relative paths, so they resolve identically on Claude Code and (via the `~/.codex/skills/` symlink) on Codex. <!-- neutrality-ignore: N2 -->
 
-> Codex で実行する場合の制約と代替手順は `references/codex-notes.md` を参照。
+## Platform notes
+詳細は [references/platform-notes.md](references/platform-notes.md) を参照。

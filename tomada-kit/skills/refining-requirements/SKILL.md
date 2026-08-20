@@ -1,17 +1,19 @@
 ---
 name: refining-requirements
-description: "Clarify ambiguous requirements through structured questioning and produce detailed, implementation-ready specifications. Acts as PdM to identify unclear points and resolve them via AskUserQuestion. Use PROACTIVELY when user mentions requirements, specs, PRD, refine, detail, clarify requirements, or asks to detail/refine app ideas. Also trigger when the user is about to jump into implementation with a vague or incomplete spec — even if they haven't explicitly asked to \"refine\" anything. Examples: <example>Context: User has rough idea user: 'Help me refine this app spec' assistant: 'I will use refining-requirements skill' <commentary>spec refinement</commentary></example> <example>Context: User jumps to implementation with vague spec user: 'Let me start building this feature' assistant: 'I will use refining-requirements first' <commentary>pre-implementation</commentary></example>"
+description: "Clarify ambiguous requirements through structured questioning and produce detailed, implementation-ready specifications. Acts as PdM to identify unclear points and resolve them through structured questioning. Use PROACTIVELY when user mentions requirements, specs, PRD, refine, detail, clarify requirements, or asks to detail/refine app ideas. Also trigger when the user is about to jump into implementation with a vague or incomplete spec — even if they haven't explicitly asked to \"refine\" anything. Examples: <example>Context: User has rough idea user: 'Help me refine this app spec' assistant: 'I will use refining-requirements skill' <commentary>spec refinement</commentary></example> <example>Context: User jumps to implementation with vague spec user: 'Let me start building this feature' assistant: 'I will use refining-requirements first' <commentary>pre-implementation</commentary></example>"
+metadata:
+  platforms: claude-code, codex
 ---
 
 # Requirements Refiner
 
 Clarify ambiguous requirements through structured questioning and produce detailed, implementation-ready specifications.
 
-**After this skill**: Use `designing-wireframes` for UI/UX visualization, then `planning-tickets` for GitHub Issues. (Both are dual-platform skills — referenced by name, they resolve on Claude Code via the `Skill` tool and on Codex via their `~/.codex/skills/` bridges.)
+**After this skill**: Use `designing-wireframes` for UI/UX visualization, then `planning-tickets` for GitHub Issues. (Both are dual-platform skills — referenced by name, they resolve on whichever platform is running this skill. See [references/platform-notes.md](references/platform-notes.md) for how each platform resolves the reference.)
 
 ## Phase 0: Gather Input (only if no document provided)
 
-If the user hasn't provided a requirements document, gather the basics first via `AskUserQuestion`, then proceed to Phase 1 using the answers as input:
+If the user hasn't provided a requirements document, gather the basics first — present 2-4 options with tradeoffs and a recommendation, wait for the reply — then proceed to Phase 1 using the answers as input:
 
 - What is the product/feature? (one-line description)
 - Who is the target user and what pain does it solve?
@@ -31,7 +33,7 @@ If the user hasn't provided a requirements document, gather the basics first via
 
 ## Phase 2: Question Rounds
 
-Clarify ambiguities through batched questions using `AskUserQuestion` (max 4 options-based questions per round). Ask only what's unclear — skip any category where the document is already specific.
+Clarify ambiguities through batched questions — present 2-4 options with tradeoffs and a recommendation, wait for the reply (max 4 options-based questions per round). Ask only what's unclear — skip any category where the document is already specific.
 
 ### Question Design Principles
 
@@ -109,12 +111,9 @@ Save the document as `requirements.md` in the project root, or update the existi
 
 ## Best Practices
 
-- Track which phases are complete with `TodoWrite`.
+- Track completed phases as a checklist.
 - Suggest `designing-wireframes` after completion if UI screens need to be designed.
 
-## Codex での制約（best-effort 劣化）
+## Platform notes
 
-- `AskUserQuestion`（Phase 0・Phase 2）→ Codex では同じ質問・選択肢を通常の文章で提示し、回答を待つ形に変換。バッチ化・具体的な選択肢・トレードオフ提示の原則は両対応で不変。
-- `TodoWrite` による進捗追跡 → Codex では作業メモ内のチェックリストで代替。
-
-詳細と、後続スキル（`designing-wireframes` / `planning-tickets`、いずれも両対応・bridge 済み）の解決方針は [references/codex-notes.md](references/codex-notes.md) を参照。
+See [references/platform-notes.md](references/platform-notes.md) for details.

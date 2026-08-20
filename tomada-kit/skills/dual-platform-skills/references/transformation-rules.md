@@ -1,3 +1,4 @@
+<!-- platform-annex -->
 # 変換ルール集（Claude ⇄ 両対応）
 
 対象スキルの SKILL.md 本文・参照を「Claude でも Codex でも破綻しない」形に書き換える具体ルール。**事実・手順・コード・固有名詞・意味は変えない**。変えるのは「プラットフォーム依存の表現と配置」だけ。
@@ -13,6 +14,9 @@
 - [R8 Claude専用として残す](#r8-claude専用として残す)
 - [R9 オーケストレーション文脈ロジック](#r9-オーケストレーション文脈ロジック)
 - [R10 サブエージェントへのパス受け渡し（最重要）](#r10-サブエージェントへのパス受け渡し最重要)
+- [R11 代替手順は使用箇所に置く](#r11-代替手順は使用箇所に置く)
+- [R12 状態ディレクトリ規約](#r12-状態ディレクトリ規約)
+- [R13 サブエージェントテンプレートのパス](#r13-サブエージェントテンプレートのパス)
 - [条件分岐表現の書式（重要）](#条件分岐表現の書式重要)
 - [劣化注記フォーマット](#劣化注記フォーマット)
 
@@ -20,30 +24,37 @@
 - `name` / `description` は保持。`description` に**両プラットフォーム分のトリガー語**を含める（日本語・英語両方）。
 - Claude 専用フィールド（`allowed-tools` 等）は**残してよい**（Codex は無視）。ただし `model`/`context: fork` を**本文ロジックの前提にしない**。`context: fork` は多くの場合「分離/性能のヒント」でロジック非依存 → Codex では「メインで逐次実行」と一言添えれば足り、過剰に作り込まない（L8）。
 - 必要なら Codex UI 用に `metadata.short-description` を追加（任意）。
+- **`metadata.platforms` を必須で追加**（Codex 公認の `metadata` フィールド下）。両対応化したら `metadata.platforms: claude-code, codex`。中立化が割に合わず Claude 専用に留めると判断したら `metadata.platforms: claude-code`。この値が [neutrality_lint.py](../scripts/neutrality_lint.py) の適用強度（error/skip）を決める。
 - **参照専用 hub スキル**（他スキルから `Skill`/データ参照されるだけで、ユーザーが直接呼ばない）は、`description` のトリガー語の価値が低い。トリガー整備より **`references/` のレイアウトと相対パスの正しさ**を優先する（L2）。
 
 ## R2 ハードコードパス→相対
 - スキル内部参照の絶対パス（`~/.claude/skills/<self>/references/x.md`、`/Users/.../.claude/skills/<self>/scripts/y.py` 等）→ **スキルルートからの相対**（`references/x.md`, `scripts/y.py`）に直す。
+- **メインが読むもの**は相対でよいが、**`Task` サブエージェントに渡すもの**は相対のままでは解決しない（[R10]）。その場合は `{SKILL_DIR}` プレースホルダを使い、メインが自スキルの絶対パスに解決して埋める（`"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/<self>/...` のような Claude 専用環境変数は使わない＝[R13]）。
 - 理由: Topology A で Codex は同一実体を symlink 経由で読むため、**相対パスは両者で同一に解決**される。絶対 `.claude/` パスは（repo-scope では実体が存在するため厳密には「壊れる」とは限らないが）**scope 依存で脆く**、Codex の探索パス前提とずれる。相対化が一貫して安全（L4）。
 - スクリプト起動例も相対化（SKILL.md には「スキルディレクトリ基準で `python3 scripts/...`」と明記）。`$CLAUDE_PLUGIN_ROOT` 等の Claude 専用変数は使わない。
 - **注意: 呼び出し元のプロジェクトファイルを引数に取るスクリプト**（例 `scripts/check-captions.sh Articles/` — スクリプトパスは skill 基準だが `Articles/` は呼び出し元プロジェクト基準）。スクリプトパスだけ相対化すると**2 つの引数が別 cwd を前提**にして崩れる。→ 解決: ①「このコマンドは**プロジェクトルートで実行**し、スクリプトは絶対/解決済みパスで呼ぶ」と明記、または②引数側も呼び出し元基準であることをコメントで明示。hub の lint/check スクリプトで頻出（L1）。
 
-## R3 オーケストレーション→条件分岐表現
-`Task` 並列・`context: fork` 等は、**両プラットフォームで読める条件分岐文**に置換する。テンプレ（パス受け渡しは [R10] 厳守）:
+## R3 オーケストレーション→完全中立表現
+`Task` 並列・`context: fork` 等は、本文からは**ツール名を消し、完全中立な一文**に置換する（[neutral-phrasing.md](neutral-phrasing.md) の対応表に従う）。「Claude Code: …／Codex: …」の条件分岐ブロッククォートは本文には**書かない**——両ホストで同じ一文を読ませる。ツール名の対応は `references/platform-notes.md`（`<!-- platform-annex -->` 付き）だけに書く。テンプレ（パス受け渡しは [R10] 厳守）:
 
 ```markdown
-> **Claude Code**: `Task`（subagent_type: general-purpose）で次を**並列**起動。各サブエージェントには
->   `references/agents/<role>.md` を**メインが読み込み、その内容**（参照データパスは絶対化）を
->   プロンプトとして渡す（相対パスを渡さない＝[R10]）。
-> **Codex / Task が無い環境**: メインが同 `references/agents/<role>.md` を skill 相対で読み、
->   手順を**逐次インライン**実行する（並列性は失われる→[劣化注記]）。
+独立した調査は、委譲できる環境なら並列に委譲し、できなければ同じ調査を逐次で行う
+（`references/agents/<role>.md` の内容を渡す・相対パスを渡さない＝[R10]）。
+サブエージェントは互いに会話せず、メインが結果を統合する。
+```
+
+platform-notes.md 側には対応表を書く:
+```markdown
+<!-- platform-annex -->
+## ツール対応
+- 独立調査の並列委譲 → Claude Code: `Task`（`subagent_type: general-purpose`）を並列起動 / Codex: `Task` 相当の機構が無いため、メインが `references/agents/<role>.md` を skill 相対で読み逐次インライン実行
 ```
 
 - 構造は両対応で維持：**サブエージェントは互いに会話しない・メインが統合**。
 - ただし**並列性には 2 種**ある。混同しない（L11）:
-  - **速度のための並列**（独立 fan-out）→ Codex で**逐次化して安全**。
-  - **正しさのためのフェーズ順序**（例 Phase1 の結果を Phase2 が使う）→ **必ず順序を保持**。Codex でもフェーズ直列は維持し、その旨を明記。「逐次化＝所要時間増」だけと捉えてフェーズ順序まで崩さない。
-- `/batch`・tmux 起動も同様に「Claude: …／Codex: 逐次」で二重化。
+  - **速度のための並列**（独立 fan-out）→ 委譲できない環境では**逐次化して安全**。
+  - **正しさのためのフェーズ順序**（例 Phase1 の結果を Phase2 が使う）→ **必ず順序を保持**。逐次環境でもフェーズ直列は維持し、その旨を明記。「逐次化＝所要時間増」だけと捉えてフェーズ順序まで崩さない。
+- `/batch`・tmux 起動も同様に、本文は「委譲できなければ逐次」の中立文、詳細は platform-notes.md。
 
 ## R4 依存サブエージェント抽出
 **まずサブエージェントの「種類」を見分ける（L5）。種類で戦略が変わる:**
@@ -64,7 +75,7 @@ classify の dependent_subagents を**実体で確認**し、各々が (i)/(ii)/
 
 ## R5 cross-skill 参照の解決
 cross-skill には **2 種**ある。必ず区別する:
-- **(a) データ参照**: 他スキルの `references/`・`scripts/` を読む/実行（例 `cc-book-context/references/x.md`, `cc-book-context/scripts/check_ng_words.py`）。
+- **(a) データ参照**: 他スキルの `references/`・`scripts/` を読む/実行（例 `cc-book-context/references/x.md`, `cc-book-context/scripts/check_ng_words.py`。実例: `refining-prompts/references/prompt-patterns.md` が `../creating-agent-skills/references/prompt-authoring.md` を読む）。
 - **(b) 実行**: `Skill` ツールで他スキルの**ワークフロー自体を起動**（例 cc-book-review が score-check を回す）。
 
 **(a) データ参照の解決**:
@@ -88,10 +99,10 @@ cross-skill には **2 種**ある。必ず区別する:
 **home 絶対パス**（`~/.claude/skills/<other>/scripts/...`）: Codex で壊れ得る → 相対化不可なら [R7] と同様にフォールバック明記。
 
 ## R6 AskUserQuestion
-- 「選択肢を提示して `AskUserQuestion` で確認」→ Codex 版では「**ユーザーに通常の文章で質問し、回答を待つ**」に変換。意図（何を確認するか）は保つ。
+- 「選択肢を提示して `AskUserQuestion` で確認」→ 本文では**常に**「選択肢を 2〜4 個、トレードオフと推奨を添えて提示し、ユーザーの回答を待つ」という中立文に統一（[neutral-phrasing.md](neutral-phrasing.md)）。Claude/Codex の分岐は書かない——ツール名は platform-notes.md 側にのみ書く。意図（何を確認するか）・バッチ化の原則・推奨明示は保つ。
 
 ## R7 MCP ツール
-- `mcp__server__tool` 依存は、Codex 側に同名サーバがあれば動作。無い場合は**フォールバック**（CLI/手動手順）を本文に併記し、未対応を[劣化注記]。
+- `mcp__server__tool` 依存は、本文では「<機能>を行うツール」と中立に書く。具体的なサーバ名・フォールバック（CLI/手動手順）は `references/platform-notes.md` に記載。
 
 ## R8 Claude専用として残す
 - 両対応化が割に合わない箇所は、見出しに `（Claude Code 専用）` を付け、Codex では読み飛ばす旨を明記して**隔離**。無理に劣化させて壊すより安全。
@@ -115,15 +126,41 @@ claude-code-guide で確認した Claude Code の確定挙動（2026）:
 
 要するに: **canonical な指示は `references/agents/<name>.md` に skill 相対で 1 つ持ち、Claude `Task` へはメインが「内容（＋絶対化したデータパス）」を渡す。Codex はメインが相対で読んで逐次実行**。これで 1 ソース・drift ゼロ・両対応。
 
+## R11 代替手順は使用箇所に置く
+劣化注記を末尾の「Codex での制約」節（→ platform-notes.md）だけに書いて終わらせない。**AskUserQuestion・TodoWrite・Task 分岐などの代替表現は、実際にその構文が出てくる本文の行に直接インラインで書く**（R3/R6 の中立文そのものを埋め込む）。末尾（platform-notes.md）の一覧は**索引**であって、唯一の置き場ではない。使用箇所から見えない代替は「無いも同然」——読者は Phase の途中で該当行に来た時点で詰まる。
+
+## R12 状態ディレクトリ規約
+スキルが永続的に書き出す状態・成果物（実行記録、下書き、監査レポート等）は、プラットフォーム名前空間に依存しない場所に置く:
+```
+永続: ${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/<skill>/
+一時: ${TMPDIR:-/tmp}/agent-skills/<skill>/
+```
+`~/.claude/<name>/` や `~/.codex/<name>/` を独自に発明しない（[neutrality_lint.py](../scripts/neutrality_lint.py) の N3 が検出する）。`~/.claude/skills/` `~/.claude/agents/` `~/.claude/commands/` `~/.claude/hooks/` はスキル定義そのものの配置なので対象外。
+
+## R13 サブエージェントテンプレートのパス
+`references/agents/<name>.md` などサブエージェント用テンプレート内でスキル自身の絶対パスが要る箇所（[R10] のデータパス絶対化）は、**`{SKILL_DIR}` プレースホルダ**を書いておき、呼び出し元（メイン）がそのスキルの実ディレクトリ絶対パスに置換してから渡す。`${CLAUDE_PLUGIN_ROOT}`・`${CLAUDE_SKILL_DIR}` のようなプラットフォーム環境変数はテンプレート本文には書かない（メインの実行コンテキストでのみ意味を持ち、渡された文字列としては展開されない）。
+
 ## 条件分岐表現の書式（重要）
-条件分岐は**プレーンな Markdown 散文**で書く（`> **Claude Code**: … / **Codex**: …`）。`{{claude:…|codex:…}}` のような独自構文は使わない — 両プラットフォームのパーサが安全に読めるのは通常の Markdown だけ。
+本文は**完全中立**が既定（R3/R6）——Claude/Codex の分岐そのものを本文に書かない。やむを得ず分岐を残す場合（[R8] の Claude 専用隔離、[R9] のオーケストレーション文脈ロジックなど、中立化不可能と判断した箇所限定）は**プレーンな Markdown 散文**で書く（`> **Claude Code**: … / **Codex**: …`）。`{{claude:…|codex:…}}` のような独自構文は使わない — 両プラットフォームのパーサが安全に読めるのは通常の Markdown だけ。
 
 ## 劣化注記フォーマット
-SKILL.md 末尾に「Codex での制約」節を設け、失われる機能を箇条書き:
+各スキルの `references/platform-notes.md`（先頭に `<!-- platform-annex -->`。旧 `codex-notes.md` から改称）にツール対応表と劣化リストの 2 節を設ける。SKILL.md 末尾には 1 行のリンクだけを残す:
 
 ```markdown
+## Platform notes
+詳細は [references/platform-notes.md](references/platform-notes.md) を参照。
+```
+
+platform-notes.md 側:
+```markdown
+<!-- platform-annex -->
+# Platform notes
+
+## ツール対応
+- 独立調査の並列委譲 → Claude Code: `Task` を並列起動 / Codex: メインが逐次インライン
+- 選択肢提示 → Claude Code: `AskUserQuestion` / Codex: 通常対話
+
 ## Codex での制約（best-effort 劣化）
-- 並列 `Task` → 逐次実行（所要時間増）
-- `AskUserQuestion` → 通常対話で代替
+- 並列委譲 → 逐次実行（所要時間増）
 - `<MCP/tmux/...>` → <フォールバック or 未対応>
 ```

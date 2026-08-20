@@ -1,3 +1,4 @@
+<!-- platform-annex -->
 # Scripts in Skills
 
 ## Table of Contents

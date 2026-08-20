@@ -1,7 +1,11 @@
+<!-- platform-annex -->
 ---
 name: advanced-skill-name
 description: What this skill produces, then the triggers — "Use when [concrete situation], [concrete situation], or working with [artifact or keyword]." Keep the key use case first; Claude Code truncates the listing entry at 1536 chars of description + when_to_use.
 allowed-tools: Read, Grep, Glob, Write, Edit
+metadata:
+  platforms: claude-code, codex   # or just `claude-code` if this skill is inherently Claude-only —
+                                   # see references/agent-neutral-authoring.md before writing the body
 # Claude Code extensions (not part of the portable Agent Skills standard):
 # when_to_use: "Trigger phrases and example requests"
 # disable-model-invocation: true   (user-only; NOT the same as user-invocable: false)
@@ -41,6 +45,7 @@ allowed-tools: Read, Grep, Glob, Write, Edit
 ## Resources
 
 - `references/[name].md` — [what it covers, and the condition under which to read it]
+- `references/platform-notes.md` — only if `metadata.platforms` includes `codex`: starts with `<!-- platform-annex -->`, holds the Claude/Codex tool mapping and the "what's lost on Codex" list. This is the only place a Claude-specific tool name may appear in body text — see references/agent-neutral-authoring.md.
 - `scripts/[name].py` — run as `python3 ${CLAUDE_SKILL_DIR}/scripts/[name].py <args>`; never a hardcoded `~/.claude/skills/...` path
 - `assets/[name]` — [boilerplate copied into the output]
 

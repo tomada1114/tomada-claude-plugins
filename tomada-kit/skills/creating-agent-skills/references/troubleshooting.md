@@ -1,3 +1,4 @@
+<!-- platform-annex -->
 # Troubleshooting Guide
 
 Common issues with Claude Code skills and how to fix them.
@@ -164,6 +165,8 @@ skills-ref validate ./my-skill
 ```
 
 This matters only for skills you intend to publish as portable. A Claude-Code-only skill should use the extensions freely and skip this check.
+
+For portability specifically to **Codex CLI** (not just the abstract standard), the check that matters is `dual-platform-skills/scripts/neutrality_lint.py <skill>` — it catches raw tool names and Claude-namespaced paths leaking into body text, which the standard's own validator doesn't check. See [agent-neutral-authoring.md](agent-neutral-authoring.md).
 
 ## Performance issues
 

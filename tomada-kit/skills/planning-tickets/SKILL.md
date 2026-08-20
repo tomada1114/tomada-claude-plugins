@@ -1,6 +1,8 @@
 ---
 name: planning-tickets
 description: "Plan and create GitHub Issues with agile/scrum methodology. Analyze requirements, identify parallel work, manage dependencies, and suggest git worktree strategies. Use PROACTIVELY when creating tickets, planning sprints, breaking down features, organizing issues, identifying parallel tasks, managing dependencies, or working with GitHub Issues, scrum, agile planning, ticket breakdown, worktree planning. Examples: <example>Context: User wants to plan implementation user: 'Let us start cutting tickets' assistant: 'I will use planning-tickets skill' <commentary>Triggered by ticket creation request</commentary></example> <example>Context: User has requirements user: 'Split these requirements into issues' assistant: 'I will use planning-tickets skill' <commentary>Triggered by issue breakdown request</commentary></example>"
+metadata:
+  platforms: claude-code, codex
 ---
 
 # Planning Tickets
@@ -112,10 +114,6 @@ Exact procedure and label/milestone bootstrap commands: [reference.md](reference
 - [templates/issue-template.md](templates/issue-template.md) — **SSOT** for the full issue body skeleton and its foundation/integration variants.
 - [reference.md](reference.md) — creation order and number backfill, label/milestone bootstrap, sizing guidance.
 
-## Platform compatibility (Claude Code / Codex)
+## Platform notes
 
-Platform-neutral: uses only `gh` and `git` CLIs and skill-relative references (`templates/`, `reference.md`), with no Claude-only session or path constructs. Runs identically on Claude Code and Codex CLI with **no degradation**. On Codex the skill folder is reached via a symlink in `~/.codex/skills/` (Topology A); the real folder stays under the skill's own directory.
-
-## Codex での制約（best-effort 劣化）
-
-- なし。本スキルは `gh`/`git` CLI とスキル相対参照のみで構成され、Claude 専用機構（並列 `Task`、`AskUserQuestion`、MCP、ハードコード絶対パス）を使用しないため、Codex 上でも劣化なく同一に動作する。
+Platform-neutral (uses only `gh`/`git` CLI and skill-relative references — no degradation on Codex). See [references/platform-notes.md](references/platform-notes.md).

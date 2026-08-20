@@ -2,7 +2,7 @@
 # 引き渡しプロンプトの作法
 
 このファイルは `refining-prompts` が出力する**引き渡しプロンプト本文**の書き方。
-スキル自体の書き方は `"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude}"/skills/claudecode-skill-creating/references/prompt-authoring.md`。
+スキル自体の書き方は [../creating-agent-skills/references/prompt-authoring.md](../creating-agent-skills/references/prompt-authoring.md)。
 
 出典: Anthropic [prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)
 と各モデル別ガイド（Fable 5 / Opus 5 / Sonnet 5）。
@@ -116,7 +116,7 @@
 - **一時ファイルを作らせる**: 「検証用に作った一時ファイルやスクリプトは、最後に片付けて」
 - **長時間・複数コンテキストにまたがる**: 「進捗と残りは `progress.md` に書き足しながら進めて。
   コンテキストが尽きそうでもタスクを早めに切り上げないで、状態を保存してから続けて」
-- **ヒアリングされながら進めたい**: 「不明点や大きな分岐は、進める前に AskUserQuestion で確認して」
+- **ヒアリングされながら進めたい**: 「不明点や大きな分岐は、進める前に確認して」
 
 ---
 

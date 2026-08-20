@@ -1,11 +1,13 @@
+<!-- platform-annex -->
 # Frontmatter Fields and Content Substitutions
 
 Reference for the YAML frontmatter of `SKILL.md` and for the placeholders Claude Code substitutes into skill content.
 
-Two sources define these fields, and they are not the same set:
+Three sources define these fields, and they are not the same set:
 
-- **Agent Skills standard** ([agentskills.io](https://agentskills.io/specification)) — portable across tools. `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools`.
-- **Claude Code extensions** — everything else below. Portable skills should avoid them; skills that only ever run in Claude Code should use them freely.
+- **Agent Skills standard** ([agentskills.io](https://agentskills.io/specification)) — portable across tools, including Codex CLI. `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools`.
+- **Claude Code extensions** — everything else in the field summary below. Codex ignores these harmlessly (it reads only `name`/`description`/`metadata`). Portable skills should avoid making body logic *depend* on them; skills that only ever run in Claude Code should use them freely.
+- **Codex extensions** — live entirely under `metadata` (the standard field both hosts read), so there is no separate frontmatter block for them. The one this skill set uses is `metadata.platforms: claude-code, codex` (or `claude-code` alone) — see [agent-neutral-authoring.md](agent-neutral-authoring.md). Codex's own UI-facing hint is `metadata.short-description`. A skill's `agents/openai.yaml` (invocation policy / UI metadata) is a separate optional file, not a frontmatter field.
 
 ## Table of Contents
 
@@ -27,8 +29,10 @@ name: skill-identifier                   # Max 64 chars, kebab-case
 description: What it does + when to use  # Max 1024 chars
 license: MIT                             # Optional
 compatibility: Requires git and jq       # Optional, max 500 chars, env requirements
-metadata:                                # Optional, arbitrary string map
+metadata:                                # Optional, arbitrary string map (both hosts read this key)
   author: tomada
+  platforms: claude-code, codex          # Codex-recognized; drives dual-platform-skills' neutrality lint
+  short-description: One-line UI hint    # Codex UI only
 allowed-tools: Read Grep Glob            # Optional (experimental in the standard)
 
 # Claude Code extensions

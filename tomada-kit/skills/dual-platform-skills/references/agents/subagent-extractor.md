@@ -1,3 +1,4 @@
+<!-- platform-annex -->
 # Subagent prompt: subagent-extractor (write)
 
 Role: 対象スキルが依存する**1 つの**サブエージェントの知識を、対象スキル内の

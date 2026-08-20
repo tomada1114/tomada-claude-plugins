@@ -176,9 +176,9 @@ In `CONTEXT`, list every sibling by **absolute path** with a read-first order:
 
 ```
 CONTEXT: Before any work, read in order:
-  1. /Users/me/.claude/goal-prompts/<slug>/design.md    — the target design; implement it, don't redesign
-  2. /Users/me/.claude/goal-prompts/<slug>/examples.md  — patterns to imitate verbatim
-  3. /Users/me/.claude/goal-prompts/<slug>/checklist.yaml — work queue; update statuses as you go
+  1. ${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/<slug>/design.md    — the target design; implement it, don't redesign
+  2. ${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/<slug>/examples.md  — patterns to imitate verbatim
+  3. ${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/<slug>/checklist.yaml — work queue; update statuses as you go
   decisions.md (same dir) pre-answers ambiguities — consult it before assuming.
 ```
 
@@ -204,7 +204,8 @@ repo may have moved):
 ## Worked example: a design-heavy bundle
 
 Task: "add per-key rate limiting to the public API" — designed by the authoring session, executed
-unattended. Bundle at `~/.claude/goal-prompts/api-rate-limiting/`:
+unattended. Bundle at
+`${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/api-rate-limiting/`:
 
 - `goal.md` (~30 lines) — GOAL: middleware live on all /api/v2 routes, tests pass; DONE WHEN tied
   to `GOAL_DONE:` sentinel after `npm test` output; CONTEXT: read-first list above; CONSTRAINTS:
