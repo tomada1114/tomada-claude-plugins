@@ -178,7 +178,13 @@ In the Agent Skills standard this field is space-separated and marked experiment
 
 > **Naming note:** the field grants pre-approval, it does not sandbox. To *remove* a tool from Claude's pool, use [`disallowed-tools`](#disallowed-tools); to block a tool globally, use deny rules in permission settings.
 
-Common patterns: `Read, Grep, Glob` (read-only analysis) · `Read, Grep, Glob, Write` (docs generation) · `Read, Bash` (validation runs).
+> **Default: omit this field.** The permission prompt is a safety check the user sees; pre-approving tools by default removes it for no reason tied to the skill's actual needs. Write it only for one of two reasons:
+> 1. Pre-approving the skill's own bundled scripts — `Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/x.py:*)`.
+> 2. An unattended or background run that must not stall waiting on a prompt.
+>
+> If the goal is to actually restrict what the skill can touch, that's [`disallowed-tools`](#disallowed-tools), not this field — it's outside this default.
+
+When one of those reasons applies, common patterns: `Read, Grep, Glob` (read-only analysis) · `Read, Grep, Glob, Write` (docs generation) · `Read, Bash` (validation runs).
 
 ---
 

@@ -125,8 +125,11 @@ Ask the user (one focused round, not a barrage):
 2. Will it be invoked by command, by description matching, or both?
 3. What inputs/outputs does it consume and produce?
 4. Are there 1–2 example invocations you can describe right now?
+5. Should this skill run on Codex CLI too, or is its subject Claude Code itself? (default: both)
 
 If the user is mid-conversation with an obvious workflow already discussed, skip the questions and confirm the inferred answers.
+
+**Settle platform scope in the same round.** Default to `metadata.platforms: claude-code, codex` — ask the user only when the skill's actual subject might be Claude Code itself. This decides how the body must be worded, so it cannot wait until step 6's validator; read [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md) before writing prose.
 
 ### 2. Name the gap before writing anything
 
@@ -158,6 +161,10 @@ Write `scripts/`, `references/`, and `assets/` before the SKILL.md prose. Test s
 
 Push anything deterministic into `scripts/` rather than describing it in prose — script source never enters the context window, only its output. This is also what keeps a skill from becoming over-prescriptive: the fragile mechanics live in code, so the prose can state goals and constraints and leave the route open. Apply [references/prompt-authoring.md](references/prompt-authoring.md) while writing the prose.
 
+If step 1 settled `platforms: claude-code, codex` (the default), read [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md) before writing the prose — write what the model should *do*, not which tool does it. Step 6's linter only catches what this step missed; it is a backstop, not where neutrality gets decided.
+
+Omit `allowed-tools` from frontmatter unless one of the two reasons in [yaml-spec.md](references/yaml-spec.md#allowed-tools) applies — pre-approving this skill's own bundled scripts, or an unattended/background run that must not stall on a permission prompt.
+
 Two path forms, and they are not interchangeable: **markdown links** to bundled files use relative paths (`references/foo.md`) so the validator can resolve them; **commands and sub-agent prompts** use `${CLAUDE_SKILL_DIR}/...`, which expands to an absolute path before the model sees it.
 
 ### 6. Validate
@@ -166,7 +173,7 @@ Two path forms, and they are not interchangeable: **markdown links** to bundled 
 python3 ${CLAUDE_SKILL_DIR}/scripts/validate_skill.py <skill-path>
 ```
 
-Fix every error before declaring done.
+Fix every error before declaring done. This includes the neutrality lint it runs internally — a real error here means step 5's guidance was skipped or missed, not a substitute for reading it.
 
 ### 7. Check against the gap list
 
@@ -211,6 +218,7 @@ Findings a script also can't produce, worth checking by hand on any audit:
 - **Hardcoded `~/.claude/skills/...` paths** in script invocations — breaks on plugin install and project checkout. <!-- neutrality-ignore: N2 -->
 - **Instructions with no gap behind them.** For the two or three longest sections, ask what the model would do without them. If the answer is "the same thing", that's the highest-value deletion in the file.
 - **Trigger accuracy.** If the complaint is "fires too often" or "never fires", that's the description, and it's measurable — see [references/evaluating-skills.md](references/evaluating-skills.md).
+- **Declared-but-not-neutral.** N4 only flags a *missing* `metadata.platforms`; it can't tell a hollow declaration from a real one. If `platforms` includes `codex`, skim the body for the tool-naming and phrasing this skill's linter can't parse out of context — see [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md).
 
 ---
 
@@ -221,7 +229,7 @@ Use when turning an existing markdown doc, runbook, or note into a skill.
 1. Read the source document end-to-end first; do not start writing until you understand it.
 2. Decide if the result should be one SKILL.md or SKILL.md + `references/`. Rule of thumb: source >300 lines → split.
 3. Run `init_skill.sh` to scaffold, then move source content into `references/` if splitting.
-4. Write a fresh SKILL.md that **dispatches** rather than duplicates: it should describe inputs, outputs, and when to read each reference, not restate them.
+4. Write a fresh SKILL.md that **dispatches** rather than duplicates: it should describe inputs, outputs, and when to read each reference, not restate them. Decide platform scope the same way a new skill would (see [Scaffolding, step 1](#1-capture-intent)) — default `platforms: claude-code, codex`, and write with [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md) open if so, even though the source doc almost certainly wasn't written that way.
 5. Write the skill in English even when the source doc is Japanese. Keep the original wording only for material that must stay verbatim — quoted UI labels, error strings, command output, sample text the skill has to reproduce.
 6. Cut what the model already knows. A doc written for humans explains concepts, motivates decisions, and repeats itself for readers who skipped a section — all of it dead weight here. The parts worth keeping are the ones a competent stranger to *this* system could not have guessed.
 7. Run `validate_skill.py`, then one invocation against a realistic prompt, and refine.
@@ -276,6 +284,7 @@ This table is a derived copy of the canonical one in the `orchestrating-models` 
 ### Required reading
 
 - [references/prompt-authoring.md](references/prompt-authoring.md) — the five layers every sub-agent prompt needs, model and effort assignment, and the phrasings to keep out of spawn prompts.
+- If `platforms` includes `codex`: [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md#sub-agent-delegation) — put delegation prompts in `references/agents/<name>.md`, not inline in SKILL.md, and describe the spawn in neutral phrasing so Codex's main context can work through the same file directly.
 - [references/orchestration-patterns.md](references/orchestration-patterns.md) — A1–A6 subagent invocation patterns and B1–B3 phase handoff patterns, with concrete prompt templates and anti-patterns.
 - [references/workspace-conventions.md](references/workspace-conventions.md) — deterministic output paths from `$ARGUMENTS`, input/output contracts, snapshot/restore for destructive ops, idempotent re-runs.
 - [examples/pr-review-pipeline/](examples/pr-review-pipeline/) — minimal worked example: 2 specialist sub-agents in parallel, each primed with a numbered checklist and an explicit model assignment, writing to a deterministic workspace.
@@ -333,4 +342,5 @@ Examples: [greeting-generator](examples/greeting-generator/) (single-file skill)
 - **Always** infer intent from `$ARGUMENTS` rather than demanding a mode keyword. Ask one focused clarifying question only if the request is genuinely ambiguous.
 - **Never** write an instruction telling the model to echo, transcribe, or explain its internal reasoning. On Fable this can trigger the `reasoning_extraction` refusal and force a fallback to an older model. Ask for evidence — citations, command output, the artifact — not for thinking.
 - **Always** specify a model when a skill spawns a sub-agent.
+- **Never** add `allowed-tools` without one of the two reasons in [yaml-spec.md](references/yaml-spec.md#allowed-tools) — pre-approving this skill's own bundled scripts, or an unattended/background run that must not stall on a permission prompt. Default is to omit the field.
 - **Always** author skill content in English, and keep `description` English-only with no mirrored Japanese keywords. The exception is content whose subject *is* another language — see [English is the authoring language](#english-is-the-authoring-language).

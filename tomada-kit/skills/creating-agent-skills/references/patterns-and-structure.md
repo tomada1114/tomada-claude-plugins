@@ -273,7 +273,7 @@ debugging-errors/SKILL.md   # 200 lines
 
 ## Tool Restrictions
 
-`allowed-tools` pre-approves; `disallowed-tools` removes (field semantics in `yaml-spec.md`). Combinations worth copying:
+`allowed-tools` pre-approves; `disallowed-tools` removes (field semantics in `yaml-spec.md`). Most skills need neither. `allowed-tools` specifically defaults to omitted — `yaml-spec.md`'s `allowed-tools` section has the two reasons that justify writing it. The combinations below are for skills that have one of those reasons, or that need `disallowed-tools` to actually restrict the tool pool.
 
 ### Common Patterns
 

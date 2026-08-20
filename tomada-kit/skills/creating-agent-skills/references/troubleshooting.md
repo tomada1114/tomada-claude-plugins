@@ -148,7 +148,7 @@ Two distinct fields, frequently confused:
 - `allowed-tools` — **pre-approves** tools so they run without a permission prompt. It does not restrict anything.
 - `disallowed-tools` — **removes** tools from Claude's pool while the skill is active.
 
-Both clear when the user sends the next message. To restrict tools permanently, use deny rules in permission settings.
+Both clear when the user sends the next message. To restrict tools permanently, use deny rules in permission settings. Default is to write neither field; `yaml-spec.md`'s `allowed-tools` section has the narrow cases that justify writing it.
 
 **Valid tool names:** `Read`, `Write`, `Edit`, `Grep`, `Glob`, `Bash`, `WebFetch`, `WebSearch`, `Task`, `Skill`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `AskUserQuestion`, `NotebookEdit`.
 

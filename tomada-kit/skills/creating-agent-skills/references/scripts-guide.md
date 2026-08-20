@@ -40,7 +40,7 @@ bash ${CLAUDE_SKILL_DIR}/scripts/setup.sh 4 ~/work/run-2026-04-07
 
 `${CLAUDE_SKILL_DIR}` resolves to the directory holding this `SKILL.md` — the skill's own subdirectory even when installed as a plugin. A hardcoded personal path breaks on plugin install and project checkout, and silently runs the *wrong copy* when both exist.
 
-The same variable expands inside `allowed-tools`, so pre-approving the skill's own scripts costs one line and removes the permission prompt:
+The same variable expands inside `allowed-tools`, so pre-approving the skill's own scripts costs one line and removes the permission prompt. This is one of the two reasons `allowed-tools` is worth writing at all (see `yaml-spec.md`'s `allowed-tools` section); otherwise the field defaults to omitted:
 
 ```yaml
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/validate.py:*)
