@@ -19,6 +19,14 @@
 #   - Refuses to clobber a target that is a REAL directory/file (only repoints symlinks).
 #   - Idempotent: re-running when the link already points correctly reports OK.
 #
+# Cleanup (always on, not a flag):
+#   - Before creating/repointing the requested symlink, sweeps CODEX_DIR for
+#     dangling symlinks (source .claude/skills/<name> no longer exists) and
+#     unlinks them (also dropping their .gitignore entry if tracked there).
+#   - Only ever touches BROKEN symlinks. Real Codex-only directories and any
+#     symlink that still resolves are never removed. Independent of git (works
+#     even when CODEX_DIR is not inside a git work tree, e.g. ~/.codex/skills).
+#
 # Exit codes: 0 = ok/idempotent, 1 = bad args, 2 = unsafe target, 3 = source invalid
 set -euo pipefail
 
@@ -75,6 +83,31 @@ if [[ -z "$CODEX_DIR" ]]; then
     *) die "--scope must be user|repo|auto" 1 ;;
   esac
 fi
+
+# --- Sweep dangling symlinks (always; not gated by a flag, not gated by git) -
+# Any symlink directly under CODEX_DIR that no longer resolves means its real
+# .claude/skills/<name> source was deleted; unlink it. Only ever touches
+# BROKEN symlinks — real directories and symlinks that still resolve are left
+# alone, so hand-placed Codex-only skills are never at risk.
+sweep_dangling_symlinks() {
+  local dir="$1" gi="$1/.gitignore" p name
+  [[ -d "$dir" ]] || return 0
+  for p in "$dir"/*; do
+    [[ -L "$p" && ! -e "$p" ]] || continue
+    name="$(basename "$p")"
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      echo "[dry-run] would unlink dangling symlink (source removed): $p"
+      continue
+    fi
+    rm -f "$p"
+    echo "unlinked dangling symlink (source removed): $p"
+    if [[ -f "$gi" ]] && grep -qxF "$name" "$gi" 2>/dev/null; then
+      grep -vxF "$name" "$gi" > "$gi.tmp" && mv "$gi.tmp" "$gi"
+    fi
+  done
+}
+
+sweep_dangling_symlinks "$CODEX_DIR"
 
 TARGET="$CODEX_DIR/$NAME"
 
