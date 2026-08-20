@@ -19,7 +19,9 @@ Patterns for skills that orchestrate sub-agents and chain skills via file artifa
   - [B1. Artifact-driven handoff](#b1-artifact-driven-handoff)
   - [B2. Conditional skip based on prior artifact](#b2-conditional-skip-based-on-prior-artifact)
   - [B3. Deterministic output paths](#b3-deterministic-output-paths)
+- [Proposing orchestration](#proposing-orchestration)
 - [Anti-patterns](#anti-patterns)
+- [Review checklist](#review-checklist)
 
 ---
 
@@ -298,6 +300,32 @@ The artifact gates the scope of the next phase. Without this, you build a chain 
 
 ---
 
+## Proposing orchestration
+
+The Improving playbook proposes delegation, parallelism, or phase splits for an audited skill only under these conditions, and within these limits.
+
+**Warranted when at least one holds:**
+
+1. Two or more independent angles, each needing its own checklist or reference of 100+ lines — a single pass through all of them would crowd out the synthesis work.
+2. A phase reads many files whose contents are not needed afterwards — delegating to a fresh context keeps that reading out of the main thread's budget.
+3. The skill is a node in a pipeline, reading and writing structured files that a separate phase or a separate skill consumes.
+4. An autonomous run spans many phases, and a fresh-context verifier at an interval earns its cost against the risk of drift.
+
+**Not warranted:**
+
+- Work the main agent finishes in a handful of tool calls.
+- Strictly sequential steps with no independent angle to parallelize.
+- Re-checking work the model already verifies by default.
+
+**Limits on any proposal:**
+
+- At most one proposal per phase, three per skill.
+- Every proposal names: which condition above justifies it, the model for each spawn (chosen by spec completeness, per the table in A6), the five prompt layers (see `prompt-authoring.md`, load via SKILL.md), and a spawn cap.
+
+An audited skill that tells the model to delegate to sub-agents "whenever helpful," with no bar and no cap, is itself a finding (OR5) — an open-ended delegation nudge produces spawns for work a single tool call would finish.
+
+---
+
 ## Anti-patterns
 
 These are mistakes the production skills have already paid the price for. Do not repeat them.
@@ -337,3 +365,33 @@ Current models self-verify on scoped tasks; instructing it again buys over-verif
 
 **12. Telling a finder sub-agent to report only what matters.**
 "Only high-severity", "be conservative", "skip nits" are followed literally <!-- audit-ignore: A006 -->: the sub-agent investigates just as deeply and then suppresses findings. Ask for full coverage with confidence and severity attached, and filter in the merge phase.
+
+---
+
+## Review checklist
+
+Used by the Improving playbook's *orchestration* lens.
+
+### OR1: Every spawn names a model
+Chosen by spec completeness (A6), not task size.
+
+### OR2: Every spawn prompt carries the five layers
+Intent, bootstrap pointers, concrete paths, embedded slices, output contract (A4 + the layers in `prompt-authoring.md`, load via SKILL.md).
+
+### OR3: Parallel within a phase, sequential across phases
+No sub-agent chaining; the main agent merges (A5).
+
+### OR4: Output contracts pin exact shape and stable IDs
+So merging findings across spawns is mechanical.
+
+### OR5: Delegation bar and spawn cap are stated
+No open-ended delegation nudge — "delegate when helpful" with no bar and no cap is a FAIL.
+
+### OR6: Spawn prompts are free of legacy phrasings
+No extra verification pass, no severity self-filtering.
+
+### OR7: Pipeline nodes declare inputs/outputs and use deterministic paths
+See B1 and B3.
+
+### OR8: Missing orchestration is reported as a proposal
+A phase meeting a condition in "Proposing orchestration" but running inline is a finding — name the condition it meets rather than just flagging the phase.

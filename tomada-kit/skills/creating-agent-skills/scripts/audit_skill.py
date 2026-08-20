@@ -8,8 +8,8 @@ Wraps validate_skill.py and adds editorial / structural checks:
   A002  Duplicate top-level (## / ###) headings.
   A003  references/*.md files that exist on disk but are NOT linked from
         SKILL.md (orphaned references).
-  A004  references/*.md files referenced from SKILL.md but missing on disk
-        (already covered by validate's E041, surfaced here as a hint).
+  A004  (retired — validate's E041 already reports missing link targets; the
+        number is not reused.)
   A005  Frontmatter description still uses pure auto-trigger framing
         ("Use PROACTIVELY when ...") despite being command-invoked.
         This is a hint, not an error — the user may legitimately want both.
@@ -44,6 +44,11 @@ Wraps validate_skill.py and adds editorial / structural checks:
         its N1-N4 findings in, so they appear in every audit report without
         duplicate logic. See validate_skill.py's own docstring (check 9).
 
+Also emits a `profile` block (body_lines, reference_count, has_scripts,
+has_tests, spawns_subagents, has_phases, code_blocks, platforms) — a
+structural snapshot for deciding things like "should this skill be split"
+or "does it need scripts/tests/", not itself a pass/fail check.
+
 Usage:
     audit_skill.py <skill-path> [--json] [--report <path>]
 
@@ -61,7 +66,7 @@ import argparse
 import json
 import re
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 # Reuse validate_skill in-process so we don't depend on subprocess wiring.
@@ -310,13 +315,87 @@ def scan_legacy_phrasings(text: str, location: str) -> list[validate_skill.Findi
     return findings
 
 
-def audit(skill_path: Path) -> tuple[validate_skill.Report, list[validate_skill.Finding]]:
+# Profile: a structural snapshot, not a pass/fail check.
+SPAWNS_SUBAGENTS_RE = re.compile(
+    r"\bsub-?agents?\b|\bspawn|\bdelegate|\bin parallel\b|\bfresh context\b", re.IGNORECASE
+)
+HAS_PHASES_RE = re.compile(r"^#{2,4}\s+(?:Phase|Step|P\d|Stage)\b", re.MULTILINE)
+
+
+@dataclass
+class Profile:
+    body_lines: int = 0
+    reference_count: int = 0
+    has_scripts: bool = False
+    has_tests: bool = False
+    spawns_subagents: bool = False
+    has_phases: bool = False
+    code_blocks: int = 0
+    platforms: str = ""
+
+
+def build_profile(skill_path: Path, body: str) -> Profile:
+    """Build the structural `profile` block from the skill directory and the
+    SKILL.md body. `metadata.platforms` is read separately below because
+    validate_skill.parse_frontmatter() flattens top-level keys only.
+    """
+    refs_dir = skill_path / "references"
+    ref_files = sorted(refs_dir.rglob("*.md")) if refs_dir.exists() else []
+    reference_count = len(ref_files)
+
+    scripts_dir = skill_path / "scripts"
+    has_scripts = scripts_dir.is_dir()
+
+    tests_dir = scripts_dir / "tests"
+    has_tests = tests_dir.is_dir() and any(tests_dir.glob("test_*.py"))
+
+    refs_text = ""
+    for md in ref_files:
+        try:
+            refs_text += "\n" + md.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            pass
+    spawns_subagents = bool(SPAWNS_SUBAGENTS_RE.search(body + "\n" + refs_text))
+
+    has_phases = bool(HAS_PHASES_RE.search(body))
+
+    code_blocks = sum(1 for _ in validate_skill.CODE_BLOCK_RE.finditer(body))
+
+    # metadata.platforms is nested under `metadata:`, which parse_frontmatter()
+    # deliberately doesn't flatten (see its docstring: "top-level key: value only").
+    # Reuse neutrality_lint's own frontmatter parser, which does flatten it, rather
+    # than duplicating that parsing here; fall back to "" if it can't be loaded.
+    platforms = ""
+    nl = validate_skill._load_neutrality_lint()
+    skill_md = skill_path / "SKILL.md"
+    if nl is not None and skill_md.exists():
+        try:
+            vals, _ = nl.parse_frontmatter(skill_md.read_text(encoding="utf-8"))
+            platforms = vals.get("metadata.platforms", "")
+        except Exception:  # noqa: BLE001 — profile is best-effort, never block the rest
+            platforms = ""
+
+    return Profile(
+        body_lines=len(body.splitlines()),
+        reference_count=reference_count,
+        has_scripts=has_scripts,
+        has_tests=has_tests,
+        spawns_subagents=spawns_subagents,
+        has_phases=has_phases,
+        code_blocks=code_blocks,
+        platforms=platforms,
+    )
+
+
+def audit(
+    skill_path: Path,
+) -> tuple[validate_skill.Report, list[validate_skill.Finding], Profile]:
     report = validate_skill.validate(skill_path)
     extras: list[validate_skill.Finding] = []
 
     skill_md = skill_path / "SKILL.md"
     if not skill_md.exists():
-        return report, extras
+        return report, extras, Profile()
 
     text = skill_md.read_text(encoding="utf-8")
     fields, body_start = validate_skill.parse_frontmatter(text)
@@ -401,15 +480,33 @@ def audit(skill_path: Path) -> tuple[validate_skill.Report, list[validate_skill.
         extras.extend(find_ref_to_ref_links(skill_path, refs_dir))
         extras.extend(find_missing_toc(skill_path, refs_dir))
 
-    return report, extras
+    profile = build_profile(skill_path, body)
+
+    return report, extras, profile
 
 
-def render_markdown(skill_path: Path, report: validate_skill.Report, extras: list[validate_skill.Finding]) -> str:
+def render_markdown(
+    skill_path: Path,
+    report: validate_skill.Report,
+    extras: list[validate_skill.Finding],
+    profile: Profile,
+) -> str:
     lines = [f"# Audit Report: {skill_path.name}", ""]
     lines.append(f"- **Path:** `{report.skill_path}`")
     lines.append(f"- **name:** `{report.skill_name or '(missing)'}`")
     lines.append(f"- **description length:** {report.description_length} chars")
     lines.append(f"- **body lines:** {report.body_lines}")
+    lines.append("")
+
+    lines.append("## Profile")
+    lines.append(f"- **body_lines:** {profile.body_lines}")
+    lines.append(f"- **reference_count:** {profile.reference_count}")
+    lines.append(f"- **has_scripts:** {profile.has_scripts}")
+    lines.append(f"- **has_tests:** {profile.has_tests}")
+    lines.append(f"- **spawns_subagents:** {profile.spawns_subagents}")
+    lines.append(f"- **has_phases:** {profile.has_phases}")
+    lines.append(f"- **code_blocks:** {profile.code_blocks}")
+    lines.append(f"- **platforms:** {profile.platforms or '(none)'}")
     lines.append("")
 
     all_findings = list(report.findings) + extras
@@ -455,20 +552,21 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv[1:])
 
     skill_path = args.skill_path.expanduser().resolve()
-    report, extras = audit(skill_path)
+    report, extras, profile = audit(skill_path)
 
     if args.json:
         payload = {
             "validate": asdict(report),
             "audit": [asdict(f) for f in extras],
+            "profile": asdict(profile),
         }
         print(json.dumps(payload, indent=2, ensure_ascii=False))
     else:
-        print(render_markdown(skill_path, report, extras))
+        print(render_markdown(skill_path, report, extras, profile))
 
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)
-        args.report.write_text(render_markdown(skill_path, report, extras), encoding="utf-8")
+        args.report.write_text(render_markdown(skill_path, report, extras, profile), encoding="utf-8")
         print(f"\nReport written to: {args.report}", file=sys.stderr)
 
     has_errors = any(f.level == "error" for f in report.findings + extras)

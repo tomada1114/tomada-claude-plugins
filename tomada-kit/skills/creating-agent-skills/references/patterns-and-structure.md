@@ -18,6 +18,7 @@ This document covers directory structure, integration patterns, workflow pattern
   - [Feedback Loop](#feedback-loop)
 - [One Skill = One Capability](#one-skill--one-capability)
 - [Tool Restrictions](#tool-restrictions)
+- [Review checklist](#review-checklist)
 
 ---
 
@@ -295,3 +296,33 @@ Use when the skill must never stop to ask, e.g. a loop or scheduled task.
 ### Available Tools
 
 File ops: `Read`, `Write`, `Edit`, `Glob`, `NotebookEdit`. Search: `Grep`. Execution: `Bash`. Web: `WebFetch`, `WebSearch`. Agents: `Task`, `Skill`. Tasks: `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`. Utility: `AskUserQuestion`.
+
+---
+
+## Review checklist
+
+Used by the Improving playbook's *structure* lens. `A001`/`A002`/`A003`/`A005`/`A007`/`A008`/`A009` and the E/W codes handle the mechanical part; these items are about whether the structure does its job.
+
+### ST1: SKILL.md dispatches rather than duplicates
+Each reference has a one-line "read when" in SKILL.md, and no content is repeated in both places.
+
+### ST2: Three-level loading respected
+Nothing in SKILL.md that only one branch needs and runs past ~30 lines (belongs in `references/`); nothing in `references/` that every run re-reads (belongs in SKILL.md).
+
+### ST3: Description is accurate against what the body actually does
+Key use case in the first sentence, third person, concrete trigger vocabulary, and specific enough that should-not-trigger requests stay out. No "When to use" section in the body. For "never fires" / "fires too often" complaints, use `yaml-spec.md`'s "Diagnosing activation" section (load via SKILL.md) and the should/should-not cases in `evaluating-skills.md` (load via SKILL.md).
+
+### ST4: Content type matches pattern
+Reference-type content is not run as a forked task; Task-type content states an explicit task.
+
+### ST5: Every template is declared scaffold or reference guide
+A template in `assets/` or `templates/` says which of the two it is, so the workflow around it is unambiguous.
+
+### ST6: Checklists meant to be applied carry stable IDs
+A `references/` file meant to be applied item-by-item (not just read) uses stable IDs like `LB1`, `RB3` so findings can be reported and merged mechanically.
+
+### ST7: No files that do not belong
+README / CHANGELOG / setup guides / concept explanations the model already has are FAILs — they cost tokens without adding trigger-relevant instruction.
+
+### ST8: One skill, one capability
+Unrelated sections or a body past 500 lines are split candidates.

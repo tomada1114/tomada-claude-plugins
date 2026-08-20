@@ -193,6 +193,177 @@ class TestCLI(unittest.TestCase):
     def test_main_returns_2_bad_invocation(self):
         self.assertEqual(vs.main(["validate_skill.py"]), 2)
 
+    def test_main_returns_2_on_help_flag(self):
+        self.assertEqual(vs.main(["validate_skill.py", "-h"]), 2)
+        self.assertEqual(vs.main(["validate_skill.py", "--help"]), 2)
+
+    def test_main_json_output_parseable(self):
+        skill = write_skill(self.root)
+        old_stdout = sys.stdout
+        from io import StringIO
+        sys.stdout = buf = StringIO()
+        try:
+            rc = vs.main(["validate_skill.py", str(skill), "--json"])
+        finally:
+            sys.stdout = old_stdout
+        self.assertEqual(rc, 0)
+        import json
+        data = json.loads(buf.getvalue())
+        for key in ("skill_path", "skill_name", "description_length", "body_lines", "findings"):
+            self.assertIn(key, data)
+
+
+class TestE001BadPath(unittest.TestCase):
+    def test_nonexistent_path_e001(self):
+        r = vs.validate(Path("/definitely/does/not/exist/xyz-skill"))
+        self.assertTrue(any(f.code == "E001" for f in r.errors))
+
+
+class TestFrontmatterEdgeCases(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def test_e003_unterminated_frontmatter(self):
+        skill = write_skill(self.root, skill_md="---\n")
+        r = vs.validate(skill)
+        self.assertTrue(any(f.code == "E003" for f in r.errors))
+
+    def test_comment_and_blank_lines_ignored(self):
+        text = "---\nname: foo\n# a comment\n\ndescription: bar\n---\nBody\n"
+        fields, body_start = vs.parse_frontmatter(text)
+        self.assertEqual(fields["name"], "foo")
+        self.assertEqual(fields["description"], "bar")
+        self.assertEqual(body_start, 6)
+
+    def test_continuation_with_quoted_first_value(self):
+        text = '---\nname: foo\ndescription: "quoted start"\n  more text\n---\n'
+        fields, _ = vs.parse_frontmatter(text)
+        self.assertEqual(fields["description"], "quoted start more text")
+
+
+class TestNameAndDescriptionLimits(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def test_e012_name_too_long_valid_charset(self):
+        long_name = "a" * 65
+        skill = write_skill(self.root, skill_md=f"---\nname: {long_name}\ndescription: d\n---\n")
+        r = vs.validate(skill)
+        self.assertTrue(any(f.code == "E012" for f in r.errors))
+        self.assertFalse(any(f.code == "E011" for f in r.errors))
+
+    def test_w022_description_approaching_limit(self):
+        desc = "x" * 950  # 901-1024 range
+        skill = write_skill(self.root, skill_md=f"---\nname: sample-skill\ndescription: {desc}\n---\n")
+        r = vs.validate(skill)
+        self.assertTrue(any(f.code == "W022" for f in r.warnings))
+
+    def test_w023_description_plus_when_to_use_over_cap(self):
+        skill_md = (
+            "---\nname: sample-skill\ndescription: " + ("d" * 100) +
+            "\nwhen_to_use: " + ("w" * 1500) + "\n---\n"
+        )
+        skill = write_skill(self.root, skill_md=skill_md)
+        r = vs.validate(skill)
+        self.assertTrue(any(f.code == "W023" for f in r.warnings))
+
+
+class TestBodyLineCounts(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def test_e030_body_over_800_lines(self):
+        body = "\n".join(f"line {i}" for i in range(801))
+        skill_md = "---\nname: sample-skill\ndescription: d\n---\n" + body + "\n"
+        skill = write_skill(self.root, skill_md=skill_md)
+        r = vs.validate(skill)
+        self.assertTrue(any(f.code == "E030" for f in r.errors))
+
+    def test_w031_body_between_501_and_800_lines(self):
+        body = "\n".join(f"line {i}" for i in range(600))
+        skill_md = "---\nname: sample-skill\ndescription: d\n---\n" + body + "\n"
+        skill = write_skill(self.root, skill_md=skill_md)
+        r = vs.validate(skill)
+        self.assertTrue(any(f.code == "W031" for f in r.warnings))
+
+
+class TestCodeBlockSize(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def test_w050_code_block_over_25_lines(self):
+        code_lines = "\n".join(f"x = {i}" for i in range(30))
+        body = f"```python\n{code_lines}\n```\n"
+        skill_md = "---\nname: sample-skill\ndescription: d\n---\n" + body
+        skill = write_skill(self.root, skill_md=skill_md)
+        r = vs.validate(skill)
+        self.assertTrue(any(f.code == "W050" for f in r.warnings))
+
+
+class TestLinkSkipping(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def test_http_and_absolute_links_not_flagged(self):
+        skill_md = (
+            "---\nname: sample-skill\ndescription: d\n---\n"
+            "See [ext](https://example.com/x) and [abs](/etc/passwd).\n"
+        )
+        skill = write_skill(self.root, skill_md=skill_md)
+        r = vs.validate(skill)
+        self.assertFalse([f for f in r.findings if f.code in ("E041", "W040")])
+
+
+class TestW060NeutralityLintCrash(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def test_neutrality_lint_exception_surfaces_as_w060(self):
+        class ExplodingNL:
+            def lint(self, skill_path):
+                raise RuntimeError("boom")
+
+        skill = write_skill(self.root)
+        orig = vs._load_neutrality_lint
+        vs._load_neutrality_lint = lambda: ExplodingNL()
+        try:
+            r = vs.validate(skill)
+        finally:
+            vs._load_neutrality_lint = orig
+        self.assertTrue(any(f.code == "W060" for f in r.warnings))
+
+
+class TestRenderHuman(unittest.TestCase):
+    def test_no_findings(self):
+        report = vs.Report(skill_path="/tmp/x", skill_name="x", description_length=1, body_lines=1)
+        out = vs.render_human(report)
+        self.assertIn("OK", out)
+
+    def test_findings_of_each_level(self):
+        report = vs.Report(skill_path="/tmp/x", skill_name="x", description_length=1, body_lines=1)
+        report.add("error", "E999", "boom")
+        report.add("warning", "W999", "careful")
+        report.add("info", "I999", "fyi")
+        out = vs.render_human(report)
+        self.assertIn("E999", out)
+        self.assertIn("W999", out)
+        self.assertIn("I999", out)
+        self.assertIn("ERRORS", out)
+        self.assertIn("WARNINGS", out)
+        self.assertIn("INFOS", out)
+
 
 if __name__ == "__main__":
     unittest.main()

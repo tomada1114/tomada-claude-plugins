@@ -1,6 +1,6 @@
 ---
 name: creating-agent-skills
-description: "Create, audit, refactor, convert, or troubleshoot Agent Skills (the shared skill format used by Claude Code and OpenAI Codex CLI — SKILL.md + optional references/scripts/assets). Takes a free-form natural-language request describing what the user wants done — e.g. \"I want to build a new skill\" / \"audit this skill\" / \"turn this doc into a skill\" / \"it never fires\" / \"split this into sub-agents\" — optionally followed by a skill name or absolute path. Triggers on Claude Code skill authoring as well as Codex skill / skill-creator requests."
+description: "Create or improve Agent Skills (the shared SKILL.md format read by Claude Code and OpenAI Codex CLI — SKILL.md + optional references/scripts/assets). Two playbooks: build a skill from scratch or from an existing doc; or review an existing skill through parallel specialist lenses (prose quality, agent neutrality, structure, scripts, orchestration) and propose fixes. Takes a free-form request — \"I want a skill that…\", \"turn this runbook into a skill\", \"audit this skill\", \"it never fires\", \"split this into sub-agents\" — optionally followed by a skill name or absolute path. Also triggers on Codex skill / skill-creator requests."
 argument-hint: "<free-form intent> [skill-name-or-path]"
 metadata:
   platforms: claude-code, codex
@@ -10,23 +10,21 @@ metadata:
 
 Workshop for building and maintaining Agent Skills — the shared `SKILL.md` format both Claude Code and Codex CLI read natively (see [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md) for what's common vs. per-host). Most guidance here is host-agnostic; the few Claude Code-only mechanics (`Task`, `AskUserQuestion`, plugin `${CLAUDE_PLUGIN_ROOT}`, etc.) are called out explicitly where they appear. <!-- neutrality-ignore: N1 --> <!-- neutrality-ignore: N2 -->
 
-`$ARGUMENTS` is **free-form text**, in any language. There is no mode keyword to parse. Read the user's intent, optionally pick out a skill name or path token, then jump to the matching playbook below. If the request mixes goals (e.g. "audit it, and fix whatever is broken"), chain playbooks in the order implied by the request.
+`$ARGUMENTS` is **free-form text**, in any language. There is no mode keyword to parse. Read the user's intent, optionally pick out a skill name or path token, then route to [Building a skill](#building-a-skill) or [Improving a skill](#improving-a-skill). If the request mixes goals (e.g. "audit it, and fix whatever is broken"), chain playbooks in the order implied by the request.
 
 ## Contract
 
 **Input:** free-form natural-language description of the task, optionally including a skill name or absolute path. No fixed positional parameters.
 
 **Outputs depend on the inferred task:**
-- Scaffolding a new skill → directory at `~/.claude/skills/<name>/` (or `<cwd>/.claude/skills/<name>/` with `--scope project`). Claude Code reads this natively; run `dual-platform-skills` afterward to bridge the same skill onto Codex (Topology A — the real files stay under `.claude/skills/`, Codex reaches them via symlink). <!-- neutrality-ignore: N2 -->
-- Auditing → Markdown report at `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/skills-audit/<skill-name>/report.md`.
-- Converting an existing doc → same layout as scaffolding.
-- Troubleshooting → diagnosis (and optional fix patches) printed in chat.
-- Adding sub-agents → edited SKILL.md + new sub-agent files.
+- Building → directory at `~/.claude/skills/<name>/` (or `<cwd>/.claude/skills/<name>/` with `--scope project`). Claude Code reads this natively; run `dual-platform-skills` afterward to bridge the same skill onto Codex (Topology A — the real files stay under `.claude/skills/`, Codex reaches them via symlink). <!-- neutrality-ignore: N2 -->
+- Improving → `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/skills-audit/<skill-name>/` holding `report.md` (script pass), `lens-<name>.md` (one per lens), `recommendations.md` (merged, prioritized). Edits to the skill itself only after the user approves.
 
 **Bundled scripts** (invoke through `${CLAUDE_SKILL_DIR}`, never a hardcoded `~/.claude/skills/...` path): <!-- neutrality-ignore: N2 -->
 - `scripts/init_skill.sh` — scaffold new skill from template
-- `scripts/validate_skill.py` — frontmatter / line-count / link-integrity checks (JSON or text)
-- `scripts/audit_skill.py` — wraps validate, adds editorial checks, writes Markdown report
+- `scripts/validate_skill.py` — frontmatter / line-count / link-integrity / neutrality (N1–N4) checks, `--json`
+- `scripts/audit_skill.py` — wraps validate, adds editorial checks A001–A009, emits a `profile` block in `--json`, writes a Markdown report
+- `scripts/check_scripts.py` — for skills with `scripts/`: test presence, test run, coverage ≥ 90 %, shebang/exec bit, hardcoded personal paths, `.gitignore` coverage (S001–S007), `--json`
 
 ## Intent inference
 
@@ -34,13 +32,12 @@ Match signals in `$ARGUMENTS` to a playbook — match on meaning, not wording; t
 
 | Signal in the request | Playbook |
 |---|---|
-| build / new / scaffold / from scratch / "I want a skill that…" | [Scaffolding a new skill](#scaffolding-a-new-skill) |
-| audit / health check / review / "see if it is broken" | [Auditing an existing skill](#auditing-an-existing-skill) |
-| convert / "turn this doc into a skill" / "make this Markdown a skill" | [Converting an existing doc into a skill](#converting-an-existing-doc-into-a-skill) |
-| does not work / never fires / not triggering / frontmatter looks wrong / broken links | [Troubleshooting an existing skill](#troubleshooting-an-existing-skill) |
-| sub-agents / parallel / multi-phase / orchestration / "split this skill up" | [Adding sub-agents to a skill](#adding-sub-agents-to-a-skill) |
+| build / new / scaffold / from scratch / convert / "turn this doc into a skill" / "I want a skill that…" | [Building a skill](#building-a-skill) |
+| audit / review / health check / refactor / slim down / "never fires" / "fires too often" / sub-agents / parallel / "split this up" | [Improving a skill](#improving-a-skill) |
 
 If a token in the input matches an existing skill name or `~/.claude/skills/...` path, treat it as the target. Otherwise infer or ask. <!-- neutrality-ignore: N2 -->
+
+If the request is both ("build it, then review it"), run Building to completion and then Improving.
 
 ---
 
@@ -80,6 +77,12 @@ Match instruction specificity to fragility:
 
 A narrow bridge with cliffs needs guardrails; an open field allows many routes.
 
+### Deterministic work belongs in scripts
+
+Any step whose result would be identical on every run — enumerating files, counting, validating structure, converting formats, applying a rule table, running tests — is a script, not prose. A script is faster, costs no context for its source, and can be tested; prose describing the same procedure is re-derived by the model each time and drifts. Keep judgment in the prose: what the numbers mean, what to do about a failure, which of several valid routes to take.
+
+Scripts follow the conventions in [references/scripts-guide.md](references/scripts-guide.md#conventions): `scripts/` + `scripts/tests/test_<name>.py`, `--json` for anything an agent parses, exit codes 0/1/2, one responsibility per script, stdlib first with other dependencies declared in SKILL.md, test coverage ≥ 90 %, and generated files (`__pycache__/`, `.pytest_cache/`, `.coverage*`) in `.gitignore`. `scripts/check_scripts.py` enforces the checkable parts.
+
 ### Three-level loading
 
 1. **Metadata** (name + description, ~100 words) — always in context.
@@ -113,11 +116,13 @@ skill-name/
 
 ---
 
-## Scaffolding a new skill
+## Building a skill
 
-Use when the user wants to build a brand-new skill from scratch.
+Use when the user wants a new skill — from scratch, or from an existing markdown doc, runbook, or note.
 
 ### 1. Capture intent
+
+**If a source document exists, read it end-to-end before asking anything** — the questions below are answered by the doc more often than not; confirm the inferred answers instead of asking.
 
 Ask the user (one focused round, not a barrage):
 
@@ -147,6 +152,8 @@ For each example, ask: what code, doc, or template would be rewritten every time
 - Doc Claude should consult → `references/`
 - Boilerplate copied into output → `assets/`
 
+Apply the deterministic-work rule above: anything on the candidate list that is a procedure with one right answer goes to `scripts/`, with a test. From a source doc: if it exceeds ~300 lines, the body of it goes under `references/` split by concern and SKILL.md dispatches to it; cut what the model already knows — a doc written for humans explains concepts, motivates decisions, and repeats itself, all of it dead weight here. Keep only what a competent stranger to *this* system could not have guessed.
+
 ### 4. Scaffold
 
 ```bash
@@ -167,13 +174,18 @@ Omit `allowed-tools` from frontmatter unless one of the two reasons in [yaml-spe
 
 Two path forms, and they are not interchangeable: **markdown links** to bundled files use relative paths (`references/foo.md`) so the validator can resolve them; **commands and sub-agent prompts** use `${CLAUDE_SKILL_DIR}/...`, which expands to an absolute path before the model sees it.
 
+If the skill delegates work to fresh contexts, name a model for every spawn by spec completeness (table in [prompt-authoring.md](references/prompt-authoring.md#assigning-models-and-effort)), keep the delegation prompts in `references/agents/<name>.md`, and state the bar and the cap for delegation in the body — the patterns and their limits are in [references/orchestration-patterns.md](references/orchestration-patterns.md).
+
+From a source doc: write in English even when the source is Japanese; keep the original wording only for material that must stay verbatim — quoted UI labels, error strings, command output, sample text the skill has to reproduce.
+
 ### 6. Validate
 
 ```bash
 python3 ${CLAUDE_SKILL_DIR}/scripts/validate_skill.py <skill-path>
+python3 ${CLAUDE_SKILL_DIR}/scripts/check_scripts.py <skill-path>   # only if the skill has scripts/
 ```
 
-Fix every error before declaring done. This includes the neutrality lint it runs internally — a real error here means step 5's guidance was skipped or missed, not a substitute for reading it.
+Fix every error before declaring done. This includes the neutrality lint it runs internally — a real error here means step 5's guidance was skipped or missed, not a substitute for reading it. `check_scripts.py` fails on failing tests and warns below 90 % coverage; both are done-criteria, not advice.
 
 ### 7. Check against the gap list
 
@@ -183,119 +195,56 @@ For repeatable measurement — pass rates, token cost, blind A/B between version
 
 ---
 
-## Auditing an existing skill
+## Improving a skill
 
-Use when reviewing an existing skill for health, drift, or bloat.
+Use when reviewing an existing skill for health, drift, bloat, trigger accuracy, or to restructure it — including splitting it into phases or sub-agents. One agent reading for every concern at once misses things, so the review is split into lenses that run in fresh contexts and are merged afterwards.
 
-### Procedure
+### P0. Script pass (deterministic)
 
-1. Resolve the target path. If the user gave a bare skill name, expand to `~/.claude/skills/<name>`. <!-- neutrality-ignore: N2 -->
-2. Run the audit script and capture both JSON (for parsing) and Markdown (for the user):
+1. Resolve the target path. A bare skill name expands to `~/.claude/skills/<name>`. <!-- neutrality-ignore: N2 -->
+2. Run the scripts and keep both the JSON (for P1/P2) and the Markdown report (for the user):
    ```bash
    AUDIT_DIR="${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/skills-audit/<skill-name>"
    mkdir -p "$AUDIT_DIR"
-   python3 ${CLAUDE_SKILL_DIR}/scripts/audit_skill.py <skill-path> --report "$AUDIT_DIR/report.md"
+   python3 ${CLAUDE_SKILL_DIR}/scripts/audit_skill.py <skill-path> --json --report "$AUDIT_DIR/report.md" > "$AUDIT_DIR/audit.json"
+   python3 ${CLAUDE_SKILL_DIR}/scripts/check_scripts.py <skill-path> --json > "$AUDIT_DIR/scripts.json"   # only if scripts/ exists
    ```
-3. Read the report. For each finding above `info`, decide:
-   - **Auto-fixable** (broken link, name regex violation, duplicate heading): propose a concrete `Edit` with old/new strings.
-   - **Editorial** (description bloat, leaked trigger headings, orphan references): explain the impact and propose a rewrite.
-4. Write a `recommendations.md` next to `report.md` listing the proposed edits in priority order. **Do not modify the audited skill until the user approves.**
-5. After approval, apply the edits and re-run audit until no errors remain.
+3. Read the `profile` block of `audit.json` — body lines, reference count, whether `scripts/` and tests exist, whether the skill spawns sub-agents or has phases, declared platforms. It decides the lens set below.
 
-### What the audit checks
+What the scripts already cover, so the lenses do not repeat it: frontmatter validity, name rules, description length and listing truncation, body and code-block size, broken and escaping links (E/W codes); trigger headings in the body, duplicate headings, orphan references, reference-to-reference links, missing ToC, Japanese frontmatter, legacy phrasings as a hint (A001–A009); raw tool names and platform paths in body text, missing `metadata.platforms` (N1–N4); test presence, test results, coverage, shebang, hardcoded paths, `.gitignore` (S001–S007).
 
-- **Validate-level** (errors block): missing SKILL.md, missing frontmatter, missing/invalid `name`, missing description, description >1024 chars, body >800 lines, broken relative links.
-- **Editorial** (warnings/hints): trigger-style headings leaked into the body (`A001`), duplicate headings (`A002`), orphan references files (`A003`), still-pure auto-trigger framing in description (`A005`), legacy prompt phrasings in SKILL.md or `references/` (`A006`), a references file linking to another references file (`A007`), a references file over 100 lines with no table of contents (`A008`), Japanese text in SKILL.md frontmatter (`A009`).
+### P1. Lenses (parallel, fresh context each)
 
-`A009` covers frontmatter only — `description`, `argument-hint`, and every other field must be English. Skill *content* is exempt: the body, `references/`, `scripts/` and `templates/` may hold Japanese freely, because some skills exist to produce Japanese text. There is no opt-out, since a skill whose subject is Japanese still describes itself in English.
+Each lens reads one reference's "Review checklist" and reports against its item IDs. Fill [references/agents/review-lens.md](references/agents/review-lens.md) once per lens and run them in parallel where the environment supports it; otherwise work through them one at a time, in table order, in the same fresh-context discipline (read the checklist first, then the skill). Write each result to `$AUDIT_DIR/lens-<name>.md`.
 
-`A006` is a hint, not a verdict — it pattern-matches wording and cannot read intent. Confirm each hit against [references/prompt-authoring.md](references/prompt-authoring.md) before proposing a rewrite. A file that legitimately quotes these phrasings (a style guide, this skill's own references) can opt out with an `audit-ignore-file: A006` HTML comment in its first 5 lines; a single line opts out with an `audit-ignore: A006` comment on that line.
+| Lens | Checklist | Looks for (what the scripts cannot see) | Model | Runs when |
+|---|---|---|---|---|
+| prose | [references/prompt-authoring.md](references/prompt-authoring.md#review-checklist) (`PA`) | instructions with no gap behind them, over-prescription, legacy phrasings in context, implicit scope | `opus` | always |
+| neutrality | [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md#review-checklist) (`AN`) | hollow `platforms` declarations, paraphrased tool use the regex misses, inline sub-agent prompts, relative paths handed to sub-agents, state-dir convention | `sonnet` | always |
+| structure | [references/patterns-and-structure.md](references/patterns-and-structure.md#review-checklist) (`ST`) | SKILL.md duplicating instead of dispatching, missing "read when" guidance, description accuracy against what the body does, files that don't belong | `sonnet` | always |
+| scripts | [references/scripts-guide.md](references/scripts-guide.md#review-checklist) (`SC`) | deterministic procedures written as prose, convention drift in existing scripts, what the test/coverage numbers mean | `sonnet` | `scripts/` exists, or SKILL.md has a code block |
+| orchestration | [references/orchestration-patterns.md](references/orchestration-patterns.md#review-checklist) (`OR`) | model per spawn, the five prompt layers, phase discipline, and phases that *should* be delegated under the conditions in that file | `opus` | the skill spawns sub-agents, has phases, or body > 150 lines |
 
-The script cannot see prescriptiveness, missing intent, or unassigned sub-agent models. After the script pass, read the skill against the self-check list at the end of `prompt-authoring.md` and the [Content rules](#content-rules) above.
+**Gate:** if SKILL.md is under 100 lines and the skill has neither `references/` nor `scripts/`, spawn nothing — run the always-on lenses inline yourself. A five-agent review of a 40-line skill is the over-delegation this skill warns other skills about. Never spawn more than the five lenses above; if a lens needs more than one pass, that is a sign the skill should be split, which is itself a finding.
 
-Findings a script also can't produce, worth checking by hand on any audit:
+Lens prompts ask for full coverage with confidence and severity attached. Filtering happens in P2, not in the lens — a lens told to report only what matters investigates just as deeply and then hides findings.
 
-- **Hardcoded `~/.claude/skills/...` paths** in script invocations — breaks on plugin install and project checkout. <!-- neutrality-ignore: N2 -->
-- **Instructions with no gap behind them.** For the two or three longest sections, ask what the model would do without them. If the answer is "the same thing", that's the highest-value deletion in the file.
-- **Trigger accuracy.** If the complaint is "fires too often" or "never fires", that's the description, and it's measurable — see [references/evaluating-skills.md](references/evaluating-skills.md).
-- **Declared-but-not-neutral.** N4 only flags a *missing* `metadata.platforms`; it can't tell a hollow declaration from a real one. If `platforms` includes `codex`, skim the body for the tool-naming and phrasing this skill's linter can't parse out of context — see [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md).
+### P2. Merge and propose
 
----
+1. Deduplicate by checklist ID and location; where two lenses disagree, keep both readings and mark the item unresolved.
+2. Rank: blocks the skill from working → misleads the model → costs context for nothing → cosmetic.
+3. Write `$AUDIT_DIR/recommendations.md`: one entry per proposed change with the ID, the evidence (file:line), the old → new text where it is concrete, and the cost of not doing it. Auto-fixable items (broken link, name regex, duplicate heading) come first as ready-to-apply edits; editorial items explain impact.
+4. **Orchestration proposals** — when a lens or your own reading shows a phase of the audited skill that meets one of these, propose delegating it:
+   - two or more independent angles, each needing its own checklist or reference of 100+ lines;
+   - a phase that reads many files whose contents are not needed afterwards (context isolation);
+   - the skill is one node in a pipeline reading and writing structured files;
+   - an autonomous run spanning many phases, where drift makes a fresh-context verifier at an interval worthwhile.
+   Each proposal names the condition it meets, the model per spawn (`opus` where the sub-agent could come back asking what you meant; `sonnet` for fully specified pass/fail work; `haiku` for judgment-free enumeration), the five prompt layers, and a spawn cap. **Limits:** at most one proposal per phase and three per skill. Do not propose delegation for work the main agent finishes in a handful of tool calls, for strictly sequential steps, or for re-checking work the model already verifies — and say so when a lens suggested it anyway.
+5. Present the recommendations and stop. **Do not modify the audited skill until the user approves.**
 
-## Converting an existing doc into a skill
+### P3. Apply and re-run the script pass
 
-Use when turning an existing markdown doc, runbook, or note into a skill.
-
-1. Read the source document end-to-end first; do not start writing until you understand it.
-2. Decide if the result should be one SKILL.md or SKILL.md + `references/`. Rule of thumb: source >300 lines → split.
-3. Run `init_skill.sh` to scaffold, then move source content into `references/` if splitting.
-4. Write a fresh SKILL.md that **dispatches** rather than duplicates: it should describe inputs, outputs, and when to read each reference, not restate them. Decide platform scope the same way a new skill would (see [Scaffolding, step 1](#1-capture-intent)) — default `platforms: claude-code, codex`, and write with [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md) open if so, even though the source doc almost certainly wasn't written that way.
-5. Write the skill in English even when the source doc is Japanese. Keep the original wording only for material that must stay verbatim — quoted UI labels, error strings, command output, sample text the skill has to reproduce.
-6. Cut what the model already knows. A doc written for humans explains concepts, motivates decisions, and repeats itself for readers who skipped a section — all of it dead weight here. The parts worth keeping are the ones a competent stranger to *this* system could not have guessed.
-7. Run `validate_skill.py`, then one invocation against a realistic prompt, and refine.
-
----
-
-## Troubleshooting an existing skill
-
-Use when an existing skill isn't behaving as expected.
-
-### Triage sequence
-
-1. **Run the validator first** (`python3 ${CLAUDE_SKILL_DIR}/scripts/validate_skill.py <path> --json`). Most "skill is broken" reports turn out to be a missing field, name regex violation, or broken link.
-2. **Does the frontmatter parse at all?** A malformed YAML block loads the body with *empty* metadata — `/skill-name` keeps working while Claude has no description to match, so nothing looks broken. `claude --debug` prints the parse error.
-3. **Activation issues** (only relevant if the skill is *also* expected to auto-trigger). In order of frequency: trigger keywords in the body instead of the description → `disable-model-invocation: true` → a `paths` glob gating activation → description truncated out of the skill listing (`/doctor`).
-4. **Invoked by command and still wrong?** Activation isn't the problem. Look at `allowed-tools` / `disallowed-tools`, `model` / `effort` overrides, and whether the body's load-bearing rule sits below the point where the model stopped reading.
-5. **Subagent / fork issues:** see [references/orchestration-patterns.md](references/orchestration-patterns.md) — the most common failure is `context: fork` on a Reference-Contents skill (no explicit task → forked agent has nothing to do). <!-- neutrality-ignore: N1 -->
-
-For deeper diagnosis flowcharts, load [references/troubleshooting.md](references/troubleshooting.md).
-
----
-
-## Adding sub-agents to a skill
-
-Use when an existing skill has grown into a multi-phase pipeline and needs internal sub-agents.
-
-**Reach for orchestration patterns when at least one is true:**
-
-- The work has multiple independent angles that can run in parallel.
-- A single main-context pass would burn too much context just reading checklists.
-- The skill is one node in a pipeline (intake → design → review → implement → test → ship), reading and writing structured files.
-- Different "lenses" need different specialty checklists, and merging the results is the whole point.
-
-**Not warranted when** the main agent could finish the work in a handful of tool calls, when the steps are sequential, or when the point is to re-check work the model already verifies itself. Current models delegate readily; an open-ended "use sub-agents when helpful" produces spawns for work a single grep would finish. State the bar and cap the count.
-
-**Structural rule that keeps these skills sane:** parallelism happens **inside** a phase; phases run in **strict sequence**; sub-agents **never talk to each other** — the main agent joins their results between phases.
-
-### Assign a model to every spawn
-
-A skill that spawns sub-agents must say which model each one runs on, or the mechanical specialist and the hard one both run on whatever the session happens to be.
-
-| Sub-agent's job | Model |
-|---|---|
-| Hard implementation, code review and bug-finding, synthesizing scattered findings, anything with unresolved spec | `opus` |
-| Fully specified work with a clear pass/fail: run tests, add coverage, make CI green, commit, open a PR, bulk replace | `sonnet` |
-| Enumerating, formatting, judgment-free greps | `haiku` |
-
-The dividing line is **spec completeness, not size**. If the sub-agent could plausibly come back asking what you meant, it needed `opus`. Do not use the frontmatter `model:` field for this — that sets the model for the skill's own turn. See [references/prompt-authoring.md](references/prompt-authoring.md#assigning-models-and-effort).
-
-This table is a derived copy of the canonical one in the `orchestrating-models` skill (§2). When the two disagree, that skill wins — revise there first, then propagate here. Skills authored with this table bake the conclusions in (with a one-line rationale), rather than referencing `orchestrating-models` at runtime. <!-- derived from orchestrating-models §2 -->
-
-### Required reading
-
-- [references/prompt-authoring.md](references/prompt-authoring.md) — the five layers every sub-agent prompt needs, model and effort assignment, and the phrasings to keep out of spawn prompts.
-- If `platforms` includes `codex`: [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md#sub-agent-delegation) — put delegation prompts in `references/agents/<name>.md`, not inline in SKILL.md, and describe the spawn in neutral phrasing so Codex's main context can work through the same file directly.
-- [references/orchestration-patterns.md](references/orchestration-patterns.md) — A1–A6 subagent invocation patterns and B1–B3 phase handoff patterns, with concrete prompt templates and anti-patterns.
-- [references/workspace-conventions.md](references/workspace-conventions.md) — deterministic output paths from `$ARGUMENTS`, input/output contracts, snapshot/restore for destructive ops, idempotent re-runs.
-- [examples/pr-review-pipeline/](examples/pr-review-pipeline/) — minimal worked example: 2 specialist sub-agents in parallel, each primed with a numbered checklist and an explicit model assignment, writing to a deterministic workspace.
-
-### Companion conventions
-
-Covered in [references/patterns-and-structure.md](references/patterns-and-structure.md):
-
-- Numbered checklist references (e.g., `LB1`–`LB8`) so sub-agents return findings as `LB3 FAIL: …` and the main agent merges mechanically.
-- Templates as either **scaffold** (clone-and-fill) or **reference guide** (consult-while-writing) — declare which in SKILL.md.
-- Cross-skill reference reuse: small "map" skills whose `references/` are read by other skills' sub-agents as bootstrap material.
+Apply the approved edits, then re-run P0. Repeat until no errors remain and the approved items are closed. If a change touched `scripts/`, the tests and coverage in `check_scripts.py` are part of "no errors".
 
 ---
 
@@ -317,15 +266,15 @@ Covered in [references/patterns-and-structure.md](references/patterns-and-struct
 ## Resources
 
 Load on demand:
-- [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md) — write once for both hosts: `metadata.platforms`, agent-neutral body phrasing, the `platform-notes.md` annex convention, state-directory convention. Load this whenever the skill being authored should run on both Claude Code and Codex.
-- [references/prompt-authoring.md](references/prompt-authoring.md) — how to word skill prose and sub-agent prompts for current models: legacy phrasings to remove, sub-agent prompt layers, model and effort assignment, prescriptiveness budget.
-- [references/yaml-spec.md](references/yaml-spec.md) — every frontmatter field (Agent Skills standard, Claude Code extensions, Codex extensions), description budget and truncation rules, `$ARGUMENTS` / `${CLAUDE_SKILL_DIR}` substitutions, bash injection.
-- [references/evaluating-skills.md](references/evaluating-skills.md) — eval-driven authoring, baseline comparison, eval case format, the skill-creator plugin, what to watch when Claude navigates a skill.
-- [references/patterns-and-structure.md](references/patterns-and-structure.md) — content type classification (Reference vs Task), Skills vs Slash Commands, storage locations, numbered-checklist references, scaffold-vs-guide templates, workflow shapes, tool restrictions.
-- [references/orchestration-patterns.md](references/orchestration-patterns.md) — subagent invocation and phase handoff patterns (load when building add-subagents skills).
-- [references/workspace-conventions.md](references/workspace-conventions.md) — deterministic output paths, input/output contracts, snapshot/restore.
-- [references/scripts-guide.md](references/scripts-guide.md) — when and how to use scripts, including absolute-path invocation and dry-run/json modes.
-- [references/troubleshooting.md](references/troubleshooting.md) — diagnostic flowcharts for common issues.
+- [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md) — write once for both hosts; load whenever `platforms` includes `codex` (default). Holds the `AN` review checklist.
+- [references/prompt-authoring.md](references/prompt-authoring.md) — wording for current models: legacy phrasings, sub-agent prompt layers, model and effort per spawn, prescriptiveness budget. Holds the `PA` review checklist.
+- [references/yaml-spec.md](references/yaml-spec.md) — every frontmatter field, description budget and truncation, `$ARGUMENTS` / `${CLAUDE_SKILL_DIR}` substitutions, bash injection, and diagnosing a skill that never activates (`#diagnosing-activation`).
+- [references/patterns-and-structure.md](references/patterns-and-structure.md) — content types, storage locations, numbered checklists, scaffold-vs-guide templates, workflow shapes, tool restrictions. Holds the `ST` review checklist.
+- [references/scripts-guide.md](references/scripts-guide.md) — script-or-prose decision, script conventions, CLI contract, tests and coverage, patterns. Holds the `SC` review checklist.
+- [references/orchestration-patterns.md](references/orchestration-patterns.md) — sub-agent invocation (A1–A6) and phase handoff (B1–B3) patterns, when to propose orchestration and its limits. Holds the `OR` review checklist.
+- [references/workspace-conventions.md](references/workspace-conventions.md) — deterministic output paths, input/output contracts, snapshot/restore. Load for any skill that writes more than one file.
+- [references/evaluating-skills.md](references/evaluating-skills.md) — eval-driven authoring, baseline comparison, should/should-not-trigger cases, the skill-creator plugin.
+- [references/agents/review-lens.md](references/agents/review-lens.md) — the prompt template each Improving lens is filled from.
 
 Templates: [assets/basic-skill-template.md](assets/basic-skill-template.md) (single-file skills), [assets/advanced-skill-template.md](assets/advanced-skill-template.md) (skills with bundled resources).
 
@@ -336,7 +285,7 @@ Examples: [greeting-generator](examples/greeting-generator/) (single-file skill)
 ## Hard rules
 
 - **Never** confuse `disable-model-invocation: true` (user-only) with `user-invocable: false` (Claude-only).
-- **Always** run `validate_skill.py` before declaring a skill done (it also runs the dual-platform neutrality lint — see [agent-neutral-authoring.md](references/agent-neutral-authoring.md)).
+- **Always** run `validate_skill.py` (and `check_scripts.py` when the skill has `scripts/`) before declaring a skill done — the validator also runs the dual-platform neutrality lint.
 - **Always** set `metadata.platforms` in frontmatter when scaffolding a new skill. Default to `claude-code, codex` and write the body agent-neutral unless the skill's actual subject is Claude Code itself (then declare `claude-code` only, deliberately — see [agent-neutral-authoring.md](references/agent-neutral-authoring.md)).
 - **Always** reference bundled scripts as `${CLAUDE_SKILL_DIR}/scripts/...`. A hardcoded `~/.claude/skills/<name>/...` breaks on plugin install and project checkout, and runs the wrong copy when both exist. Absolute paths are correct only when calling *another* skill's script. <!-- neutrality-ignore: N2 -->
 - **Always** infer intent from `$ARGUMENTS` rather than demanding a mode keyword. Ask one focused clarifying question only if the request is genuinely ambiguous.
@@ -344,3 +293,4 @@ Examples: [greeting-generator](examples/greeting-generator/) (single-file skill)
 - **Always** specify a model when a skill spawns a sub-agent.
 - **Never** add `allowed-tools` without one of the two reasons in [yaml-spec.md](references/yaml-spec.md#allowed-tools) — pre-approving this skill's own bundled scripts, or an unattended/background run that must not stall on a permission prompt. Default is to omit the field.
 - **Always** author skill content in English, and keep `description` English-only with no mirrored Japanese keywords. The exception is content whose subject *is* another language — see [English is the authoring language](#english-is-the-authoring-language).
+- **Never** spawn review lenses for a skill under the P1 gate, and never more than the five lenses listed.

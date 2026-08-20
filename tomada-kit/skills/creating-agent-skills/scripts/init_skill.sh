@@ -6,7 +6,7 @@
 #
 # Defaults:
 #   template = basic
-#   scope    = user  (~/.claude/skills/<name>)
+#   scope    = user  (~/.claude/skills/<name>)   # scripts-ignore: S006
 #
 # Exit codes:
 #   0 = created
@@ -53,7 +53,7 @@ fi
 
 # Resolve target directory
 case "$SCOPE" in
-  user)    BASE="$HOME/.claude/skills" ;;
+  user)    BASE="$HOME/.claude/skills" ;;   # scripts-ignore: S006
   project) BASE="$(pwd)/.claude/skills" ;;
   *) echo "Error: --scope must be 'user' or 'project'" >&2; exit 1 ;;
 esac
@@ -87,5 +87,5 @@ echo "  $TARGET"
 echo ""
 echo "Next steps:"
 echo "  1. Edit $SKILL_MD"
-echo "  2. Replace placeholder description with mode/argument-aware text"
-echo "  3. Run: python $SCRIPT_DIR/validate_skill.py $TARGET"
+echo "  2. Replace the placeholder description (key use case first, English only)"
+echo "  3. Run: python3 $SCRIPT_DIR/validate_skill.py $TARGET"

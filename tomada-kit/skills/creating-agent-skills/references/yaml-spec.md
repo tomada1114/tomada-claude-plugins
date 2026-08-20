@@ -7,7 +7,7 @@ Three sources define these fields, and they are not the same set:
 
 - **Agent Skills standard** ([agentskills.io](https://agentskills.io/specification)) — portable across tools, including Codex CLI. `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools`.
 - **Claude Code extensions** — everything else in the field summary below. Codex ignores these harmlessly (it reads only `name`/`description`/`metadata`). Portable skills should avoid making body logic *depend* on them; skills that only ever run in Claude Code should use them freely.
-- **Codex extensions** — live entirely under `metadata` (the standard field both hosts read), so there is no separate frontmatter block for them. The one this skill set uses is `metadata.platforms: claude-code, codex` (or `claude-code` alone) — see [agent-neutral-authoring.md](agent-neutral-authoring.md). Codex's own UI-facing hint is `metadata.short-description`. A skill's `agents/openai.yaml` (invocation policy / UI metadata) is a separate optional file, not a frontmatter field.
+- **Codex extensions** — live entirely under `metadata` (the standard field both hosts read), so there is no separate frontmatter block for them. The one this skill set uses is `metadata.platforms: claude-code, codex` (or `claude-code` alone) — see `agent-neutral-authoring.md` (load via SKILL.md). Codex's own UI-facing hint is `metadata.short-description`. A skill's `agents/openai.yaml` (invocation policy / UI metadata) is a separate optional file, not a frontmatter field.
 
 ## Table of Contents
 
@@ -15,6 +15,7 @@ Three sources define these fields, and they are not the same set:
 - [Standard fields](#standard-fields)
 - [Claude Code extension fields](#claude-code-extension-fields)
 - [How the description actually reaches the model](#how-the-description-actually-reaches-the-model)
+- [Diagnosing activation](#diagnosing-activation)
 - [Content substitutions](#content-substitutions)
 - [Bash injection in skill content](#bash-injection-in-skill-content)
 
@@ -366,6 +367,51 @@ Consequences for authoring:
 - A description that is technically under 1,024 chars can still lose its tail in a large skill collection.
 - To free budget, set low-priority skills to `"name-only"` in the `skillOverrides` setting rather than trimming skills you actually use.
 - `/doctor` estimates the listing's context cost and names the biggest contributors; the Skills row in `/context` reports the post-budget size.
+
+---
+
+## Diagnosing activation
+
+### Never activates
+
+Work down this list — ordered by how often each turns out to be the real cause:
+
+1. **Description keywords** — does it contain words a user would actually say? The body loads only after selection, so trigger keywords living there are never seen.
+2. **Frontmatter parsed at all** — malformed YAML loads the body with *empty* metadata, so `/skill-name` still works while Claude has no description to match. `claude --debug` prints the parse error.
+3. **`disable-model-invocation: true`** — removes the description from context entirely; the skill becomes user-invocable only.
+4. **`paths` gating** — automatic activation only fires when the current work touches matching files; manual invocation is unaffected.
+5. **Listing truncation** — see [How the description actually reaches the model](#how-the-description-actually-reaches-the-model) above.
+6. **Name format** — lowercase, digits, hyphens; no leading/trailing or consecutive hyphens; must match the directory name.
+7. **File location** — `~/.claude/skills/<name>/SKILL.md` (personal) or `.claude/skills/<name>/SKILL.md` (project).
+8. **Permission deny rules** — a bare `Skill` deny blocks every skill; `Skill(name *)` blocks one. Check permission settings before concluding the skill itself is at fault.
+9. **Ask directly** — "What skills are available?" shows what actually reached the model's context, the fastest way to tell "not loaded" from "loaded but not matching."
+
+`user-invocable: false` controls menu visibility only — it never blocks automatic loading; only `disable-model-invocation: true` or a deny rule does that.
+
+### Activates at the wrong times
+
+- Narrow the description — add specific technologies, action verbs, and a "Use when…" clause instead of a vague summary.
+- Differentiate near-neighbors with distinct trigger vocabulary, not just longer descriptions.
+- Measure it: write should-trigger and should-not-trigger prompts and check the hit rate (`evaluating-skills.md`, load via SKILL.md).
+- Last resort: `disable-model-invocation: true` makes the skill manual-only.
+
+Negative triggers in the body ("Don't use for Python testing") do not prevent activation — the body loads only after the decision. They only help the model bail out early once loaded.
+
+### YAML gotchas
+
+```yaml
+name:skill-name          # Wrong — missing space after colon
+description: Use for: testing & debugging      # Wrong — unquoted colon inside a value
+name:	skill-name        # Wrong — tab instead of space
+```
+
+Long descriptions are easiest to keep valid with a folded block, which needs no quoting and tolerates internal colons:
+
+```yaml
+description: >-
+  First sentence carries the key use case.
+  Continuation lines need no quoting, and colons are safe here.
+```
 
 ---
 

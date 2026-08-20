@@ -37,7 +37,7 @@ The full lookup table is [`../dual-platform-skills/references/neutral-phrasing.m
 
 ## Frontmatter: what each host reads
 
-Both hosts parse `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` — the Agent Skills standard fields. Everything else is a **Claude Code extension** Codex silently ignores (harmless, so keep using them freely for Claude-only behavior): `when_to_use`, `argument-hint`, `arguments`, `disable-model-invocation`, `user-invocable`, `disallowed-tools`, `model`, `effort`, `context`, `agent`, `background`, `paths`, `hooks`, `shell`. See [yaml-spec.md](yaml-spec.md) for the full three-way split (standard / Claude extension / Codex extension).
+Both hosts parse `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` — the Agent Skills standard fields. Everything else is a **Claude Code extension** Codex silently ignores (harmless, so keep using them freely for Claude-only behavior): `when_to_use`, `argument-hint`, `arguments`, `disable-model-invocation`, `user-invocable`, `disallowed-tools`, `model`, `effort`, `context`, `agent`, `background`, `paths`, `hooks`, `shell`. See `yaml-spec.md` (load via SKILL.md) for the full three-way split (standard / Claude extension / Codex extension).
 
 `description` should carry trigger language useful on both hosts — avoid phrasing that only makes sense inside Claude Code's own routing vocabulary (e.g. don't write "Use PROACTIVELY when..." as the *only* trigger signal; Codex's own skill-selection reads the same field but doesn't share that convention).
 
@@ -55,3 +55,28 @@ Don't hardcode a sub-agent's instructions as an inline prompt string scattered a
 ## When a skill genuinely can't be neutral
 
 Some content is legitimately about Claude Code itself (this is different from "hasn't been converted yet"): a skill documenting Claude Code's own hooks system, for instance, has no Codex equivalent to be neutral toward. Declare `metadata.platforms: claude-code` and don't force neutral phrasing that would just be confusing. This is an honest declaration, not a workaround — see `dual-platform-skills/references/transformation-rules.md` R8/R9 for the equivalent judgment call when retrofitting an existing skill.
+
+## Review checklist
+
+Used by the Improving playbook's *neutrality* lens. The lint (`N1–N4`, run by `validate_skill.py`) catches literal tool names and platform paths; these items are what it cannot see.
+
+### AN1: The `metadata.platforms` declaration matches the skill's real reach
+`claude-code` only is justified solely when the subject *is* Claude Code itself (its hooks, settings, its own tools, its plugin system). Any other skill declared Claude-only, or declared dual but written for one host, is a FAIL.
+
+### AN2: No paraphrased tool use the regex misses
+Watch for "use the Agent tool," "spawn a task agent," "call the skill tool," "fork the context," "run it in the background," or a slash command given as an instruction. The body should say what to do, not which tool does it.
+
+### AN3: Sub-agent instructions live in `references/agents/<name>.md`
+One canonical copy, and SKILL.md delegates in neutral phrasing with the sequential fallback stated on the same line — not only in a trailing note.
+
+### AN4: No skill-relative path is handed to a spawned context
+Placeholders are filled with absolute paths by the caller, not left as `references/x.md` for a sub-agent whose working directory won't resolve them. No platform environment variable appears inside a template meant for both hosts.
+
+### AN5: Persistent state and scratch use the shared conventions
+Persistent state under `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/<skill>/`; scratch under `${TMPDIR:-/tmp}/agent-skills/<skill>/`. No platform-namespaced write targets.
+
+### AN6: Alternatives sit where they are used
+Neutral phrasing appears on the phase's own line, not only in a trailing "limitations" section. Tool names appear only in `references/platform-notes.md` marked `<!-- platform-annex -->`.
+
+### AN7: `description` trigger language works on both hosts
+Not solely Claude Code routing vocabulary such as "Use PROACTIVELY" — the trigger phrasing should read naturally as a description of when the skill applies, on either host.

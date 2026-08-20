@@ -14,7 +14,7 @@ Sources: Anthropic's [prompting best practices](https://platform.claude.com/docs
 - [Sub-agent prompt layers](#sub-agent-prompt-layers)
 - [Assigning models and effort](#assigning-models-and-effort)
 - [Prescriptiveness budget](#prescriptiveness-budget)
-- [Self-check before shipping a skill](#self-check-before-shipping-a-skill)
+- [Review checklist](#review-checklist)
 
 ---
 
@@ -104,15 +104,30 @@ When refactoring an older skill, delete an instruction and check whether the def
 
 ---
 
-## Self-check before shipping a skill
+## Review checklist
 
-Run `audit_skill.py` (its `A006` check flags most of the phrasings above), then read for what a script can't catch:
+Used by the Improving playbook's *prose* lens. Run `audit_skill.py` first; its `A006` hint flags most legacy phrasings mechanically. These items are what a script cannot judge.
 
-1. Does every instruction earn its tokens, or does some of it describe default behavior?
-2. Does any instruction ask the model to verify, re-check, or explain its reasoning?
-3. Does any review or detection step tell the model to filter by importance?
-4. Is the scope of each instruction explicit enough for a literal reader?
-5. Does each sub-agent prompt carry intent, concrete paths, and an output contract?
-6. Does each spawn specify a model, chosen by spec completeness?
-7. Are prohibitions doing work that a positive example would do better?
-8. Is every line English, including the description and the user-facing text the skill emits — except where another language is the subject matter itself?
+### PA1: Every instruction earns its tokens
+For the two or three longest sections, ask what the model would do without them. If the answer is "the same thing," that section is a FAIL — it restates default behavior instead of adding to it.
+
+### PA2: No forced verification
+Look for an added verification step, a mandated re-check, or an extra pass inserted before responding. Self-verification is already the model's default; instructions like these cause over-verification, not better results.
+
+### PA3: No severity self-filtering in detection or review steps
+"Only report high-severity," "be conservative," "don't nitpick" collapse recall — the model still investigates deeply, then suppresses findings. Filtering belongs in a later phase, not the detection step.
+
+### PA4: No request to echo or explain reasoning
+Asking the model to narrate how it arrived at an answer is a FAIL. Ask for evidence instead — citations, command output, the artifact itself.
+
+### PA5: Scope of each instruction is explicit for a literal reader
+"Apply this to every section, not just the first" is required, not redundant — a reader who does not silently generalize needs the scope spelled out.
+
+### PA6: Prescriptiveness matches fragility
+Step-by-step scripting is reserved for fragile operations (binary formats, migration ordering). Elsewhere the instruction should give goal, constraints, and output contract, and leave the route open.
+
+### PA7: Prohibitions replaced by positive examples where an example would do the work
+A list of "do NOT do X" clauses is weaker than one or two positive examples. Flag long negative-enumeration lists that an example could replace.
+
+### PA8: English throughout
+`description` is English-only; the body and any user-facing text are English throughout, except where another language is genuinely the subject matter (e.g. a localization skill).
