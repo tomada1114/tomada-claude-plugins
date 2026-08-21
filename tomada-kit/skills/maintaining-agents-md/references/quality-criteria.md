@@ -13,7 +13,7 @@ Checks, not scores. Each check is a question with a definite answer and a place 
 
 ## How to run the checks
 
-Read every `AGENTS.md`, every stub free section, and every `.claude/rules/*.md` in the inventory. Content checks `C1`–`C6` and the red flags apply to every file read; master-file checks `M1`–`M7` apply to `AGENTS.md` files only (a rule file's placement is migrate's job, so audit judges only its content). For each check, look at the evidence named below before judging — a claim in the rule file is only correct if the repo agrees. Record every failure you find, at every severity, with a `file:line` citation; ranking and trimming happen when the findings are presented, not while looking.
+Read every effective instruction source, every canonical `AGENTS.md`, every stub free section, and every `.claude/rules/*.md` in the inventory. Content checks `C1`–`C7` and the red flags apply to every file read; master-file checks `M1`–`M8` apply to `AGENTS.md` files only (a rule file's placement is migrate's job, so audit judges only its content). For each check, look at the evidence named below before judging — a claim in the rule file is only correct if the repo agrees. Record every failure you find, at every severity, with a `file:line` citation; ranking and trimming happen when the findings are presented, not while looking.
 
 Evidence sources, in the order they usually settle a question: package manifests (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Gemfile`), task runners (`Makefile`, `justfile`, `Taskfile.yml`, npm scripts), CI workflows (`.github/workflows/*.yml`), `README.md`, the top-level directory listing, and lockfiles for the package manager actually in use.
 
@@ -43,6 +43,10 @@ Do the file's claims still hold? Spot-check paths, command names, dependency ver
 
 Is each instruction executable as written? Commands copy-pasteable with the right runner prefix, paths real and repo-relative, rules stated as directives rather than aspirations ("run `just check` before pushing", not "quality matters").
 
+### C7 Semantic scope preservation
+
+When content came from `.claude/rules` or another host-specific source, does the destination preserve the original intent, scope, exceptions, and enforcement strength? A mechanically copied `paths:` header, a silently broadened rule, or an unreported loss of a Claude-only trigger fails this check. Use [semantic-rule-conversion.md](semantic-rule-conversion.md) as the evidence record.
+
 ## Master-file checks
 
 ### M1 Project-specific, not generic engineering advice
@@ -71,12 +75,16 @@ A section that only applies under one directory belongs in that directory's mast
 
 ### M7 Hook description matches the wiring
 
-If the repo has hooks, does the master's "Agent hooks" section name the events actually wired in `.claude/settings.json` and `.codex/hooks.json`, and the scripts actually present in `.agents/hooks/`? A described hook that no longer exists, or a wired hook nobody described, is a `should`. Hook scripts still under `.claude/hooks/`, or wired on one host only, are inventory findings H001–H006 with "run `hooks`" as the fix.
+If the repo has hooks, does the master's "Agent hooks" section name the events actually wired in `.claude/settings.json` and `.codex/hooks.json`, and the scripts actually present in `.agents/hooks/`? A described hook that no longer exists, or a wired hook nobody described, is a `should`. Hook scripts still under `.claude/hooks/`, or wired on one host only, are inventory findings H001–H006 with "run `hooks`" as the fix; inline Codex hooks in `.codex/config.toml` must be mentioned separately.
+
+### M8 Codex effective source is understood
+
+Does the report identify the selected non-empty source in each relevant directory, the launch-directory boundary, the configured document budget, and any global Codex instruction source? An active `AGENTS.override.md` or configured fallback must not be silently treated as the canonical master; report the divergence and preserve it until the user decides.
 
 ## Size and placement
 
 - Root `AGENTS.md`: target **≤ ~150 lines**. Root bloat is the failure mode this skill exists to prevent — every line at the root is loaded by every session in every directory.
-- Whole chain root→cwd: **≤ 32 KiB** (32768 bytes), Codex's shared budget; past it, later files are silently truncated. Inventory reports R005.
+- Effective chain root→cwd: stay within the configured `project_doc_max_bytes` (32 KiB by default), including any global instruction bytes the inventory can detect. Codex stops adding documents at the cap; inventory reports R005 with the effective value.
 - When a long section applies to exactly one directory, do not shorten it by deleting substance — propose moving it to that directory's `AGENTS.md` plus stub, and leave a one-line pointer at the root only if a session at the root genuinely needs to know it exists.
 - When a long section applies everywhere and is still long, cut it to the decisions it changes.
 - Match length to substance. No filler sections, no redundant summaries, no boilerplate carried from a template.
@@ -103,7 +111,7 @@ One line per finding, grouped by file, nothing else in the report body:
 - [<check-id>] <path>:<line> — <what is wrong> → <proposed fix>  (<severity>)
 ```
 
-Severity is `must` (wrong or broken — will mislead a session), `should` (degrades quality or budget), `could` (worth doing when touching the file anyway). Use the check id from this file (`C1`–`C6`, `M1`–`M7`) or the inventory code (`R001`–`R010`, `H001`–`H008`) when a script already found it. Inventory severities map directly: `error` → `must`, `warn` → `should`, `info` → `could`. Findings whose fix is a fold or deletion (R001, R003, R004, R007, R008) are reported with "run `migrate`" as the fix; audit does not apply them.
+Severity is `must` (wrong or broken — will mislead a session), `should` (degrades quality or budget), `could` (worth doing when touching the file anyway). Use the check id from this file (`C1`–`C7`, `M1`–`M8`) or the inventory code (`R001`–`R013`, `H001`–`H009`) when a script already found it. Inventory severities map directly: `error` → `must`, `warn` → `should`, `info` → `could`. Findings whose fix is a fold or deletion (R001, R003, R004, R007, R008) are reported with "run `migrate`" as the fix; audit does not apply them.
 
 <example>
 - [C5] AGENTS.md:22 — `npm run test:watch` is not in package.json (scripts: dev, build, test, lint) → replace with `npm test -- --watch`  (must)

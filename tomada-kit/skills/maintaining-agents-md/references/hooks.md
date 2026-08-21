@@ -21,7 +21,7 @@ The scripts are already host-neutral in substance — a formatter run, a protect
 
 ## Host facts
 
-Verified on Claude Code and Codex CLI 0.148 unless a row says otherwise.
+Use the current host documentation for version-sensitive details. The stable project contract below is intentionally limited to the behavior this skill can verify and preserve.
 
 | | Claude Code | Codex CLI |
 |---|---|---|
@@ -40,7 +40,7 @@ Verified on Claude Code and Codex CLI 0.148 unless a row says otherwise.
 | Stop payload | `stop_hook_active` | `stop_hook_active`, plus `last_assistant_message` |
 | Blocking | exit 2, stderr shown to the model; or JSON `{"decision": "block", "reason": "…"}` | identical: exit 2 produces `Command blocked by PreToolUse hook: <stderr>` |
 | PostToolUse exit 2 | stderr goes back to the model; the tool has already run | same |
-| Trust | governed by workspace trust; in one verified run at the repo root the hooks fired although the trust dialog had never been accepted, so do not treat trust as the gate | every hook definition is reviewed and trusted once, recorded against the command's hash; editing the command string invalidates it |
+| Trust | governed by the workspace/project trust state; do not infer trust from the presence of a settings file | project-local hooks load only in a trusted project layer; non-managed command definitions require exact-definition review, and changing the command string requires review again. Use `/hooks` to inspect them; bypass flags are for deliberate automation only |
 
 Two consequences worth stating in the project's own rules:
 
@@ -67,11 +67,11 @@ The canonical command string, identical on both hosts:
 
 `<interpreter>` stays whatever the project already used — `uv run --script`, `node`, `python3`. Rewrite `${CLAUDE_PROJECT_DIR}/.claude/hooks/…` and bare `.claude/hooks/…` forms to it.
 
-`.claude/settings.json` stays the source of truth, because it also carries `permissions` and other settings; `.codex/hooks.json` is generated from it. [assets/hooks/examples/settings-hooks.json](../assets/hooks/examples/settings-hooks.json) and [assets/hooks/examples/codex-hooks.json](../assets/hooks/examples/codex-hooks.json) are the same wiring on each side.
+`.claude/settings.json` is the source of truth for the shared projection because it also carries Claude permissions and other settings. `.codex/hooks.json` is a second Codex source: update the matching shared entries, but preserve Codex-only events/commands and unrelated top-level keys. Inline `[hooks]` in `.codex/config.toml` is another Codex source and is outside this script's write scope. [assets/hooks/examples/settings-hooks.json](../assets/hooks/examples/settings-hooks.json) and [assets/hooks/examples/codex-hooks.json](../assets/hooks/examples/codex-hooks.json) show the common wiring shape.
 
-`scripts/share_hooks.py <root>` does exactly three things and is idempotent: relocate `.claude/hooks/**` to `.agents/hooks/` (with `git mv` for tracked files), rewrite the command strings in `.claude/settings.json`, and regenerate `.codex/hooks.json` from the shareable events. Add `--dry-run` for the plan, `--check` for a terse CI-shaped answer, `--json` for machine-readable output.
+`scripts/share_hooks.py <root>` is idempotent: relocate `.claude/hooks/**` to `.agents/hooks/` (with `git mv` for tracked files), rewrite the command strings in `.claude/settings.json`, and merge the shareable events into `.codex/hooks.json`. A matching event/matcher/command is refreshed; an unmatched existing Codex command is retained, including one in the same event. Add `--dry-run` for the plan, `--check` for a terse CI-shaped answer, `--json` for machine-readable output.
 
-What it does not do: edit the scripts themselves, touch `.claude/settings.local.json`, or handle a subdirectory's own settings file. Claude-only events are skipped and reported — they stay in `.claude/settings.json`, and the stub's free section is where a reader is told they exist.
+What it does not do: edit the scripts themselves, touch `.claude/settings.local.json`, rewrite `.codex/config.toml`, or handle a subdirectory's own settings file. Claude-only events are skipped and reported — they stay in `.claude/settings.json`, and the stub's free section is where a reader is told they exist. Codex-only JSON handlers are not treated as drift.
 
 ## Adapting an existing script
 
@@ -103,12 +103,12 @@ Search the repo for `.claude/hooks` and fix every hit — the path appears outsi
 ```bash
 cat assets/hooks/fixtures/claude-edit.json | python3 <root>/.agents/hooks/guard.py; echo $?
 python3 scripts/share_hooks.py <root> --check     # exit 0 = wiring is settled
-python3 scripts/inventory.py <root> --json        # no H001–H006
+python3 scripts/inventory.py <root> --json        # no H001–H006; review H009 separately
 ```
 
 Then run the project's own lint, format, and type gate over `.agents/hooks/**` (the copied helper and the adapted scripts are now project code, and a stop gate that fails its own lint blocks every turn). Run every fixture in [assets/hooks/fixtures/](../assets/hooks/fixtures/) through every adapted script and check the exit codes: 0 for the ordinary payloads, 2 for the payloads the script is meant to refuse. Both dialects are covered — `claude-edit`, `claude-bash`, `claude-stop`, `codex-apply-patch`, `codex-bash`, `codex-stop`, plus `claude-bash-noverify` and `codex-apply-patch-env` as things a guard must block.
 
-Tell the user two things in the report: hooks do not fire in a session started in a subdirectory of the repo on Claude Code, and the first Codex session will ask to review and trust each hook definition before it runs.
+Tell the user two things in the report: hooks do not fire in a session started in a subdirectory of the repo on Claude Code, and Codex project hooks require a trusted project layer plus review of exact command definitions (use `/hooks`; a changed command hash needs review again).
 
 ## When hooks cannot run
 

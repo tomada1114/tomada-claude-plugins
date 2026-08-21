@@ -31,7 +31,7 @@ Before adding, check whether the fact is already stated somewhere in the chain. 
 
 One line per concept, in the file's existing language and section order. Format: `` `<command or pattern>` — <what it does or why it matters> ``. No preamble, no explanation of standard technology, no new top-level section when an existing one fits.
 
-Watch the budget: the root file targets ≤ ~150 lines and the chain ≤ 32 KiB. If the additions push past that, propose a move (a long directory-scoped section to that directory's master) or a deletion of something now stale in the same pass.
+Watch the budget: the root file targets ≤ ~150 lines and the effective chain stays within the configured `project_doc_max_bytes` (32 KiB by default). If additions push past it, propose a move (a long directory-scoped section to that directory's master) or deletion of something now stale in the same pass.
 
 ## 4. Show the diff and apply
 

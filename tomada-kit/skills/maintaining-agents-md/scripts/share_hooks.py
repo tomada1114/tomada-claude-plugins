@@ -16,9 +16,8 @@ Steps, each reported as an action:
                       its script through the project variable, a cwd-relative
                       path, or the retired directory is rewritten to
                       "$(git rev-parse --show-toplevel)/.agents/hooks/<script>"
-    create-codex      .codex/hooks.json is generated from the shareable subset
-    overwrite-codex   .codex/hooks.json existed and differed; it is generated
-                      output, so it is replaced
+    create-codex      .codex/hooks.json is created from the shareable subset
+    merge-codex       shared entries are updated; existing Codex entries remain
     claude-only-event (info) an event only one host fires; its wiring stays in
                       .claude/settings.json
     adapt-script      (info) the script reads one host's payload fields only
@@ -29,7 +28,7 @@ keys keep their order, and the personal settings file is never read or written.
 Flags:
     --dry-run      print the plan, write nothing; exit 1 when work is pending
     --check        same, terse, for continuous integration
-    --no-snapshot  refused when a move, a rewiring, or an overwrite is pending,
+    --no-snapshot  refused when a move, a rewiring, or a Codex merge is pending,
                    because the snapshot is the recovery path for those
     --max-depth    directory levels below .claude/hooks/ to relocate
 
@@ -63,9 +62,9 @@ if str(SCRIPT_DIR) not in sys.path:
 import inventory  # noqa: E402
 from snapshot import SnapshotError, save_snapshot  # noqa: E402
 
-WRITE_KINDS = ("relocate", "rewrite-wiring", "create-codex", "overwrite-codex")
+WRITE_KINDS = ("relocate", "rewrite-wiring", "create-codex", "merge-codex")
 # Kinds that put a file back only from the snapshot, so --no-snapshot is refused.
-DESTRUCTIVE_KINDS = ("relocate", "rewrite-wiring", "overwrite-codex")
+DESTRUCTIVE_KINDS = ("relocate", "rewrite-wiring", "merge-codex")
 # Caches are rebuilt by the interpreter; they never move with the scripts.
 IGNORED_DIRS = ("__pycache__",)
 
@@ -172,7 +171,7 @@ def rewrite_hooks(hooks: Dict[str, object]) -> int:
 
 
 # --- planning ----------------------------------------------------------------
-def legacy_files(root: Path, max_depth: int) -> List[str]:
+def legacy_files(root: Path, max_depth: Optional[int]) -> List[str]:
     """Files under the retired hook directory, relative to the project root."""
     legacy = root / inventory.LEGACY_HOOKS_REL
     if not legacy.is_dir():
@@ -180,7 +179,7 @@ def legacy_files(root: Path, max_depth: int) -> List[str]:
     found: List[str] = []
     for current, dirnames, filenames in os.walk(legacy):
         rel_parts = Path(current).relative_to(legacy).parts
-        if len(rel_parts) >= max_depth:
+        if max_depth is not None and len(rel_parts) >= max_depth:
             dirnames[:] = []
             continue
         dirnames[:] = sorted(d for d in dirnames if d not in IGNORED_DIRS)
@@ -201,7 +200,71 @@ def _read_json(root: Path, rel: str) -> Optional[Dict[str, object]]:
     return data
 
 
-def build_plan(root: Path, max_depth: int = inventory.DEFAULT_MAX_DEPTH) -> Plan:
+def _hook_key_set(entries: object) -> set[tuple[str, str]]:
+    """(matcher, command) keys generated for one event."""
+    keys: set[tuple[str, str]] = set()
+    if not isinstance(entries, list):
+        return keys
+    for entry in entries:
+        if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list):
+            continue
+        for hook in entry["hooks"]:
+            if not isinstance(hook, dict) or hook.get("type") != "command":
+                continue
+            command = hook.get("command")
+            if isinstance(command, str) and command.strip():
+                matcher = entry.get("matcher") if isinstance(entry.get("matcher"), str) else ""
+                keys.add((matcher, command))
+    return keys
+
+
+def merge_codex_hooks(
+    existing: Optional[Dict[str, object]],
+    generated: Dict[str, List[Dict[str, object]]],
+) -> tuple[Dict[str, object], int]:
+    """Merge Claude's shared projection without deleting Codex-only hooks.
+
+    A command with the same event, matcher, and command string is considered
+    the shared projection and is replaced by the newly generated definition.
+    Existing commands that are not in that projection—including commands in
+    the same event—remain intact. The returned count is the number of retained
+    existing hook handlers, for the plan explanation.
+    """
+    if existing is None:
+        return {"hooks": generated}, 0
+
+    merged: Dict[str, object] = dict(existing)
+    existing_hooks = inventory.hooks_of(existing)
+    merged_hooks: Dict[str, object] = dict(existing_hooks)
+    preserved_count = 0
+
+    for event, desired_entries in generated.items():
+        current = existing_hooks.get(event)
+        generated_keys = _hook_key_set(desired_entries)
+        preserved_entries: List[Dict[str, object]] = []
+        if isinstance(current, list):
+            for entry in current:
+                if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list):
+                    continue
+                kept_hooks: List[object] = []
+                matcher = entry.get("matcher") if isinstance(entry.get("matcher"), str) else ""
+                for hook in entry["hooks"]:
+                    command = hook.get("command") if isinstance(hook, dict) else None
+                    if isinstance(command, str) and (matcher, command) in generated_keys:
+                        continue
+                    kept_hooks.append(hook)
+                    preserved_count += 1
+                if kept_hooks:
+                    kept_entry = dict(entry)
+                    kept_entry["hooks"] = kept_hooks
+                    preserved_entries.append(kept_entry)
+        merged_hooks[event] = preserved_entries + desired_entries
+
+    merged["hooks"] = merged_hooks
+    return merged, preserved_count
+
+
+def build_plan(root: Path, max_depth: Optional[int] = inventory.DEFAULT_MAX_DEPTH) -> Plan:
     """The whole plan for a project. Reads only; raises ShareError on bad input."""
     info, _ = inventory.analyze_hooks(root)
     plan = Plan(root=str(root), state=info.state)
@@ -250,7 +313,7 @@ def build_plan(root: Path, max_depth: int = inventory.DEFAULT_MAX_DEPTH) -> Plan
     existing_codex = _read_json(root, codex_rel)
     plan.codex_existed = (root / codex_rel).is_file()
     if generated:
-        desired = {"hooks": generated}
+        desired, preserved_count = merge_codex_hooks(existing_codex, generated)
         if not plan.codex_existed:
             plan.codex_text = inventory.dump_json(desired)
             plan.actions.append(Action(
@@ -260,9 +323,10 @@ def build_plan(root: Path, max_depth: int = inventory.DEFAULT_MAX_DEPTH) -> Plan
         elif existing_codex != desired:
             plan.codex_text = inventory.dump_json(desired)
             plan.actions.append(Action(
-                "overwrite-codex", codex_rel,
-                "differs from the generated content; regenerated from {}".format(
-                    inventory.CLAUDE_SETTINGS_REL)))
+                "merge-codex", codex_rel,
+                "shared entries regenerated from {}; preserved {} existing Codex hook "
+                "handler(s) and other top-level settings".format(
+                    inventory.CLAUDE_SETTINGS_REL, preserved_count)))
     elif plan.codex_existed:
         plan.actions.append(Action(
             "skip-codex", codex_rel,
@@ -419,7 +483,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                         help="do not snapshot the files about to change")
     parser.add_argument("--max-depth", type=int, default=inventory.DEFAULT_MAX_DEPTH,
                         help="directory levels below the retired hook directory to "
-                             "relocate (default: %(default)s)")
+                             "relocate (default: no limit)")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     root = Path(args.root).expanduser() if args.root else inventory.default_root()
@@ -427,7 +491,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print("Project root not found: {}. Pass an existing directory as the first "
               "argument.".format(root), file=sys.stderr)
         return 2
-    if args.max_depth < 1:
+    if args.max_depth is not None and args.max_depth < 1:
         print("--max-depth must be at least 1 (got {}).".format(args.max_depth), file=sys.stderr)
         return 2
     root = root.resolve()

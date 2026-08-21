@@ -59,7 +59,11 @@ class ShareCase(unittest.TestCase):
         self.root = base / "project"
         self.root.mkdir()
         self.state = base / "state"
-        patcher = mock.patch.dict(os.environ, {"AGENT_SKILL_STATE_DIR": str(self.state)})
+        self.codex_home = base / "codex-home"
+        patcher = mock.patch.dict(os.environ, {
+            "AGENT_SKILL_STATE_DIR": str(self.state),
+            "CODEX_HOME": str(self.codex_home),
+        })
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -213,13 +217,35 @@ class TestPlan(ShareCase):
         self.assertEqual(plan.pending, [])
         self.assertIsNone(plan.codex_text)
 
-    def test_codex_overwrite_when_it_differs(self):
+    def test_codex_merge_when_it_differs(self):
         self.write_json(".claude/settings.json", {"hooks": {"Stop": [hook_entry(
             'sh "{}/.agents/hooks/s.sh"'.format(TOPLEVEL), "")]}})
         self.write_json(".codex/hooks.json", {"hooks": {"Stop": [hook_entry("sh stale.sh", "")]}})
         plan = share.build_plan(self.root)
-        self.assertEqual([a.kind for a in plan.pending], ["overwrite-codex"])
+        self.assertEqual([a.kind for a in plan.pending], ["merge-codex"])
         self.assertTrue(plan.codex_existed)
+
+    def test_codex_only_hooks_and_top_level_settings_are_preserved(self):
+        self.write_json(".claude/settings.json", {"hooks": {"Stop": [hook_entry(
+            'sh "{}/.agents/hooks/s.sh"'.format(TOPLEVEL), "")]}})
+        self.write_json(".codex/hooks.json", {
+            "description": "Codex-specific policy",
+            "hooks": {
+                "Stop": [hook_entry("sh codex-only.sh", "")],
+                "UserPromptSubmit": [hook_entry("sh another-codex-only.sh", "")],
+            },
+        })
+        plan = share.build_plan(self.root)
+        merged = json.loads(plan.codex_text)
+        self.assertEqual(merged["description"], "Codex-specific policy")
+        commands = [
+            h["command"]
+            for entry in merged["hooks"]["Stop"]
+            for h in entry["hooks"]
+        ]
+        self.assertIn("sh codex-only.sh", commands)
+        self.assertIn('sh "{}/.agents/hooks/s.sh"'.format(TOPLEVEL), commands)
+        self.assertIn("another-codex-only.sh", json.dumps(merged))
 
     def test_no_shareable_event_leaves_the_other_config_alone(self):
         self.write_json(".codex/hooks.json", {"hooks": {"Stop": [hook_entry("sh s.sh", "")]}})
@@ -366,13 +392,14 @@ class TestApply(ShareCase):
         self.assertTrue((self.root / ".claude/hooks/a/b/c/d/e/deep.py").is_file())
         self.assertEqual(self.read(".agents/hooks/g.py"), SCRIPT_BODY)
 
-    def test_overwrite_snapshots_the_previous_generated_file(self):
+    def test_merge_snapshots_the_previous_generated_file(self):
         self.write_json(".claude/settings.json", {"hooks": {"Stop": [hook_entry(
             'sh "{}/.agents/hooks/s.sh"'.format(TOPLEVEL), "")]}})
         self.write_json(".codex/hooks.json", {"hooks": {"Stop": [hook_entry("sh stale.sh", "")]}})
         snap_dir = share.apply_plan(self.root, share.build_plan(self.root))
         self.assertIn("stale.sh", (snap_dir / ".codex/hooks.json").read_text())
-        self.assertNotIn("stale.sh", self.read(".codex/hooks.json"))
+        self.assertIn("stale.sh", self.read(".codex/hooks.json"))
+        self.assertIn(".agents/hooks/s.sh", self.read(".codex/hooks.json"))
 
     def test_no_snapshot_flag(self):
         self.build_template()

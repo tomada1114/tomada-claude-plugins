@@ -64,12 +64,15 @@ Emitted by inventory and quoted in audit output.
 | R002 | missing stub next to an `AGENTS.md` |
 | R003 | orphan `CLAUDE.md` |
 | R004 | inverted import (`^@...`) inside an `AGENTS.md` |
-| R005 | chain over the 32 KiB Codex budget |
+| R005 | effective chain over Codex's configured document budget |
 | R006 | malformed managed block |
 | R007 | `.claude/CLAUDE.md` alternative location has content |
 | R008 | `.claude/rules/` present — invisible to Codex |
 | R009 | adoptable `legacy-import` stub |
 | R010 | `CLAUDE.local.md` present (info only) |
+| R011 | active `AGENTS.override.md` shadows the canonical source |
+| R012 | active configured fallback filename is not the canonical source |
+| R013 | Codex config could not be read completely |
 
 Hook findings, from the same inventory run (see `hooks.md`):
 
@@ -78,11 +81,12 @@ Hook findings, from the same inventory run (see `hooks.md`):
 | H001 | `.claude/hooks/` exists — scripts live in a host-local directory |
 | H002 | a hook script is wired from outside `.agents/hooks/` |
 | H003 | shareable events are wired for Claude Code but `.codex/hooks.json` is missing |
-| H004 | the two configs disagree on an event |
+| H004 | the shared hook projections disagree on an event; extra Codex-only commands are allowed |
 | H005 | `.codex/hooks.json` exists but `.claude/settings.json` has no hooks |
 | H006 | a command resolves its script through a host-only variable or a cwd-relative path |
 | H007 | a shared script still reads only the Claude-side payload shape (info) |
 | H008 | a hook config file is not valid JSON (error) |
+| H009 | `.codex/config.toml` also contains inline hooks (info); it is outside the merge script's write scope |
 
 ## Host loading facts
 
@@ -98,17 +102,19 @@ Claude Code — source: https://code.claude.com/docs/en/memory
 
 Codex CLI — source: https://learn.chatgpt.com/docs/agent-configuration/agents-md (implementation: `codex-rs/core/src/agents_md.rs`)
 
-- At launch it finds the project root by walking up to `.git`, then loads one file per directory from root down to cwd (`AGENTS.override.md`, then `AGENTS.md`, then configured fallbacks), concatenated root-first.
+- At launch it finds the project root by walking up to `.git`, then selects at most one non-empty file per directory from root down to cwd (`AGENTS.override.md`, then `AGENTS.md`, then names in `project_doc_fallback_filenames`), concatenated root-first. An empty candidate is skipped.
+- `AGENTS.md` is the canonical lookup name. On a case-sensitive filesystem, names such as lowercase `agents.md` are ignored unless explicitly listed in `project_doc_fallback_filenames`; on macOS's usual case-insensitive filesystem, that spelling may resolve to the same file.
 - It **does not descend below cwd**: `packages/api/AGENTS.md` is read only when Codex is launched inside `packages/api`.
-- The whole chain shares a 32768-byte budget (`project_doc_max_bytes`); later files are truncated first.
+- The project and global instruction chain shares `project_doc_max_bytes` (32768 bytes by default). Codex stops adding project documents when the cap is reached; the effective value may come from the global `CODEX_HOME/config.toml` or the project's `.codex/config.toml`. Inventory reports both the configured budget and the global source it could detect.
 - No import syntax exists. `@anything` in an `AGENTS.md` is literal text, and `CLAUDE.md` is never opened.
-- A host-level global `AGENTS.md` outside the repo is prepended to the chain.
+- A host-level global `AGENTS.override.md` or `AGENTS.md` under `CODEX_HOME` is prepended to the project chain. This skill never edits that global file.
 
 Consequences that drive every decision in this skill:
 
 - Anything the whole team needs on both hosts belongs in `AGENTS.md`, because that is the only file both read.
 - Deep subdirectory masters are opt-in knowledge for Codex users. Root content is what is guaranteed to load.
-- Truncation is silent, so the chain budget is a hard ceiling, not a guideline.
+- The document cap is a hard ceiling, not a guideline; a deeper file can be absent from the effective context even though it exists on disk.
+- An active override or configured fallback is a deliberate source choice that the Claude stub does not reproduce. Inventory reports it instead of silently replacing it.
 - An `@./CLAUDE.md` line inside an `AGENTS.md` (seen in `youtube-management/AGENTS.md:1`) is junk text for Codex and an inverted dependency for Claude Code: the master ends up importing the stub. Migrate removes the line and reverses the direction.
 
 ## When a subdirectory AGENTS.md is warranted
@@ -141,8 +147,9 @@ Host names and tool names ("Claude", "Claude Code", tool identifiers) in `AGENTS
 - `.claude/rules/*.md` — Claude-only. Migrate routes them by glob scope (see `migration.md`).
 - `.agents/hooks/` — hook scripts, host-neutral, wired from both hosts' configs. The `hooks` mode creates it; `.claude/hooks/` is retired in its favour. Details in `hooks.md`.
 - `.claude/settings.json` — hook wiring plus permissions and other settings. Only its `hooks` key is ever rewritten; everything else is preserved. `.claude/settings.local.json` is personal: never read, never written.
-- `.codex/hooks.json` — generated from the shareable subset of the settings hooks. Regenerate it rather than hand-editing it.
-- `AGENTS.override.md` — Codex reads it before `AGENTS.md` in the same directory. This skill neither creates nor manages it; report it if present so the user knows it wins.
+- `.codex/hooks.json` — the Codex project JSON hook source. The skill merges the shared Claude projection into it while preserving Codex-only handlers and unrelated top-level keys; it does not claim ownership of the entire file.
+- `.codex/config.toml` — may contain Codex's inline `[hooks]` source and instruction settings. Inventory reports relevant metadata; the hooks mode leaves this file untouched.
+- `AGENTS.override.md` — Codex reads it before `AGENTS.md` in the same directory. This skill neither creates nor manages it; report it when it is active so the user knows it wins.
 
 ## Snapshots
 

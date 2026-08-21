@@ -16,6 +16,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout, redirect_stderr
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import inventory as inv  # noqa: E402
@@ -47,6 +48,10 @@ class RepoCase(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name).resolve()
+        self.codex_home = self.root / "codex-home"
+        patcher = mock.patch.dict(os.environ, {"CODEX_HOME": str(self.codex_home)})
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def build(self, **files: str) -> Path:
         for rel, text in files.items():
@@ -353,6 +358,49 @@ class TestBuildInventory(RepoCase):
         self.assertEqual(inv.build_inventory(self.root, max_depth=2).agents_md, [])
         self.assertEqual(len(inv.build_inventory(self.root, max_depth=3).agents_md), 1)
 
+    def test_default_scan_reaches_deep_directories(self):
+        self.build(**{"a/b/c/d/e/f/AGENTS.md": "# deep\n"})
+        self.assertEqual(
+            [entry.path for entry in inv.build_inventory(self.root).agents_md],
+            ["a/b/c/d/e/f/AGENTS.md"],
+        )
+
+    def test_codex_override_shadows_canonical_file(self):
+        self.build(**{
+            "AGENTS.md": "# shared\n",
+            "CLAUDE.md": STUB,
+            "AGENTS.override.md": "# Codex-only\n",
+        })
+        result = inv.build_inventory(self.root)
+        self.assertEqual(result.agents_md[0].codex_source, "AGENTS.override.md")
+        active = [source.path for source in result.codex.sources if source.active]
+        self.assertEqual(active, ["AGENTS.override.md"])
+        self.assertTrue(any(f.code == "R011" for f in result.findings))
+
+    def test_project_codex_config_selects_fallback_and_budget(self):
+        self.build(**{
+            ".codex/config.toml": (
+                "project_doc_max_bytes = 100\n"
+                'project_doc_fallback_filenames = ["agents.local.md"]\n'
+            ),
+            "agents.local.md": "# fallback\n",
+        })
+        result = inv.build_inventory(self.root)
+        self.assertEqual(result.codex.budget, 100)
+        self.assertEqual(result.codex.budget_source, ".codex/config.toml")
+        self.assertEqual(result.codex.fallback_names, ["agents.local.md"])
+        self.assertEqual(
+            [(source.path, source.active) for source in result.codex.sources],
+            [("agents.local.md", True)],
+        )
+        self.assertTrue(any(f.code == "R012" for f in result.findings))
+
+    def test_noncanonical_agents_filename_is_not_loaded_without_a_configured_fallback(self):
+        self.build(**{"agent-rules.md": "# not automatic\n"})
+        result = inv.build_inventory(self.root)
+        self.assertEqual(result.codex.sources, [])
+        self.assertEqual(result.agents_md, [])
+
 
 class TestGit(RepoCase):
     def test_git_info_for_non_repo(self):
@@ -535,6 +583,15 @@ class TestHookHelpers(RepoCase):
         out = inv.shareable_hooks({"Stop": [hook_entry("sh a.sh", "", **{"async": True})]})
         self.assertTrue(out["Stop"][0]["hooks"][0]["async"])
 
+    def test_shareable_hooks_keeps_current_codex_fields(self):
+        out = inv.shareable_hooks({"Stop": [hook_entry(
+            "sh a.sh", "", statusMessage="checking", additionalContextLimit=512,
+            commandWindows={"windows": "sh a.sh"})]})
+        hook = out["Stop"][0]["hooks"][0]
+        self.assertEqual(hook["statusMessage"], "checking")
+        self.assertEqual(hook["additionalContextLimit"], 512)
+        self.assertEqual(hook["commandWindows"], {"windows": "sh a.sh"})
+
     def test_host_specific_script_heuristic(self):
         self.assertTrue(inv.host_specific_script('payload["tool_input"]["file_path"]'))
         self.assertTrue(inv.host_specific_script("os.environ['CLAUDE_PROJECT_DIR']"))
@@ -598,6 +655,25 @@ class TestHooksInventory(RepoCase):
         self.assertEqual(info.shared_dir, ".agents/hooks")
         self.assertEqual(info.scripts[0].wired_by, ["claude", "codex"])
         self.assertEqual(findings, [])
+
+    def test_codex_only_command_does_not_make_shared_projection_drift(self):
+        write(self.root / ".agents/hooks/guard.py", "apply_patch\n")
+        write(self.root / ".claude/settings.json",
+              settings_json({"Stop": [hook_entry(SHARED_COMMAND, "")]}))
+        write(self.root / ".codex/hooks.json",
+              settings_json({"Stop": [
+                  hook_entry(SHARED_COMMAND.replace("guard.py", "codex-only.py"), ""),
+                  hook_entry(SHARED_COMMAND, ""),
+              ]}))
+        info, findings = self.analyze()
+        self.assertEqual(info.state, "shared")
+        self.assertEqual(findings, [])
+
+    def test_inline_codex_hooks_are_reported_without_being_loaded_or_rewritten(self):
+        write(self.root / ".codex/config.toml", "[hooks]\n")
+        info, findings = self.analyze()
+        self.assertEqual(info.codex_config, ".codex/config.toml")
+        self.assertEqual([finding.code for finding in findings], ["H009"])
 
     def test_drift_between_the_two_configs(self):
         write(self.root / ".agents/hooks/guard.py", "apply_patch\n")

@@ -8,15 +8,16 @@ Usage:
 directory. The script only reads; it never writes.
 
 What it reports:
-    * every AGENTS.md (size, lines, `@` imports that are meaningless to Codex,
-      and the root -> dir chain size against Codex's 32 KiB document budget)
+    * every AGENTS.md and every effective Codex instruction source (including
+      AGENTS.override.md and configured fallback filenames), with the root ->
+      dir chain size against Codex's configured document budget
     * every CLAUDE.md, classified as
       stub / stub+extras / legacy / legacy-import / missing / orphan / malformed
     * CLAUDE.local.md files, `.claude/CLAUDE.md`, and `.claude/rules/*.md`
       (with each rule's `paths:` scope: directory / pattern / mixed / global)
     * the project's agent hooks: where the scripts live, which events each host
       wires, and how every hook command resolves the project root
-    * findings R001-R010 / H001-H008 and a `suggested_mode` of
+    * findings R001-R013 / H001-H009 and a `suggested_mode` of
       init | audit | migrate | hooks
 
 Finding codes:
@@ -24,13 +25,16 @@ Finding codes:
     R002 missing CLAUDE.md stub                     R007 .claude/CLAUDE.md has content
     R003 orphan CLAUDE.md (no AGENTS.md)            R008 .claude/rules present
     R004 `@` import inside AGENTS.md                R009 legacy-import stub (adoptable)
-    R005 over the Codex 32 KiB chain budget         R010 CLAUDE.local.md present (info)
+    R005 over the Codex document budget              R010 CLAUDE.local.md present (info)
+    R011 active AGENTS.override.md                  R012 active configured fallback
+    R013 Codex config could not be read completely
 
     H001 hook scripts in a host-local directory     H005 one host wires hooks, the other does not
     H002 a hook script wired from outside           H006 hook command resolves its script
          the shared directory                            through a host-only or relative path
     H003 shared events wired for one host only      H007 hook script looks host-specific (info)
-    H004 the two hook configs disagree              H008 a hook config file is not valid JSON
+    H004 the shared hook projections disagree       H008 a hook config file is not valid JSON
+    H009 Codex inline hook configuration also exists (info)
 
 Exit codes:
     0 = no error/warn findings
@@ -40,6 +44,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import ast
 import textwrap
 import json
 import os
@@ -59,18 +64,25 @@ MANAGED_END = "<!-- agents-md-sync:end -->"
 IMPORT_LINE = "@AGENTS.md"
 MANAGED_BLOCK = "{}\n{}\n{}\n".format(MANAGED_BEGIN, IMPORT_LINE, MANAGED_END)
 
-# Codex CLI concatenates the AGENTS.md chain root -> cwd into one shared budget
-# and truncates past it (`project_doc_max_bytes`, codex-rs/core/src/agents_md.rs).
+# Codex CLI concatenates the selected instruction chain root -> cwd into one
+# shared budget. 32 KiB is the default; config.toml can change it.
 CODEX_DOC_BUDGET = 32768
+CODEX_CONFIG_REL = ".codex/config.toml"
+AGENTS_FILENAME = "AGENTS.md"
+AGENTS_OVERRIDE_FILENAME = "AGENTS.override.md"
 
 # Directories that never hold project rule files but are expensive to walk.
-# Every dot-directory is pruned too (.git, .venv, .next, .claude, ...); the
-# `.claude` tree is inspected explicitly instead, at the root only.
-SKIP_DIRS = {"node_modules", "vendor", "dist", "build", "venv", "__pycache__", "target"}
+# `.claude` is inspected explicitly instead; other dot-directories remain
+# scannable because Codex can be launched inside `.agents`, `.github`, etc.
+SKIP_DIRS = {
+    "node_modules", "vendor", "dist", "build", "venv", "__pycache__", "target",
+    ".git", ".claude", ".venv", ".next", ".cache", ".idea", ".tox",
+    ".mypy_cache", ".pytest_cache",
+}
 
-# Depth 6 reaches `packages/<name>/src/<area>/...` in a normal monorepo; deeper
-# nesting has never carried a rule file in the repos this skill was built against.
-DEFAULT_MAX_DEPTH = 6
+# The default must not silently miss a deeper package. Callers can still pass a
+# limit for a deliberately bounded scan.
+DEFAULT_MAX_DEPTH: Optional[int] = None
 
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
 IMPORT_RE = re.compile(r"^@(\S+)")
@@ -96,6 +108,168 @@ def write_text(path: Path, text: str) -> None:
 
 def count_lines(text: str) -> int:
     return len(text.splitlines())
+
+
+def codex_home() -> Path:
+    """The Codex home whose config and global instructions are effective."""
+    configured = os.environ.get("CODEX_HOME")
+    return Path(configured).expanduser() if configured else Path.home() / ".codex"
+
+
+def _minimal_toml_config(text: str) -> Dict[str, object]:
+    """Read the two root-level Codex settings on Python versions without tomllib.
+
+    This is intentionally not a general TOML parser. It is only a fallback for
+    the two scalar/list settings this inventory needs; a modern Python uses the
+    standard library parser below.
+    """
+    result: Dict[str, object] = {}
+    section = ""
+    for raw in text.splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line:
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            section = line[1:-1].strip()
+            continue
+        if section:
+            continue
+        match = re.match(r"^(project_doc_max_bytes|project_doc_fallback_filenames)\s*=\s*(.+)$", line)
+        if not match:
+            continue
+        key, raw_value = match.groups()
+        try:
+            if key == "project_doc_max_bytes":
+                result[key] = int(raw_value.strip())
+            else:
+                value = json.loads(raw_value)
+                if isinstance(value, list):
+                    result[key] = value
+        except (ValueError, SyntaxError):
+            try:
+                value = ast.literal_eval(raw_value)
+                if key == "project_doc_fallback_filenames" and isinstance(value, list):
+                    result[key] = value
+            except (ValueError, SyntaxError):
+                continue
+    return result
+
+
+def load_codex_config(path: Path) -> Tuple[Dict[str, object], str]:
+    """Return the parsed Codex config and a diagnostic error, if any."""
+    try:
+        text = read_text(path)
+    except OSError as exc:
+        return {}, str(exc)
+    try:
+        import tomllib  # type: ignore[import-not-found]
+        data = tomllib.loads(text)
+        if not isinstance(data, dict):
+            return {}, "top level is not a TOML table"
+        return data, ""
+    except ModuleNotFoundError:
+        # Python 3.10 has no tomllib. The fallback still lets the inventory
+        # report the effective budget without adding a dependency to the skill.
+        return _minimal_toml_config(text), ""
+    except (OSError, ValueError, UnicodeError) as exc:
+        return {}, str(exc)
+
+
+def _valid_fallback_names(value: object) -> List[str]:
+    """Keep only filename-shaped configured fallbacks we can scan safely."""
+    if isinstance(value, str):
+        value = [value]
+    if not isinstance(value, list):
+        return []
+    names: List[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            continue
+        name = item.strip()
+        if name in (AGENTS_FILENAME, AGENTS_OVERRIDE_FILENAME):
+            continue
+        if Path(name).name != name or name in (".", ".."):
+            continue
+        if name not in names:
+            names.append(name)
+    return names
+
+
+def resolve_codex_config(root: Path) -> Tuple[int, str, List[str], List[str], List[str]]:
+    """Resolve budget/fallback settings without exposing unrelated config data.
+
+    Project-local config overrides the user config. The returned values are
+    `(budget, budget_source, fallback_names, config_files, errors)`.
+    """
+    project_config = root / CODEX_CONFIG_REL
+    global_config = codex_home() / "config.toml"
+    paths: List[Tuple[str, Path]] = []
+    if global_config.is_file():
+        paths.append((str(global_config), global_config))
+    if project_config.is_file() and project_config != global_config:
+        paths.append((CODEX_CONFIG_REL, project_config))
+
+    parsed: List[Tuple[str, Path, Dict[str, object]]] = []
+    errors: List[str] = []
+    labels: List[str] = []
+    for label, path in paths:
+        data, error = load_codex_config(path)
+        labels.append(label)
+        if error:
+            errors.append("{}: {}".format(label, error))
+        else:
+            parsed.append((label, path, data))
+
+    budget = CODEX_DOC_BUDGET
+    budget_source = "default"
+    fallbacks: List[str] = []
+    # Global first, project last: the project value wins when both specify it.
+    for label, _path, data in parsed:
+        value = data.get("project_doc_max_bytes")
+        if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+            budget = value
+            budget_source = label
+        if "project_doc_fallback_filenames" in data:
+            fallbacks = _valid_fallback_names(data.get("project_doc_fallback_filenames"))
+    return budget, budget_source, fallbacks, labels, errors
+
+
+def _nonempty_file(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    try:
+        return bool(read_text(path).strip())
+    except OSError:
+        return False
+
+
+def codex_global_instruction() -> Optional[Path]:
+    """Select the non-empty global Codex instruction file, if present."""
+    home = codex_home()
+    for name in (AGENTS_OVERRIDE_FILENAME, AGENTS_FILENAME):
+        candidate = home / name
+        if _nonempty_file(candidate):
+            return candidate
+    return None
+
+
+def codex_candidates(directory: Path, fallback_names: Sequence[str]) -> List[Tuple[Path, str]]:
+    """Return Codex's candidates in its documented priority order."""
+    names: List[Tuple[str, str]] = [
+        (AGENTS_OVERRIDE_FILENAME, "override"),
+        (AGENTS_FILENAME, "canonical"),
+    ]
+    names.extend((name, "fallback") for name in fallback_names)
+    seen: set[str] = set()
+    candidates: List[Tuple[Path, str]] = []
+    for name, kind in names:
+        if name in seen:
+            continue
+        seen.add(name)
+        path = directory / name
+        if path.is_file():
+            candidates.append((path, kind))
+    return candidates
 
 
 def outside_fences(text: str) -> List[Tuple[int, str]]:
@@ -329,8 +503,12 @@ SHARED_HOOKS_REL = ".agents/hooks"
 # session directory, which is not the project root when a session starts deeper.
 TOPLEVEL_EXPR = "$(git rev-parse --show-toplevel)"
 HOOK_SCRIPT_SUFFIXES = (".py", ".mjs", ".js", ".sh", ".ts")
-# Keys a generated hook entry may carry; anything else is dropped on the way out.
-CODEX_HOOK_KEYS = ("timeout", "async")
+# Keys supported by Codex's command hook definition. Unknown Claude-only keys
+# are dropped from newly generated entries, while unknown keys already present
+# in Codex are preserved by share_hooks.py.
+CODEX_HOOK_KEYS = (
+    "timeout", "async", "statusMessage", "additionalContextLimit", "commandWindows",
+)
 # The findings that make sharing the hooks the next job, once nothing needs migrate.
 HOOK_MODE_CODES = ("H001", "H002", "H003", "H004", "H005", "H006")
 
@@ -467,7 +645,8 @@ def git_info(root: Path) -> Dict[str, object]:
         if " -> " in path:  # rename: report the destination
             path = path.split(" -> ", 1)[1]
         name = path.rsplit("/", 1)[-1]
-        if name in ("AGENTS.md", "CLAUDE.md", "CLAUDE.local.md") or "/.claude/" in "/" + path:
+        if name in (AGENTS_FILENAME, AGENTS_OVERRIDE_FILENAME, "CLAUDE.md", "CLAUDE.local.md") \
+                or "/.claude/" in "/" + path or "/.codex/" in "/" + path:
             dirty.append(path)
     return {"is_repo": True, "toplevel": toplevel, "dirty_paths": sorted(dirty)}
 
@@ -500,6 +679,33 @@ class AgentsMdEntry:
     inverted_imports: List[Dict[str, object]] = field(default_factory=list)
     chain_bytes: int = 0
     over_codex_budget: bool = False
+    project_chain_bytes: int = 0
+    codex_source: Optional[str] = None
+
+
+@dataclass
+class CodexSourceEntry:
+    path: str
+    dir: str
+    kind: str  # override | canonical | fallback
+    bytes: int
+    lines: int
+    active: bool = False
+    project_chain_bytes: int = 0
+    chain_bytes: int = 0
+    over_codex_budget: bool = False
+
+
+@dataclass
+class CodexInfo:
+    budget: int = CODEX_DOC_BUDGET
+    budget_source: str = "default"
+    fallback_names: List[str] = field(default_factory=list)
+    config_files: List[str] = field(default_factory=list)
+    config_errors: List[str] = field(default_factory=list)
+    global_source: Optional[str] = None
+    global_bytes: int = 0
+    sources: List[CodexSourceEntry] = field(default_factory=list)
 
 
 @dataclass
@@ -545,6 +751,7 @@ class HooksInfo:
     state: str = "none"  # none | claude-only | shared | drift
     claude_settings: Optional[str] = None
     codex_hooks: Optional[str] = None
+    codex_config: Optional[str] = None
     legacy_dir: Optional[str] = None
     shared_dir: Optional[str] = None
     events: Dict[str, Dict[str, bool]] = field(default_factory=dict)
@@ -561,22 +768,21 @@ class Inventory:
     claude_local_md: List[str] = field(default_factory=list)
     dot_claude_claude_md: List[str] = field(default_factory=list)
     rules: List[RuleEntry] = field(default_factory=list)
+    codex: CodexInfo = field(default_factory=CodexInfo)
     hooks: HooksInfo = field(default_factory=HooksInfo)
     findings: List[Finding] = field(default_factory=list)
     suggested_mode: str = "audit"
 
 
-def walk_dirs(root: Path, max_depth: int) -> List[Path]:
+def walk_dirs(root: Path, max_depth: Optional[int]) -> List[Path]:
     """Directories under root worth scanning, root first, then sorted."""
     found = [root]
     for current, dirnames, _files in os.walk(root):
         rel_parts = Path(current).relative_to(root).parts
-        if len(rel_parts) >= max_depth:
+        if max_depth is not None and len(rel_parts) >= max_depth:
             dirnames[:] = []
             continue
-        dirnames[:] = sorted(
-            d for d in dirnames if d not in SKIP_DIRS and not d.startswith(".")
-        )
+        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
         for d in dirnames:
             found.append(Path(current) / d)
     return found
@@ -587,41 +793,90 @@ def rel_of(root: Path, path: Path) -> str:
     return rel or "."
 
 
-def build_inventory(root: Path, max_depth: int = DEFAULT_MAX_DEPTH) -> Inventory:
+def build_inventory(root: Path, max_depth: Optional[int] = DEFAULT_MAX_DEPTH) -> Inventory:
     """Read the whole project and return the full classification. Never writes."""
     root = root.resolve()
     inv = Inventory(root=str(root), git=git_info(root))
 
+    budget, budget_source, fallback_names, config_files, config_errors = resolve_codex_config(root)
+    global_instruction = codex_global_instruction()
+    global_bytes = global_instruction.stat().st_size if global_instruction else 0
+    inv.codex = CodexInfo(
+        budget=budget, budget_source=budget_source, fallback_names=fallback_names,
+        config_files=config_files, config_errors=config_errors,
+        global_source=str(global_instruction) if global_instruction else None,
+        global_bytes=global_bytes,
+    )
+
     dirs = walk_dirs(root, max_depth)
-    agents_bytes: Dict[str, int] = {}
+    active_sources: Dict[Path, Path] = {}
+    source_bytes: Dict[str, int] = {}
+    for d in dirs:
+        candidates = codex_candidates(d, fallback_names)
+        active: Optional[Tuple[Path, str]] = None
+        for path, kind in candidates:
+            try:
+                text = read_text(path)
+            except OSError:
+                continue
+            entry = CodexSourceEntry(
+                path=rel_of(root, path), dir=rel_of(root, d), kind=kind,
+                bytes=path.stat().st_size, lines=count_lines(text), active=False,
+            )
+            inv.codex.sources.append(entry)
+            if active is None and text.strip():
+                active = (path, kind)
+        if active is not None:
+            active_sources[d] = active[0]
+            source_bytes[rel_of(root, d)] = active[0].stat().st_size
+            for source in inv.codex.sources:
+                if source.dir == rel_of(root, d) and source.path == rel_of(root, active[0]):
+                    source.active = True
+                    break
+    inv.codex.sources.sort(key=lambda source: source.path)
+
+    for directory, source in active_sources.items():
+        project_chain = _chain_bytes(root, directory, source_bytes)
+        chain = project_chain + global_bytes
+        source_path = rel_of(root, source)
+        for entry in inv.codex.sources:
+            if entry.active and entry.path == source_path:
+                entry.project_chain_bytes = project_chain
+                entry.chain_bytes = chain
+                entry.over_codex_budget = chain > budget
+                break
+
     agents_dirs: List[Path] = []
     for d in dirs:
-        agents = d / "AGENTS.md"
+        agents = d / AGENTS_FILENAME
         if agents.is_file():
             agents_dirs.append(d)
-            agents_bytes[rel_of(root, d)] = agents.stat().st_size
 
     for d in agents_dirs:
-        agents = d / "AGENTS.md"
+        agents = d / AGENTS_FILENAME
         text = read_text(agents)
         inverted = [
             {"line": num, "text": line.strip()}
             for num, line in outside_fences(text)
             if IMPORT_RE.match(line)
         ]
-        chain = _chain_bytes(root, d, agents_bytes)
+        project_chain = _chain_bytes(root, d, source_bytes)
+        chain = project_chain + global_bytes
+        source = active_sources.get(d)
         inv.agents_md.append(
             AgentsMdEntry(
                 path=rel_of(root, agents), dir=rel_of(root, d),
                 bytes=agents.stat().st_size, lines=count_lines(text),
                 inverted_imports=inverted, chain_bytes=chain,
-                over_codex_budget=chain > CODEX_DOC_BUDGET,
+                over_codex_budget=chain > budget,
+                project_chain_bytes=project_chain,
+                codex_source=rel_of(root, source) if source else None,
             )
         )
 
     for d in dirs:
         claude = d / "CLAUDE.md"
-        has_agents = (d / "AGENTS.md").is_file()
+        has_agents = (d / AGENTS_FILENAME).is_file()
         if not claude.is_file():
             if has_agents:
                 inv.claude_md.append(
@@ -707,6 +962,53 @@ def _hook_commands(host: str, hooks: Dict[str, object]):
                 )
 
 
+def hook_signatures(hooks: Dict[str, object]) -> Dict[str, set[str]]:
+    """Comparable signatures for command hooks, grouped by event.
+
+    The comparison deliberately ignores host-local events and unknown fields.
+    This lets a Codex-only command coexist with the shared projection instead
+    of making every inventory run report false drift.
+    """
+    result: Dict[str, set[str]] = {}
+    for event in SHAREABLE_HOOK_EVENTS:
+        entries = hooks.get(event)
+        if not isinstance(entries, list):
+            continue
+        signatures: set[str] = set()
+        for entry in entries:
+            if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list):
+                continue
+            matcher = entry.get("matcher") if isinstance(entry.get("matcher"), str) else ""
+            for hook in entry["hooks"]:
+                if not isinstance(hook, dict) or hook.get("type") != "command":
+                    continue
+                command = hook.get("command")
+                if not isinstance(command, str) or not command.strip():
+                    continue
+                normalized: Dict[str, object] = {"type": "command", "command": command}
+                for key in CODEX_HOOK_KEYS:
+                    if key in hook:
+                        normalized[key] = hook[key]
+                signatures.add(json.dumps([matcher, normalized], sort_keys=True, ensure_ascii=False))
+        if signatures:
+            result[event] = signatures
+    return result
+
+
+def shared_hook_mismatches(generated: Dict[str, object], existing: Dict[str, object]) -> List[str]:
+    """Events where a generated shared command is absent or differs in Codex.
+
+    Extra existing commands are intentionally ignored: they may be Codex-only
+    hooks and are preserved by the sharing script.
+    """
+    expected = hook_signatures(generated)
+    actual = hook_signatures(existing)
+    return [
+        event for event in sorted(expected)
+        if not expected[event].issubset(actual.get(event, set()))
+    ]
+
+
 HOST_SPECIFIC_ACCESS_RE = re.compile(
     r"""tool_input[^\n]{0,80}file_path|\[["']file_path["']\]|\.get\(["']file_path["']"""
     r"""|CLAUDE_PROJECT_DIR"""
@@ -724,8 +1026,12 @@ def host_specific_script(text: str) -> bool:
 
 
 def analyze_hooks(root: Path) -> Tuple[HooksInfo, List[Finding]]:
-    """Classify the project's hook wiring. Reads the two shared config files only;
-    the personal Claude settings file is never opened."""
+    """Classify project hook wiring without editing personal settings files.
+
+    The JSON project file is the part this skill can merge. An inline Codex
+    `[hooks]` table is reported but left untouched, so Codex-only definitions
+    are never silently discarded.
+    """
     info = HooksInfo()
     findings: List[Finding] = []
 
@@ -754,6 +1060,20 @@ def analyze_hooks(root: Path) -> Tuple[HooksInfo, List[Finding]]:
                         "{} is not valid JSON ({}); fix it by hand before running "
                         "hooks".format(CODEX_HOOKS_REL, error)))
     codex_hooks = hooks_of(codex_data)
+
+    codex_config_path = root / CODEX_CONFIG_REL
+    if codex_config_path.is_file():
+        info.codex_config = CODEX_CONFIG_REL
+        try:
+            codex_config_text = read_text(codex_config_path)
+        except OSError:
+            codex_config_text = ""
+        if re.search(r"(?m)^\s*\[hooks(?:\.|\])|^\s*hooks\s*=", codex_config_text):
+            findings.append(
+                Finding("H009", "info", CODEX_CONFIG_REL, 0,
+                        "Codex may also run inline [hooks] from {}; share_hooks.py manages "
+                        "{} only and leaves this Codex-specific source untouched".format(
+                            CODEX_CONFIG_REL, CODEX_HOOKS_REL)))
 
     if (root / LEGACY_HOOKS_REL).is_dir():
         info.legacy_dir = LEGACY_HOOKS_REL
@@ -784,8 +1104,7 @@ def analyze_hooks(root: Path) -> Tuple[HooksInfo, List[Finding]]:
     generated = shareable_hooks(claude_hooks)
     mismatched: List[str] = []
     if claude_hooks and codex_exists:
-        mismatched = [e for e in sorted(set(generated) | set(codex_hooks))
-                      if generated.get(e) != codex_hooks.get(e)]
+        mismatched = shared_hook_mismatches(generated, codex_hooks)
 
     if not (claude_hooks or codex_exists or info.legacy_dir or info.shared_dir):
         info.state = "none"
@@ -822,14 +1141,16 @@ def analyze_hooks(root: Path) -> Tuple[HooksInfo, List[Finding]]:
     for event in mismatched:
         findings.append(
             Finding("H004", "warn", CODEX_HOOKS_REL, 0,
-                    "{} and {} disagree on event {}; scripts/share_hooks.py <root>".format(
+                    "the shared projection of {} and {} disagrees on event {}; "
+                    "scripts/share_hooks.py <root>".format(
                         CODEX_HOOKS_REL, CLAUDE_SETTINGS_REL, event)))
 
     if codex_exists and not claude_hooks:
         findings.append(
             Finding("H005", "warn", CODEX_HOOKS_REL, 0,
-                    "{} exists but {} has no hooks; run hooks (decide which side is the "
-                    "source, then regenerate)".format(CODEX_HOOKS_REL, CLAUDE_SETTINGS_REL)))
+                    "{} exists but {} has no hooks; preserve these Codex definitions and "
+                    "decide whether Claude wiring should be added before running hooks".format(
+                        CODEX_HOOKS_REL, CLAUDE_SETTINGS_REL)))
 
     for cmd in info.commands:
         if cmd.root_form in ("claude-env", "relative"):
@@ -860,6 +1181,50 @@ def analyze_hooks(root: Path) -> Tuple[HooksInfo, List[Finding]]:
 
 def collect_findings(root: Path, inv: Inventory) -> List[Finding]:
     findings: List[Finding] = []
+    canonical_dirs = {entry.dir for entry in inv.agents_md}
+    for source in inv.codex.sources:
+        if not source.active:
+            continue
+        if source.kind == "override":
+            findings.append(
+                Finding(
+                    "R011", "warn", source.path, 0,
+                    "Codex selects {} instead of the sibling AGENTS.md; Claude's stub imports "
+                    "the canonical file, so the hosts do not share this directory's rules. "
+                    "Keep the override only when that divergence is intentional; otherwise "
+                    "fold it into AGENTS.md and remove the override by hand".format(source.path),
+                )
+            )
+        elif source.kind == "fallback":
+            findings.append(
+                Finding(
+                    "R012", "warn", source.path, 0,
+                    "Codex selects configured fallback {} here; this skill manages AGENTS.md "
+                    "and Claude's stub does not import the fallback. Rename it to AGENTS.md "
+                    "or document the deliberate host-specific source".format(source.path),
+                )
+            )
+        if source.over_codex_budget and source.dir not in canonical_dirs:
+            findings.append(
+                Finding(
+                    "R005", "warn", source.path, 0,
+                    "effective Codex instruction chain for {} is {} bytes, over the {} byte "
+                    "budget (project chain {} B); Codex stops adding documents once the cap "
+                    "is reached".format(
+                        source.dir, source.chain_bytes, inv.codex.budget, source.project_chain_bytes),
+                )
+            )
+
+    for error in inv.codex.config_errors:
+        label, _, detail = error.partition(": ")
+        findings.append(
+            Finding(
+                "R013", "warn", label, 0,
+                "could not fully read Codex config ({}); verify project_doc_max_bytes and "
+                "project_doc_fallback_filenames by hand".format(detail or error),
+            )
+        )
+
     for entry in inv.agents_md:
         for imp in entry.inverted_imports:
             findings.append(
@@ -873,8 +1238,10 @@ def collect_findings(root: Path, inv: Inventory) -> List[Finding]:
             findings.append(
                 Finding(
                     "R005", "warn", entry.path, 0,
-                    "AGENTS.md chain for {} is {} bytes, over the {} byte Codex budget; "
-                    "later files get truncated".format(entry.dir, entry.chain_bytes, CODEX_DOC_BUDGET),
+                    "effective Codex instruction chain for {} is {} bytes, over the {} byte "
+                    "budget (project chain {} B); Codex stops adding documents once the cap "
+                    "is reached".format(
+                        entry.dir, entry.chain_bytes, inv.codex.budget, entry.project_chain_bytes),
                 )
             )
 
@@ -929,7 +1296,8 @@ def suggest_mode(root: Path, inv: Inventory) -> str:
         e.state != "missing" and (root / e.path).is_file() and read_text(root / e.path).strip()
         for e in inv.claude_md
     )
-    if not inv.agents_md and not has_content_claude:
+    if not inv.agents_md and not has_content_claude \
+            and not any(source.active for source in inv.codex.sources):
         return "init"
     if any(e.state == "legacy" for e in inv.claude_md):
         return "migrate"
@@ -959,11 +1327,31 @@ def format_text(inv: Inventory) -> str:
     out.append("root: {} ({})".format(inv.root, git_note))
 
     out.append("")
+    out.append("Codex instruction resolution:")
+    out.append("  budget: {} B (source: {})".format(inv.codex.budget, inv.codex.budget_source))
+    if inv.codex.global_source:
+        out.append("  global: {} — {} B".format(inv.codex.global_source, inv.codex.global_bytes))
+    else:
+        out.append("  global: (none detected)")
+    if inv.codex.fallback_names:
+        out.append("  fallback names: {}".format(", ".join(inv.codex.fallback_names)))
+    if inv.codex.sources:
+        for source in inv.codex.sources:
+            status = "active" if source.active else "candidate"
+            chain = ", chain {} B".format(source.chain_bytes) if source.active else ""
+            out.append("  {} — {} {} ({} B, {} lines{})".format(
+                source.path, status, source.kind, source.bytes, source.lines, chain))
+    else:
+        out.append("  project sources: (none)")
+
+    out.append("")
     out.append("AGENTS.md ({}):".format(len(inv.agents_md)))
     for e in inv.agents_md:
         flag = "  OVER CODEX BUDGET" if e.over_codex_budget else ""
         out.append("  {} — {} B, {} lines, chain {} B{}".format(
             e.path, e.bytes, e.lines, e.chain_bytes, flag))
+        if e.codex_source and e.codex_source != e.path:
+            out.append("      Codex selects: {}".format(e.codex_source))
         for imp in e.inverted_imports:
             out.append("      line {}: {}".format(imp["line"], imp["text"]))
     if not inv.agents_md:
@@ -997,6 +1385,8 @@ def format_text(inv: Inventory) -> str:
         out.append("hooks: {}".format(hooks.state))
         out.append("  configs: {} / {}".format(
             hooks.claude_settings or "(no hooks)", hooks.codex_hooks or "(missing)"))
+        if hooks.codex_config:
+            out.append("  Codex config: {} (inline hooks are preserved)".format(hooks.codex_config))
         out.append("  script dirs: {} / {}".format(
             hooks.legacy_dir or "-", hooks.shared_dir or "-"))
         for name, flags in hooks.events.items():
@@ -1032,7 +1422,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                         help="project root (default: git toplevel of cwd, else cwd)")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     parser.add_argument("--max-depth", type=int, default=DEFAULT_MAX_DEPTH,
-                        help="directory levels below root to scan (default: %(default)s)")
+                        help="directory levels below root to scan (default: no limit)")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     root = Path(args.root).expanduser() if args.root else default_root()
@@ -1040,7 +1430,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print("Project root not found: {}. Pass an existing directory as the first "
               "argument.".format(root), file=sys.stderr)
         return 2
-    if args.max_depth < 1:
+    if args.max_depth is not None and args.max_depth < 1:
         print("--max-depth must be at least 1 (got {}).".format(args.max_depth), file=sys.stderr)
         return 2
 

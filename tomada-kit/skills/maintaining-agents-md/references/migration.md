@@ -8,6 +8,7 @@ Folding an existing rule setup into the AGENTS.md-master shape. Content moves fi
 - [Classify the sources](#classify-the-sources)
 - [Destination table](#destination-table)
 - [Preserving a rule's scope](#preserving-a-rules-scope)
+- [Semantic conversion](#semantic-conversion)
 - [Fixing an inverted import](#fixing-an-inverted-import)
 - [Deduplicating while folding](#deduplicating-while-folding)
 - [Deletion rules](#deletion-rules)
@@ -39,6 +40,7 @@ Steps 5 and 6 are one unit — a source file is deleted only after its content h
 | `@` lines inside an `AGENTS.md` | inverted imports; see below |
 | `CLAUDE.local.md` | out of scope — personal and gitignored |
 | existing `AGENTS.md` | the destination, not a source; extend it in place |
+| active `AGENTS.override.md` or configured fallback | Codex-selected source; report and preserve unless the user explicitly resolves the host-specific divergence |
 
 ## Destination table
 
@@ -60,6 +62,12 @@ A rule file's `paths:` frontmatter is load-bearing information that disappears w
 - Directory-scoped into that directory's own master: the directory part is implicit — drop it; keep any file filter the glob carried (`src/**/*.jsx` → first line `対象: *.jsx` / `Applies to: *.jsx`). A bare `src/**` needs no scope line.
 - Anything folded into the root: state the scope in the heading (`## Conventions: src/**/*.jsx`) or in the first line of the section ("Applies to files under `src/`."). A rule that silently loses its scope will be applied repo-wide.
 - Keep one section per original scope. Merging two globs into one section loses both.
+
+## Semantic conversion
+
+The destination table is not a license to concatenate frontmatter and prose. Claude's `paths:` frontmatter is a runtime trigger; Codex has no equivalent path-scoped trigger. For every non-trivial scoped rule, follow [semantic-rule-conversion.md](semantic-rule-conversion.md) and use an LLM reasoning pass to preserve the behavior.
+
+The LLM pass must extract intent, scope, exceptions, enforcement strength, and examples; draft a tool-agnostic instruction with an explicit scope heading; identify the exact parity loss; and propose concrete verification. Mechanical copying is acceptable only for content whose behavior is already global and host-neutral. Present the source → destination mapping and rewritten text for approval before writing. Never claim that a path-scoped rule is equivalent merely because its Markdown was copied.
 
 ## Fixing an inverted import
 
@@ -86,6 +94,7 @@ An `AGENTS.md` whose first line is `@./CLAUDE.md` (as in `youtube-management/AGE
 | legacy `CLAUDE.md` body | replaced by the stub only after its content is verified at the destination; the sync script refuses this without `--force` |
 | `CLAUDE.local.md` | never |
 | `.claude/settings.json`, hooks, host-only skills | never — they are configuration, not rules; the stub free section describes them |
+| active `AGENTS.override.md` or configured fallback | never automatically — preserve and report; delete or fold only after the user resolves the Codex-specific selection |
 
 Leaving `.claude/rules/` in place after a successful fold is not a safe compromise: the rules keep loading on one host and drift from the master. Either finish the move or leave the rule files untouched and report it.
 

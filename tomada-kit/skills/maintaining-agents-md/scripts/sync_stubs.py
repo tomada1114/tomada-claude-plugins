@@ -150,7 +150,7 @@ def plan_for_file(root: Path, entry: "inventory.ClaudeMdEntry", force: bool = Fa
 
 
 def plan_sync(root: Path, force: bool = False,
-              max_depth: int = inventory.DEFAULT_MAX_DEPTH) -> List[PlanItem]:
+              max_depth: Optional[int] = inventory.DEFAULT_MAX_DEPTH) -> List[PlanItem]:
     """The full per-file plan for a project, in path order."""
     inv = inventory.build_inventory(root, max_depth)
     return [plan_for_file(root, entry, force) for entry in inv.claude_md]
@@ -214,7 +214,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--no-snapshot", action="store_true",
                         help="do not snapshot the files about to change")
     parser.add_argument("--max-depth", type=int, default=inventory.DEFAULT_MAX_DEPTH,
-                        help="directory levels below root to scan (default: %(default)s)")
+                        help="directory levels below root to scan (default: no limit)")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
@@ -223,7 +223,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print("Project root not found: {}. Pass an existing directory as the first "
               "argument.".format(root), file=sys.stderr)
         return 2
-    if args.max_depth < 1:
+    if args.max_depth is not None and args.max_depth < 1:
         print("--max-depth must be at least 1 (got {}).".format(args.max_depth), file=sys.stderr)
         return 2
     root = root.resolve()

@@ -18,7 +18,7 @@ Shapes for `AGENTS.md`. Use the sections a project actually needs; an empty sect
 ## Length calibration
 
 - Root `AGENTS.md`: target **≤ ~150 lines**. Every root line is loaded by every session in every directory of the repo.
-- Whole chain root→working directory: **≤ 32 KiB**. Past that, Codex truncates the later files silently.
+- Effective chain root→working directory: stay within `project_doc_max_bytes` (32 KiB by default), including detected global instructions. Codex stops adding documents at the cap.
 - When a long section applies to exactly one directory, move it to that directory's `AGENTS.md` (plus its stub) rather than compressing it at the root. That is the intended way to stay under the line target without losing detail.
 - Match length to substance. No filler sections, no summary of the file inside the file, no template headings left in because the template had them. A fact the survey could not establish is omitted — never written as "unknown" or "TBD" in the master.
 
@@ -156,7 +156,7 @@ Hooks under `.agents/hooks/` run on both hosts, so what they enforce belongs in 
 - `format.py` (after an edit) — formats the edited file. Do not run the formatter again yourself.
 - `stop_check.py` (end of turn) — runs `just check` when the tree has changes; fix what it reports.
 
-First Codex session: review and trust each hook when prompted. Start Claude Code at the repo root — hooks do not load from a subdirectory launch.
+Codex project hooks require a trusted project layer and exact command-definition review (`/hooks`); review again when a command string changes. Start Claude Code at the repo root — hooks do not load from a subdirectory launch.
 ```
 
 Skip the section when the repo has no hooks. Place it after the commands and quality-gate sections and before any project-specific closing sections (reminders, checklists). Claude-only events stay in the stub's free section; see `hooks.md`.
