@@ -48,11 +48,86 @@ PATTERNS = {
     "context_fork": re.compile(r"context:\s*fork"),
     "plan_mode": re.compile(r"plan mode|ExitPlanMode|EnterPlanMode|プランモード", re.IGNORECASE),
     "hardcoded_claude_path": re.compile(r"\.claude/(skills|agents|commands)/"),
+    # git write/network ops + package managers/test runners that populate a home
+    # cache + explicit home-cache paths: all fail under the Codex filesystem
+    # sandbox ("Operation not permitted") and need the host's elevated execution
+    # path. One label; `match` on each construct_locations entry says which
+    # sub-pattern fired.
+    "sandbox_write_op": re.compile(
+        r"git\s+fetch\b"
+        r"|git\s+pull\b"
+        r"|git\s+push\b"
+        r"|git\s+worktree\s+(?:add|remove|prune)\b"
+        r"|git\s+branch\s+-[dD]\b"
+        r"|git\s+switch\s+-c\b"
+        r"|git\s+checkout\s+-b\b"
+        r"|git\s+merge\b"
+        r"|git\s+rebase\b"
+        r"|git\s+commit\b"
+        r"|git\s+tag\b"
+        r"|gh\s+pr\s+merge\b"
+        r"|--delete-branch\b"
+        r"|\buv\s"
+        r"|\buvx\s"
+        r"|pip\s+install\b"
+        r"|npm\s+(?:install|ci)\b"
+        r"|\bpnpm\b"
+        r"|\byarn\b"
+        r"|\bcargo\b"
+        r"|\bpytest\b"
+        r"|\bpoetry\b"
+        r"|~/\.cache/"
+        r"|\$HOME/\.cache/"
+        r"|XDG_CACHE_HOME"
+    ),
 }
 
 SUBAGENT_TYPE_RE = re.compile(r"""subagent_type\s*[=:]\s*["']?([a-z0-9][a-z0-9-]*)["']?""", re.IGNORECASE)
 CLAUDE_AGENT_REF_RE = re.compile(r"\.claude/agents/([A-Za-z0-9_\-/]+?)(?:\.md)?\b")
 CLAUDE_SKILL_REF_RE = re.compile(r"\.claude/skills/([a-z0-9][a-z0-9-]*)/")
+
+# Host built-in slash commands — a dependency that cannot be bridged to Codex at
+# all: unlike a user skill there is no source to symlink or inline. Deliberately a
+# curated allowlist (case-sensitive), not an open-ended token match: an unbounded
+# "/<plausible-name>" scan fires on XML-ish closing tags (</issue>), templated
+# path segments (<repo>/run.md), and other prose that merely contains a slash.
+# /batch is intentionally excluded — it is already its own construct.
+BUILTIN_COMMAND_ALLOWLIST = {
+    "code-review", "security-review", "review", "simplify", "init", "run", "loop",
+    "schedule", "goal", "plan", "compact", "clear", "config", "cost", "doctor",
+    "agents", "help", "model", "context", "pr-comments", "commit", "test", "resume",
+    "memory", "status", "hooks", "mcp", "terminal-setup", "vim", "release-notes",
+    "add-dir", "export", "login", "logout", "bug", "migrate-installer",
+}
+_BUILTIN_COMMAND_ALT = "|".join(
+    re.escape(name) for name in sorted(BUILTIN_COMMAND_ALLOWLIST, key=len, reverse=True)
+)
+BUILTIN_SLASH_COMMAND_RE = re.compile(r"/(?:" + _BUILTIN_COMMAND_ALT + r")(?![A-Za-z0-9-])")
+
+# Context filters applied around an allowlist hit — a raw word-boundary match still
+# fires in contexts that clearly aren't a command invocation, so filter by the
+# characters immediately around the match.
+_PRECEDE_REJECT = frozenset("/.<")   # </issue>, docs/run, ./run
+_FOLLOW_REJECT = frozenset("/.>")    # /run/foo, <repo>/run.md, </context>
+
+
+def _builtin_slash_command_matches(line: str):
+    """Yield re.Match objects for genuine built-in slash-command references on `line`."""
+    for m in BUILTIN_SLASH_COMMAND_RE.finditer(line):
+        start, end = m.start(), m.end()
+        preceding = line[start - 1] if start > 0 else ""
+        if preceding and (preceding.isalnum() or preceding == "_" or preceding in _PRECEDE_REJECT):
+            continue
+        following = line[end] if end < len(line) else ""
+        if following in _FOLLOW_REJECT:
+            continue
+        # Inside inline code (`/cmd`), the whole span must be the command: a
+        # backtick right before the match requires a backtick right after too,
+        # otherwise the "/" is just prose punctuation inside a code span
+        # (e.g. `sleep`/poll — the closing backtick belongs to "sleep", not this).
+        if preceding == "`" and following != "`":
+            continue
+        yield m
 
 
 @dataclass
@@ -164,6 +239,14 @@ def classify(skill_path: Path) -> Classification:
                     c.construct_locations.append({
                         "label": label, "file": file_label, "line": i, "match": m.group(0),
                     })
+        # builtin_slash_command needs post-match filtering (drop multi-segment
+        # paths / trailing slashes / /batch) that a plain PATTERNS regex can't do.
+        for i, line in enumerate(lines, start=1 + line_offset):
+            for m in _builtin_slash_command_matches(line):
+                c.constructs["builtin_slash_command"] = c.constructs.get("builtin_slash_command", 0) + 1
+                c.construct_locations.append({
+                    "label": "builtin_slash_command", "file": file_label, "line": i, "match": m.group(0),
+                })
 
     _scan(body, body_start, "SKILL.md")
     for sub in ("references", "templates"):
@@ -221,15 +304,39 @@ def classify(skill_path: Path) -> Classification:
         or bool(c.cross_skill_refs)
     # MEDIUM (B): Claude-specific surface that degrades cleanly (strip/inline), incl.
     # context:fork (just run inline under Codex), AskUserQuestion, MCP, hardcoded paths.
+    # builtin_slash_command is here too: it doesn't need real redesign (hard), but it
+    # is an unbridgeable dependency (no source to symlink/inline), so a skill that
+    # would otherwise be tier A must be bumped to at least B.
     medium = bool(c.claude_frontmatter_fields) or bool(c.dependent_subagents) or c.references_files > 0 \
         or any(k in c.constructs for k in
-               ("ask_user_question", "mcp_tools", "plan_mode", "hardcoded_claude_path", "context_fork"))
+               ("ask_user_question", "mcp_tools", "plan_mode", "hardcoded_claude_path", "context_fork",
+                "builtin_slash_command"))
     if hard:
         c.tier = "C"
     elif medium:
         c.tier = "B"
     else:
         c.tier = "A"
+
+    # Notes: what the conversion must produce when either new-risk construct fires.
+    # sandbox_write_op does NOT affect tier (see above) — it only adds a note.
+    if "builtin_slash_command" in c.constructs:
+        c.notes.append(
+            "builtin_slash_command: the skill body invokes a host built-in slash "
+            "command with no Codex equivalent and no source to inline. Neutralise "
+            "the body reference AND add an explicit named degradation mode for it "
+            "in the platform notes (there is nothing to bridge, only to document)."
+        )
+    if "sandbox_write_op" in c.constructs:
+        c.notes.append(
+            "sandbox_write_op: the skill runs git write/network ops, a package "
+            "manager, or a home-cache path that can fail under the Codex "
+            "filesystem sandbox with 'Operation not permitted'. The platform "
+            "notes must cover this failure mode and its recovery: rerun that "
+            "exact operation through the host's elevated execution path, "
+            "redirect the tool's cache env var to a writable temp dir, and never "
+            "work around it with ad-hoc file deletion."
+        )
     return c
 
 

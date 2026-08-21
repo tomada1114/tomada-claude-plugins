@@ -3,7 +3,7 @@
 Read after `issue_digest.py` output is in hand, before deciding what to ship.
 The script annotates mechanical signals; this file covers the judgment the
 script cannot make. Which of the ready issues is *worth* shipping first is a
-separate question — see [priority-rubric.md](priority-rubric.md).
+separate question — see `priority-rubric.md`.
 
 ## Readiness gate
 
@@ -56,9 +56,8 @@ other's branch can drift.
 
 1. Topologically sort by dependency edges (explicit + inferred above).
 2. Within a level, order by `priority:` label tier, then by the digest's score
-   within a tier (see [priority-rubric.md](priority-rubric.md) for what each
-   tier means); break remaining ties with "touches fewer files" and then
-   "older".
+   within a tier (see `priority-rubric.md` for what each tier means); break
+   remaining ties with "touches fewer files" and then "older".
 3. Cycles are a data problem, not something to break arbitrarily. Report the
    cycle and ask which edge to drop.
 
@@ -87,6 +86,6 @@ than after a failure.
 
 ## Single mode: which issue
 
-Among the shippable issues, pick by [priority-rubric.md](priority-rubric.md) —
-unblocks-others first, then leverage, then must-be-first ordering, then damage
-being taken now. State the pick with its evidence lines before implementing.
+Among the shippable issues, pick by `priority-rubric.md` — unblocks-others
+first, then leverage, then must-be-first ordering, then damage being taken
+now. State the pick with its evidence lines before implementing.

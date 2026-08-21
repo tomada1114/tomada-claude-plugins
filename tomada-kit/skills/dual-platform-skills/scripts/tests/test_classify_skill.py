@@ -210,6 +210,178 @@ class TestAgentRegistryAndDependents(unittest.TestCase):
         self.assertIn("helper-skill", c.cross_skill_refs)
 
 
+class TestBuiltinSlashCommand(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def test_builtin_slash_command_positive_hits(self):
+        skill = write_skill(
+            self.root,
+            skill_md=FM + "\nRun /code-review high --fix, then /security-review, "
+                          "then /init, /simplify, /run, /loop 5m, /schedule create, "
+                          "/compact, and /model opus.\n",
+        )
+        c = cs.classify(skill)
+        hits = {loc["match"] for loc in c.construct_locations if loc["label"] == "builtin_slash_command"}
+        self.assertEqual(
+            hits,
+            {"/code-review", "/security-review", "/init", "/simplify", "/run",
+             "/loop", "/schedule", "/compact", "/model"},
+        )
+
+    def test_url_path_does_not_fire(self):
+        skill = write_skill(self.root, skill_md=FM + "\nSee https://example.com/code-review for docs.\n")
+        c = cs.classify(skill)
+        self.assertNotIn("builtin_slash_command", c.constructs)
+
+    def test_relative_paths_do_not_fire(self):
+        skill = write_skill(self.root, skill_md=FM + "\nRelative path docs/foo or src/lib/x here.\n")
+        c = cs.classify(skill)
+        self.assertNotIn("builtin_slash_command", c.constructs)
+
+    def test_date_does_not_fire(self):
+        skill = write_skill(self.root, skill_md=FM + "\nThe date is 2026/08/21.\n")
+        c = cs.classify(skill)
+        self.assertNotIn("builtin_slash_command", c.constructs)
+
+    def test_word_with_no_slash_does_not_fire(self):
+        skill = write_skill(self.root, skill_md=FM + "\nThe word digital containing no slash.\n")
+        c = cs.classify(skill)
+        self.assertNotIn("builtin_slash_command", c.constructs)
+
+    def test_multi_segment_path_does_not_fire(self):
+        skill = write_skill(self.root, skill_md=FM + "\nOutput goes to /docs/foo or /model/output.\n")
+        c = cs.classify(skill)
+        self.assertNotIn("builtin_slash_command", c.constructs)
+
+    def test_inline_code_command_fires(self):
+        skill = write_skill(self.root, skill_md=FM + "\nInvoke `/code-review` before merging.\n")
+        c = cs.classify(skill)
+        hits = {loc["match"] for loc in c.construct_locations if loc["label"] == "builtin_slash_command"}
+        self.assertEqual(hits, {"/code-review"})
+
+    def test_bare_prose_command_fires(self):
+        skill = write_skill(self.root, skill_md=FM + "\nRun /init to bootstrap.\n")
+        c = cs.classify(skill)
+        hits = {loc["match"] for loc in c.construct_locations if loc["label"] == "builtin_slash_command"}
+        self.assertEqual(hits, {"/init"})
+
+    def test_unknown_command_does_not_fire(self):
+        skill = write_skill(self.root, skill_md=FM + "\nRun /deploy-staging when ready.\n")
+        c = cs.classify(skill)
+        self.assertNotIn("builtin_slash_command", c.constructs)
+
+    def test_closing_tag_issue_does_not_fire(self):
+        skill = write_skill(self.root, skill_md=FM + "\n<issue>Body text</issue>\n")
+        c = cs.classify(skill)
+        self.assertNotIn("builtin_slash_command", c.constructs)
+
+    def test_closing_tag_context_does_not_fire(self):
+        skill = write_skill(self.root, skill_md=FM + "\n<context>Body text</context>\n")
+        c = cs.classify(skill)
+        self.assertNotIn("builtin_slash_command", c.constructs)
+
+    def test_backtick_slash_word_does_not_fire(self):
+        skill = write_skill(
+            self.root,
+            skill_md=FM + "\nneither this context nor any sub-agent hand-rolls a "
+                          "`sleep`/poll loop around `gh`.\n",
+        )
+        c = cs.classify(skill)
+        self.assertNotIn("builtin_slash_command", c.constructs)
+
+    def test_templated_path_segment_does_not_fire(self):
+        skill = write_skill(
+            self.root,
+            skill_md=FM + "\n`${AGENT_SKILL_STATE_DIR}/shipping-issues/<owner>__<repo>/run.md`\n",
+        )
+        c = cs.classify(skill)
+        self.assertNotIn("builtin_slash_command", c.constructs)
+
+    def test_batch_stays_its_own_label(self):
+        skill = write_skill(self.root, skill_md=FM + "\nUse /batch to run these in parallel.\n")
+        c = cs.classify(skill)
+        self.assertNotIn("builtin_slash_command", c.constructs)
+        self.assertIn("batch_command", c.constructs)
+
+    def test_tier_a_bumped_to_b_on_builtin_slash_command(self):
+        skill = write_skill(self.root, skill_md=FM + "\nRun /init here.\n")
+        c = cs.classify(skill)
+        self.assertIn("builtin_slash_command", c.constructs)
+        self.assertEqual(c.tier, "B")
+
+    def test_notes_mention_degradation_mode(self):
+        skill = write_skill(self.root, skill_md=FM + "\nRun /init here.\n")
+        c = cs.classify(skill)
+        self.assertTrue(any("degradation mode" in n for n in c.notes))
+        self.assertTrue(any("builtin_slash_command" in n for n in c.notes))
+
+    def test_construct_locations_report_file_and_line(self):
+        skill = write_skill(self.root, skill_md=FM + "\nline one\nRun /init here.\n")
+        c = cs.classify(skill)
+        hits = [loc for loc in c.construct_locations if loc["label"] == "builtin_slash_command"]
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0]["file"], "SKILL.md")
+        self.assertEqual(hits[0]["match"], "/init")
+
+
+class TestSandboxWriteOp(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def test_positive_hits_cover_git_pkg_manager_and_cache_paths(self):
+        skill = write_skill(
+            self.root,
+            skill_md=FM + "\ngit fetch origin\n"
+                          "git worktree add ../wt\n"
+                          "git branch -D old-branch\n"
+                          "gh pr merge 123 --delete-branch\n"
+                          "uv sync\n"
+                          "npm ci\n"
+                          "pytest -q\n"
+                          "cache lives at ~/.cache/uv\n"
+                          "or $HOME/.cache/pip\n"
+                          "or via XDG_CACHE_HOME\n",
+        )
+        c = cs.classify(skill)
+        self.assertEqual(c.constructs.get("sandbox_write_op", 0), 11)
+        matches = {loc["match"] for loc in c.construct_locations if loc["label"] == "sandbox_write_op"}
+        self.assertIn("git fetch", matches)
+        self.assertIn("git worktree add", matches)
+        self.assertIn("git branch -D", matches)
+        self.assertIn("--delete-branch", matches)
+        self.assertIn("uv ", matches)
+        self.assertIn("npm ci", matches)
+        self.assertIn("pytest", matches)
+        self.assertIn("~/.cache/", matches)
+        self.assertIn("$HOME/.cache/", matches)
+        self.assertIn("XDG_CACHE_HOME", matches)
+
+    def test_read_only_git_worktree_list_does_not_fire(self):
+        skill = write_skill(self.root, skill_md=FM + "\ngit worktree list\n")
+        c = cs.classify(skill)
+        self.assertNotIn("sandbox_write_op", c.constructs)
+
+    def test_does_not_affect_tier(self):
+        skill = write_skill(self.root, skill_md=FM + "\ngit fetch origin\n")
+        c = cs.classify(skill)
+        self.assertIn("sandbox_write_op", c.constructs)
+        self.assertEqual(c.tier, "A")
+
+    def test_notes_mention_sandbox_failure_and_recovery(self):
+        skill = write_skill(self.root, skill_md=FM + "\ngit fetch origin\n")
+        c = cs.classify(skill)
+        note = next((n for n in c.notes if "sandbox_write_op" in n), None)
+        self.assertIsNotNone(note)
+        self.assertIn("Operation not permitted", note)
+        self.assertIn("elevated execution path", note)
+        self.assertIn("cache env var", note)
+
+
 class TestRenderHumanFields(unittest.TestCase):
     def test_render_includes_frontmatter_cross_refs_and_notes(self):
         c = cs.Classification(

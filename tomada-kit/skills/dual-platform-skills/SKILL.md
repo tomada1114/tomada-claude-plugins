@@ -1,6 +1,6 @@
 ---
 name: dual-platform-skills
-description: "Convert one existing skill (Claude Code origin or Codex origin) into a layout that works on both Claude Code and OpenAI Codex CLI. Uses Topology A: the real files live in .claude/skills/ and the Codex side symlinks them. Features Codex lacks (parallel Task, Skill-to-Skill calls, AskUserQuestion, context fork, /batch, tmux) are inlined as best-effort sequential steps, and knowledge held by dependent sub-agents is extracted into references/agents/. Orchestrates the phases with Python scripts and bundled sub-agents. Use when making a skill work in Codex, dual-platforming a skill, porting a skill to Codex, bridging a skill to Codex, or sharing one skill across both platforms."
+description: "Convert one existing skill (Claude Code origin or Codex origin) into a layout that works on both Claude Code and OpenAI Codex CLI. Uses Topology A: the real files live in .claude/skills/ and the Codex side symlinks them. Capabilities the running runtime may not expose (parallel delegation, skill-to-skill calls, option prompts, context forking, batch runs, tmux) are inlined as best-effort sequential steps, and knowledge held by dependent sub-agents is extracted into references/agents/. Orchestrates the phases with Python scripts and bundled sub-agents. Use when making a skill work in Codex, dual-platforming a skill, porting a skill to Codex, bridging a skill to Codex, or sharing one skill across both platforms."
 argument-hint: "<skill-name or path> [--scope user|repo]"
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task, Skill
 metadata:
@@ -16,7 +16,7 @@ metadata:
 ## 設計の核（3 つの確定方針）
 
 1. **Topology A**: 実体は `.claude/skills/<name>/`（Claude がネイティブに読む唯一の正本）。Codex 側（`~/.codex/skills/` or `<repo>/.agents/skills/`）は**そこへの symlink**。Claude は symlink をたどらず、Codex だけが公式サポート済みの追従をする。→ [references/topology.md](references/topology.md) <!-- neutrality-ignore: N2 -->
-2. **ベストエフォート劣化**: Codex に無い機能は「Claude Code: …／Codex: 逐次インライン …」の**条件分岐表現**に書き換え、失う機能を明記。→ [references/transformation-rules.md](references/transformation-rules.md)
+2. **ベストエフォート劣化**: 使えない機能は**能力条件つきの中立表現**（「委譲できる環境なら…／できなければ逐次…」）に書き換え、失うものを**コスト種別（所要時間／コンテキスト隔離／保証レベル）付き**で明記。判定軸は製品名ではなく**そのランタイムに公開されている能力**。→ [references/transformation-rules.md](references/transformation-rules.md)
 3. **封入サブエージェント**: 外部 `~/.claude/agents/` に依存せず、サブエージェントの指示を本スキルの [references/agents/](references/agents/) に封入し、`Task`（`subagent_type: general-purpose`/`Explore`）に渡して使う。完全自己完結。 <!-- neutrality-ignore: N1 --> <!-- neutrality-ignore: N2 -->
 
 差分の根拠はすべて [references/platform-diff.md](references/platform-diff.md)。
@@ -100,6 +100,9 @@ tier ／適用編集（rule→file→location）／Codex 劣化リスト／作�
 - **本文（SKILL.md・references/・templates/）はツール名を書かない完全中立が既定**（[neutral-phrasing.md](references/neutral-phrasing.md)、R3/R6）。ツール名の唯一の置き場所は各スキルの `references/platform-notes.md`（`<!-- platform-annex -->` 付き）。代替表現は使用箇所にインラインで書く（R11、末尾注記だけに寄せない）。
 - ハードコード `.claude/` 絶対パスは**スキル内部参照のみ相対化**。cross-skill は **データ参照=相対化（依存も同じ codex dir へまとめて bridge）／実行=抽出・inline・claude-only**（[transformation-rules.md](references/transformation-rules.md) R5）。
 - **永続状態は `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/<skill>/`**（R12）。`~/.claude/<name>/` を独自に発明しない。 <!-- neutrality-ignore: N2 -->
+- **「その製品に機能があるか」ではなく「そのランタイムに能力が公開されているか」で書く**（R3）。劣化行は所要時間だけでなく**コンテキスト隔離の喪失・保証レベルの低下**まで書く。
+- **git 書き込み系・パッケージマネージャ・テストランナーを回すスキルは、実行環境（sandbox）の失敗と復旧手順を platform-notes.md に必ず書く**（R14、`sandbox_write_op`）。迂回策を本文に書かない。
+- **ホスト組み込みコマンド依存（`/code-review` 等）は bridge 不能**。名前つき劣化モードを定義し、実行記録・最終レポートに出力させる（R15、`builtin_slash_command`）。代替を自作させない。
 - サブエージェント定義は `<skill>/agents/`・`.claude/agents/`・`~/.claude/agents/` の 3 系統＋種類(登録済み/プロンプト同梱)を判定。定義が無い名前参照は claude-only にしユーザー報告。 <!-- neutrality-ignore: N2 -->
 - **`Task` サブエージェントには skill 相対パスを渡さない**（cwd=repo root のため解決しない）。**内容をインライン**か**絶対パス**で渡す（[transformation-rules.md](references/transformation-rules.md) R10）。canonical は `references/agents/<name>.md` 1 つ（ミラー禁止＝drift 防止）。テンプレート内の自スキル絶対パスは `{SKILL_DIR}` プレースホルダで書き、メインが解決する（R13、プラットフォーム環境変数は使わない）。
 - **実行オーケストレーター（他スキルを `Skill` で回す）は最後に変換**。依存（hub→被呼び出し）を全部先に両対応化＋bridge してから着手（R5/L10）。

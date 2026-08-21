@@ -3,7 +3,7 @@
 # that the issue it was supposed to close actually closed.
 #
 # Usage: land_pr.sh <pr-number> [--issue N] [--method squash|merge|rebase]
-#                   [--auto] [--dry-run] [--no-link-check]
+#                   [--auto] [--dry-run] [--no-link-check] [--no-ready]
 #
 # Without --method the script picks the first method the repository allows,
 # preferring squash. With --auto it enables GitHub auto-merge instead of
@@ -17,6 +17,11 @@
 #     a back-reference comment if GitHub did not (squash merges into a
 #     non-default base, keyword lost in a body edit, …).
 #
+# A draft PR cannot be merged at all — GitHub refuses with "Pull Request is
+# still a draft" — so by default the script marks it ready for review (`gh pr
+# ready`) right before merging. Pass --no-ready to report `result: DRAFT`
+# instead of ready-ing it (the caller decides when a PR should stay draft).
+#
 # Exit codes: 0 = merged (or auto-merge armed), 1 = merge refused, 2 = usage
 
 set -uo pipefail
@@ -29,6 +34,7 @@ METHOD=""
 AUTO=0
 DRY=0
 LINK_CHECK=1
+READY=1
 shift || true
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -37,6 +43,7 @@ while [[ $# -gt 0 ]]; do
     --auto) AUTO=1; shift ;;
     --dry-run) DRY=1; shift ;;
     --no-link-check) LINK_CHECK=0; shift ;;
+    --no-ready) READY=0; shift ;;
     *) echo "Unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -78,6 +85,28 @@ if [[ -n "$ISSUE" && $LINK_CHECK -eq 1 && "$state" == "OPEN" ]]; then
     echo "result: NOT_LINKED"
     echo "detail: merging now would leave issue #$ISSUE open — fix the link (or pass --no-link-check) and retry"
     exit 1
+  fi
+fi
+
+# --- 1.5 draft check (merge precondition) ------------------------------------
+if [[ "$state" == "OPEN" ]]; then
+  is_draft="$(gh pr view "$PR" --json isDraft -q .isDraft 2>/dev/null)" || {
+    echo "result: ERROR"; echo "detail: cannot read draft status for PR #$PR"; exit 1; }
+  if [[ "$is_draft" == "true" ]]; then
+    echo "draft: true"
+    if [[ $DRY -eq 1 ]]; then
+      :  # report only; a dry run never mutates the PR
+    elif [[ $READY -eq 0 ]]; then
+      echo "result: DRAFT"
+      echo "detail: PR #$PR is a draft — mark it ready (gh pr ready $PR) and retry, or omit --no-ready"
+      exit 1
+    elif gh pr ready "$PR" >/dev/null 2>&1; then
+      echo "draft: MARKED_READY"
+    else
+      echo "result: DRAFT"
+      echo "detail: gh pr ready $PR failed — mark it ready by hand and retry"
+      exit 1
+    fi
   fi
 fi
 

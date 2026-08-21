@@ -36,9 +36,24 @@ Reads: the current repo's open issues and PRs via `gh`; the project's own
 Writes: `priority: P0`…`P3` labels on the repo's open issues (the persisted
 ranking), branches, PRs, merge commits on the remote, issue closures, **new
 follow-up issues for defects found along the way** (step 6.5), plus a run
-record at
+record so a re-run knows what already landed.
+
+### Run record
+
+```bash
+python3 scripts/run_record.py --repo <owner>/<repo> --event <kind> \
+    [--field k=v ...] [--body-file <path>]
+```
+
+Appends one line (or, for `run-start`, a heading plus a line) to
 `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/shipping-issues/<owner>__<repo>/run.md`
-(appended, never deleted) so a re-run knows what already landed.
+— never rewritten or deleted, so a stopped run keeps what already landed. Call
+it right after the event happens, not batched at the end; `--repo` can be
+omitted when cwd is the repo being shipped. Events: `run-start`, `selection`
+(the rubric-shaped block from
+[references/priority-rubric.md](references/priority-rubric.md) via
+`--body-file`), `labels`, `pr-created`, `review`, `ci`, `merged`, `followup`,
+`cleanup`, `blocked`, `note`.
 
 ## Workflow
 
@@ -55,7 +70,8 @@ scripts/preflight.sh
 `verdict: BLOCKED` stops the run — report the blocker and stop. A dirty working
 tree is a warning: ask whether to stash, commit, or proceed before creating any
 branch. Note the reported `default_branch` and `branch_protection` — both decide
-how step 6 lands.
+how step 6 lands. Once it passes, open the run record
+(`scripts/run_record.py --event run-start --field mode=<single|all>`).
 
 ### 1. Rank — by label, not by re-reading the backlog
 
@@ -125,9 +141,11 @@ means, in order: **unblocks other issues > leverage on shared ground >
 must-be-first ordering > damage being taken right now.** A self-contained
 nice-to-have never outranks those, however easy.
 
-Re-run `--select` after labeling, then create the run record directory if it
-does not exist and record the selection in the rubric's shape — chosen issue,
-evidence lines, runner-up, deferred. **Proceed on that pick without asking.**
+Re-run `--select` after labeling, then record both halves ("Run record"
+above): `--event labels` with the script's one-line summary, then
+`--event selection` with the rubric-shaped block via `--body-file`:
+chosen issue, evidence lines, runner-up, deferred. **Proceed on that pick
+without asking.**
 Ask the user directly, in plain conversation, and wait for their reply, only
 when the top two are genuinely tied on every axis, or the top issue needs a
 product decision before it can be implemented at all.
@@ -138,13 +156,18 @@ One issue = one branch = one PR, following the Implementation template in
 [references/subagent-prompts.md](references/subagent-prompts.md).
 
 Delegate this to an independent `opus` worker per issue using that template
-where delegation is available — a parallel group uses an isolated work copy
-per issue (cap 3), spawned together in one batch; serialize everything else —
-otherwise the main context reads the same template skill-relatively and works
-through issues one at a time in the checkout (or one worktree at a time),
-following the same steps inline. Either way: phase order (rank → implement →
-CI → merge) stays unchanged; when delegation is unavailable this collapses the
-fan-out speed parallelism of `all` mode to serial — a time increase only.
+when this runtime exposes a delegation capability — a parallel group uses an
+isolated work copy per issue (cap 3), spawned together in one batch; serialize
+everything else. When it does not, the main context reads the same template
+skill-relatively and works through issues one at a time in the checkout (or one
+worktree at a time), inline. Judge that from what the runtime exposes, not from
+which product it is — a host that advertises parallel agents may still invoke a
+skill where no spawn capability is callable.
+
+Phase order (rank → implement → CI → merge) holds either way, but the inline
+path costs more than time: it gives up the per-issue context isolation too, so
+diffs, exploration, and CI logs pile up in one context for the whole run. Run
+`all` there in small batches and report the rest as deferred.
 
 Two constraints exist so the issue closes itself on merge:
 
@@ -152,9 +175,12 @@ Two constraints exist so the issue closes itself on merge:
 - the PR targets the **default branch** — GitHub's auto-close only fires there.
 
 The sub-agent returns branch, PR URL, base, link verdict, changed files, the
-exact verification command it ran, the self-review result (`REVIEW:`, step 4.5),
+exact verification command it ran, before/after measurements when the issue is
+a performance claim (`MEASURE:`), the self-review result (`REVIEW:`, step 4.5),
 and any out-of-scope defects it saw (`FOLLOW-UPS`, fed to step 6.5) — not the
-diff. Sub-agents never clean up after themselves (no `rm`, no worktree removal
+diff. Record each PR when its return lands (`--event pr-created --field
+issue=<n> --field pr=<url>`), before CI — a run that stops mid-watch must still
+show what was opened. Sub-agents never clean up after themselves (no `rm`, no worktree removal
 — that all happens once, in step 7), and must copy any gitignored artifacts
 they produced (fixtures, bench outputs) into the main checkout before
 returning, because worktrees are deleted at the end of the run.
@@ -187,23 +213,11 @@ confirmation, not duplicated work.
 Between the PR existing and CI judging it there is one review pass that catches
 what CI cannot: correctness bugs, dead reuse, needless complexity. A
 self-review pass, run when one is available, does it and applies its own
-fixes. The implementation agent picks the effort level from the diff it just
-produced:
-
-- **Heavy diff** — touches a schema, storage layer, or public contract; adds or
-  bumps a dependency; or rewires behavior across several modules — one pass at
-  high effort, applying its findings.
-
-  `high` reaches in a single pass what `low` needs repetition for, and
-  re-reviewing a large diff in full costs more than the second pass catches.
-
-- **Anything else** — one pass at low effort, applying its findings, **twice**:
-  the second pass reviews the code as the first pass changed it. `low` returns
-  fewer, high-confidence findings — the right depth for a small, contained
-  diff.
-
-Applying findings hands them off to be written into the working tree; that
-does not commit them, so each pass ends with a commit and a push.
+fixes. Effort level, pass count, the convergence rules, and what happens to
+findings left at the ceiling all live with the agent that runs them, in the
+Implementation template in
+[references/subagent-prompts.md](references/subagent-prompts.md); what matters
+here is where they run and what comes back.
 
 **The implementation agent runs the review, inside its own worktree**, as the
 last thing it does before returning. It is the only context whose working tree
@@ -214,31 +228,33 @@ holds for any extra pre-merge pass too: more review happens inside the
 worktree (spawn an agent there), or not at all.
 
 Every pass lands on the branch before step 5 starts, so CI is watched on the
-reviewed code rather than on the pre-review commit.
-
-Two rules keep the passes convergent. Each pass runs on a settled branch — the
-previous pass's fixes are committed and pushed before the next starts, and
-nothing pushes while a pass runs — so a finding that cites lines the head no
-longer has is stale, not unresolved. And the pass count is a ceiling, not a
-floor: when the final pass still returns findings, there is no further round —
-in-scope leftovers go under `UNRESOLVED`, out-of-scope ones under `FOLLOW-UPS`,
-the PR merges anyway, and step 6.5 files what survived. When a finding is
-relayed to another context for fixing, pass the defect — file, line, what is
-wrong — never the reviewer's proposed patch: the fixer re-derives the fix in
-the code it can see, because a patch written without that context is how a
-review fix causes the next regression.
-
-Step 5's rule applies to review fixes too: a finding is cleared by fixing the
-cause, never by deleting a test, loosening an assertion, or silencing a check. A
-finding outside the shipped issue's scope is not fixed here either — it comes
-back under `FOLLOW-UPS` and is filed in step 6.5.
+reviewed code rather than on the pre-review commit. Leftover findings arrive as
+`UNRESOLVED` (in scope) or `FOLLOW-UPS` (out of scope) rather than blocking the
+merge; step 6.5 files what survived. Step 5's rule applies to review fixes too:
+a finding is cleared by fixing the cause, never by deleting a test, loosening an
+assertion, or silencing a check.
 
 The agent reports `REVIEW:` with the chosen effort level and per-pass finding
-and fix counts. `UNAVAILABLE` — no self-review pass is reachable from a
-sub-agent context, or none exists on this platform at all — is not a run
-failure: when the branch is checked out in this context — single-issue mode,
-no worktree — run the same passes here instead, committing and pushing each
-one; otherwise note it in the report and go on to CI.
+and fix counts. `UNAVAILABLE` means it took neither of the rungs open to it —
+a built-in review pass, or, failing that, one independent reviewer it spawned
+itself (the Self-review template in
+[references/subagent-prompts.md](references/subagent-prompts.md)). Before
+accepting it, take the highest rung *this* context can still reach:
+
+- a built-in pass reachable here while the sub-agent could not reach it —
+  when the branch is checked out here (single-issue mode, no worktree), run
+  the same passes here, committing and pushing each one;
+- otherwise, if this context can delegate, spawn that one reviewer against the
+  branch, fix the causes it names, commit (`review: <what was fixed>`), push,
+  and re-run the verification command before CI;
+- neither reachable — `UNAVAILABLE` stands. Do not re-read the diff here and
+  call that a review; go on to CI.
+
+Record whichever rung ran (`--event review --field pr=<n> --field
+status=<effort|DELEGATED|UNAVAILABLE>`). `UNAVAILABLE` is a lowered assurance
+level, not a silent one — lint, types, tests and CI still ran, but nothing
+judged the change for complexity, intent, or maintainability — so it stays in
+the run record and is named again in the step 8 report.
 
 ### 5. CI to green
 
@@ -252,7 +268,8 @@ PR sequentially, one wait at a time.
 
 `ci_watch.sh` is the run's only wait primitive — one blocking call per wait;
 neither this context nor any sub-agent hand-rolls a `sleep`/poll loop around
-`gh`.
+`gh`. Record each verdict (`--event ci --field pr=<n> --field verdict=<...>`),
+including one that took repair attempts to reach.
 
 Only on `FAIL`, hand off the CI repair template in
 [references/subagent-prompts.md](references/subagent-prompts.md):
@@ -288,25 +305,35 @@ the issue really closed after — closing it explicitly, with a back-reference
 comment, if GitHub's auto-close did not fire. Read both lines it prints:
 `result:` and `issue:`.
 
-Merge automatically on `verdict: PASS`. Three cases need different handling:
+Merge automatically once step 5 reported a green `verdict: PASS`. Six outcomes
+need different handling:
 
 - `NOT_LINKED` / `WRONG_BASE` — the script refused to merge because the issue
   would be orphaned. Repair it (step 4: `--fix` for a missing keyword,
   `gh pr edit <pr> --base <default>` for a wrong base) and retry; only pass
   `--no-link-check` if the user asked for a PR that deliberately does not close
   its issue.
-- `review_decision: REVIEW_REQUIRED` or `merge_state: BLOCKED` — re-run with
+- `DRAFT` — the PR is still a draft and the script could not (or was told not
+  to) mark it ready. Run `gh pr ready <pr>` and retry.
+- `reviewDecision: REVIEW_REQUIRED` or `mergeStateStatus: BLOCKED` in the JSON
+  `land_pr.sh` echoes (the same two facts `ci_watch.sh` prints as
+  `review_decision` / `merge_state`) — re-run with
   `--auto` to arm auto-merge, report that it is armed (and that the issue closes
   when it lands), and move on to the next issue.
 - `MERGE_REFUSED` / conflicts — report the reason; for conflicts, rebase in the
   branch's worktree and return to step 5.
+- `ALREADY_MERGED` / `NOT_OPEN` — the PR left the open set before this call;
+  take the issue's state from the `issue:` line and move on without retrying.
+- `MERGE_UNCONFIRMED` / `ERROR` — the outcome is unestablished. Re-read PR and
+  issue state with `gh`; never report a merge on this result alone.
 
-Append every outcome to the run record as it happens, in both modes. In `all`
-mode, also rebase every still-in-flight branch onto the updated default branch
-after each merge, before its CI run — and re-rank the remaining issues with
-`issue_digest.py --select`, since a merged blocker can move a dependent from
-BLOCKED to top of the list. That re-rank is one script call now that priority is
-labeled; do not re-run the research pass per merge.
+Record the outcome (`scripts/run_record.py --event merged ...`, see "Run
+record" below) as it happens, in both modes. In `all` mode, also rebase every
+still-in-flight branch onto the updated default branch after each merge,
+before its CI run — and re-rank the remaining issues with `issue_digest.py
+--select`, since a merged blocker can move a dependent from BLOCKED to top of
+the list. That re-rank is one script call now that priority is labeled; do not
+re-run the research pass per merge.
 
 ### 6.5 File the findings the run turned up
 
@@ -371,15 +398,22 @@ break (quote the canonical doc), and a completion checklist. Name the open desig
 questions and leave them open rather than deciding them here.
 
 File as you go, right after the PR that surfaced the finding lands — not batched
-at the end, where an interrupted run loses them all.
+at the end, where an interrupted run loses them all. Record it (`--event
+followup`) as it happens, same as any other outcome.
 
 ### 7. Clean up — once, at the end, script only
 
+The main worktree's `HEAD` is still on whatever branch was last implemented,
+and cleanup's branch pass refuses to delete a branch checked out there — so
+switch back to the default branch, fast-forwarded, **before** cleanup runs,
+not after (a stale checkout also hands the next run a stale base):
+
 ```bash
+git switch <default> && git pull --ff-only
 scripts/cleanup_run.sh [--remote] [--dry-run] [--merged-only]
 ```
 
-All deletion goes through this one script, in one batch after the last merge.
+All deletion goes through `cleanup_run.sh`, in one batch after the last merge.
 Never run `rm`, `git worktree remove`, or `git branch -D` ad hoc in the main
 context or in sub-agents — raw `rm` is flagged as dangerous and stalls the run
 on a permission prompt. The script only touches `<repo>/.claude/worktrees/*`,
@@ -401,11 +435,10 @@ A repo can wrap that safe mode in its own task runner, so cleanup does not
 depend on this skill's path — `swing-copilot` exposes it as
 `just worktree-clean [--dry-run]`. Prefer such a recipe when the repo has one.
 
-End the run with the local default branch fast-forwarded
-(`git checkout <default> && git pull --ff-only`). The merges landed on the
-remote; a checkout still sitting on pre-merge code hands a stale base to the
-next run — and to anything else that executes from this working copy on a
-schedule.
+Record the cleanup outcome (`scripts/run_record.py --event cleanup ...`) and
+confirm the final status: the local default branch matches origin and no
+worktree or branch cleanup_run.sh reported was left `SKIPPED` for a reason
+that still applies.
 
 ### 8. Report
 
@@ -413,8 +446,10 @@ Open with the selection rationale in one line — why this issue was first, by
 tier — and, when step 2 wrote labels, one line for that (`labeled 9 issues: 2
 P0, 3 P1, …`, straight from the script's summary). Then
 per issue: `#N <title> → PR #M → MERGED, issue CLOSED | AUTO-ARMED | FAILED(<why>)
-| SKIPPED(<why>)`. Flag any issue left open behind a merged PR explicitly; that
-is the failure mode this skill exists to prevent.
+| SKIPPED(<why>)`, plus `REVIEW: UNAVAILABLE` or `REVIEW: UNRESOLVED(<n>)`
+whenever step 4.5 did not run clean — a run that shipped unreviewed must not
+read like one that passed review. Flag any issue left open behind a merged PR
+explicitly; that is the failure mode this skill exists to prevent.
 
 Then, when step 6.5 filed anything, one line per follow-up: `filed #N <title>
 [tier] — found while shipping #M`. Also state the findings you checked and did
@@ -429,36 +464,10 @@ ones that hit the retry ceiling — with the specific reason each.
 
 ## Cost discipline
 
-The main context holds the selection and the verdicts, nothing else. Issue
-bodies go to the triage agent, diffs stay in the implementation agent, CI logs
-stay in the repair agent. If you find yourself about to read a full `gh` JSON
-blob or a workflow log in the main context, that is the signal to delegate
-instead.
-
-Labeling is the cheap half of this by design: the backfill is a pure script pass
-with a one-line summary, and re-deriving priority from issue prose happens once
-per issue — ever — because the answer is written back to GitHub. On a labeled
-backlog the whole ranking step is `--select`, three lines, no sub-agent. Never
-re-read bodies to reconstruct a priority a label already carries; if a label
-looks wrong, fix the label.
-
-Sub-agent count scales with issue count, not with thoroughness: one triage
-(optional), one implementation per issue, one CI-repair per PR. The self-review
-passes (step 4.5) add no spawn from here either — they run inside the
-implementation agent, and only the effort level and finding counts come back.
-Filing a follow-up (step 6.5) never adds a spawn — the agent that found it already
-returned the lead in `FOLLOW-UPS`, and confirming it costs a couple of targeted
-reads in the main context, which is also what makes the tier trustworthy.
-
-Model assignments (triage and CI watch on `sonnet`, implementation on `opus`,
-escalation to `opus` after two failed repairs) are baked-in conclusions — the
-dividing line is spec completeness — and apply as stated on both platforms.
-Implementation stays delegated even when the main model is Opus: a deliberate
-exception to the Opus-main "do it yourself" default, bought for context
-isolation — the diff, the repo exploration, and the CI logs are never needed
-in the main context again. (See `orchestrating-models` §2 for the reasoning
-behind these assignments; [references/platform-notes.md](references/platform-notes.md)
-notes where that citation resolves.)
+The main context holds the selection and the verdicts, nothing else — issue
+bodies, diffs, and CI logs each stay with the agent that needs them. What
+belongs where, the per-issue spawn budget, and why the model assignments are
+fixed: [references/cost-discipline.md](references/cost-discipline.md).
 
 ## Stop conditions
 
@@ -467,8 +476,10 @@ needs a human to break it, a merge conflict requires a product decision, or the
 same CI failure survives the retry ceiling on two different issues (the problem
 is the base branch, not the change).
 
+Record it before stopping (`--event blocked --field reason=<what stopped it>`).
+
 In `all` mode, a single failed issue does not stop the run — mark it FAILED,
-skip anything that depended on it, and continue.
+record it the same way, skip anything that depended on it, and continue.
 
 ## Platform notes
 

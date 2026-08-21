@@ -1,5 +1,13 @@
 # Sub-agent Prompt Templates
 
+## Table of Contents
+
+- [Priority research and labeling](#priority-research-and-labeling-sonnet)
+- [Implementation](#implementation-opus-isolation-worktree-for-parallel-batches)
+- [Self-review by delegation](#self-review-by-delegation-opus-heavy-diff--sonnet-otherwise)
+- [CI repair](#ci-repair-sonnet-spawned-only-on-fail)
+- [Merge and issue closure](#merge-and-issue-closure-no-spawn)
+
 Copy-and-fill templates for the spawns this skill makes. Each carries intent,
 concrete paths, embedded context, and an output contract, so the parent never
 receives raw `gh` JSON or full CI logs.
@@ -108,13 +116,23 @@ Do:
 1. Read the project's own instruction files and follow them, including its test
    and commit conventions. If the project ships its own skills for committing or
    opening PRs (check {repo}/.claude/skills/), use them instead of raw git/gh.
-2. Create a branch named {type}/{n}-{slug} off {default_branch}.
+2. Create a branch named {type}/{n}-{slug} off {default_branch}. If the issue
+   claims a performance improvement (runtime, throughput, memory, latency),
+   measure the *before* state right here, on the unmodified code, using the
+   exact command you will re-run after implementing — an existing number in
+   the issue body is not a substitute, it was not measured under your
+   conditions. Measuring later, after step 3 has already changed the code,
+   leaves no clean baseline to measure.
 3. Implement the issue's stated scope. Deliver what the issue asks, at the scope
    it asks. If a better approach exists, note it in the PR body in one sentence
    and implement as asked.
 4. Add or update the tests that cover the change, and run the project's own
    verification command (check its CLAUDE.md/AGENTS.md/justfile/Makefile for it).
    Report the exact command — the parent needs it if this repo has no CI.
+   For a performance issue, re-run step 2's baseline command now, under the
+   same conditions, and state why the delta is a real improvement and not
+   noise. Put both numbers and the command in the PR body's test plan, and
+   report them under MEASURE below.
 5. Commit in coherent increments, and push as soon as the first coherent commit
    exists — a stopped agent's worktree keeps only what was pushed. Then open
    the PR against {default_branch} with a body whose FIRST
@@ -126,8 +144,14 @@ Do:
    Report its verdict verbatim. Do not return until it says LINKED, or explain
    why it cannot.
 7. Self-review the branch before it reaches CI, with the effort level chosen
-   from the diff you just produced. Run a self-review pass if one is
-   available; if not, report REVIEW: UNAVAILABLE and continue:
+   from the diff you just produced. Take the first rung that is actually
+   available to you: (a) a built-in review pass; (b) no built-in one, but you
+   can delegate — hand the branch to one independent reviewer using the
+   Self-review template in this file and apply what it returns; (c) neither —
+   report REVIEW: UNAVAILABLE and continue. Rung (b) is a real review because
+   the reviewer reads the diff in a context that never wrote it; re-reading
+   your own diff yourself is not, so do not report that as a review.
+   With a built-in pass available:
    - Heavy diff (touches a schema, storage layer, or public contract; adds or
      bumps a dependency; or rewires behavior across several modules): one pass
      at high effort, applying its findings to the working tree.
@@ -146,8 +170,13 @@ Do:
    loosening an assertion, or silencing a warning is a failed outcome — say so
    under UNRESOLVED instead. A finding outside issue #{n}'s scope does not get
    fixed here; it goes under FOLLOW-UPS and the parent files it.
-   If a self-review pass is not available, report REVIEW: UNAVAILABLE and
-   continue — do not hand-roll a substitute review.
+   With no built-in pass but delegation available, spawn one reviewer (the
+   Self-review template below), fix the causes it names in your worktree,
+   commit (`review: <what was fixed>`), push, re-run the step 4 verification
+   command, and report REVIEW: DELEGATED with the finding and fix counts. One
+   reviewer, one round — leftovers go to UNRESOLVED / FOLLOW-UPS as above.
+   With neither, report REVIEW: UNAVAILABLE and continue — do not re-read your
+   own diff and call it a review.
 8. Do NOT clean up after yourself — no `rm`, no worktree removal, no branch
    deletion; the parent runs one batch cleanup at the end. If you produced
    gitignored artifacts (fixtures, bench outputs) in a worktree, copy them into
@@ -162,7 +191,9 @@ BASE: <branch the PR targets>
 LINK: <link_check.sh verdict — LINKED | NOT_LINKED(<detail>) | WRONG_BASE>
 CHANGED: <file list>
 VERIFY: <exact command run> -> <pass/fail + the failing output if any>
+MEASURE: <perf issue: command + before + after + why it counts as improved. Otherwise "n/a">
 REVIEW: <effort level + per pass: N findings, M applied>
+        <or "DELEGATED: N findings, M applied">
         <or "UNAVAILABLE" + why>
 SCOPE-NOTES: <anything in the issue you did not implement, and why>
 FOLLOW-UPS: <defects you saw that are NOT this issue, one per line as
@@ -185,6 +216,59 @@ issue yourself — you see only your own worktree.
 
 If the issue cannot be implemented as written, stop before creating a branch and
 return only UNRESOLVED with what is missing.
+```
+
+## Self-review by delegation (`opus` heavy diff / `sonnet` otherwise)
+
+Used only when no built-in review pass is reachable but delegation is — rung
+(b) of step 7 above. Spawn it from wherever the branch is held: the
+implementation agent when it can delegate, otherwise the main context after
+that agent returns `REVIEW: UNAVAILABLE` (SKILL.md step 4.5). The reviewer is
+read-only and never touches the branch; the holder applies the fixes.
+
+`opus` when the diff is heavy (schema, storage layer, public contract, new or
+bumped dependency, behavior rewired across modules), `sonnet` otherwise.
+
+```
+Intent: PR #{pr} implements issue #{n} and merges as soon as CI is green. Lint,
+types and tests already pass — CI will re-check them. What no one has done is
+read the change as a change. That is your job, and you are reading it in a
+context that did not write it.
+
+The branch {branch} is checked out at {worktree_path}. Read the issue and the
+diff against {base}:
+  gh issue view {n}
+  git -C {worktree_path} diff {base}...HEAD
+
+Judge exactly what CI cannot:
+- does the implementation match what issue #{n} actually asked for — nothing
+  missing, nothing quietly widened beyond it;
+- unnecessary complexity: indirection, options, or abstraction the issue did
+  not need;
+- maintainability: names that mislead, duplicated logic, a comment that is
+  already wrong about the code beside it;
+- the tests: do they pin the behavior the issue is about, or only the shape of
+  the implementation? A test that would pass with the bug still present is a
+  finding;
+- anything the diff walked past — a sibling of the case it fixed, an error path
+  it left silent.
+
+Report the defect, never the patch: file, line, what is wrong, why it matters.
+The holder of the branch re-derives the fix in the code it can see; a patch
+written from your context is how a review fix causes the next regression.
+Do not edit, commit, or push anything.
+
+Rank findings by whether they should block this merge. A finding outside issue
+#{n}'s scope is still worth reporting — mark it OUT-OF-SCOPE and it becomes a
+follow-up issue rather than a change to this PR.
+
+Return exactly:
+FINDINGS: <one per line as `file:line — what is wrong — why it matters`, or
+           "none">
+OUT-OF-SCOPE: <same shape, or "none">
+TESTS: <verdict on the test changes in one or two lines>
+INTENT-MATCH: <does the diff implement issue #{n} as written — yes / no + what
+               is missing or extra>
 ```
 
 ## CI repair (`sonnet`, spawned only on FAIL)

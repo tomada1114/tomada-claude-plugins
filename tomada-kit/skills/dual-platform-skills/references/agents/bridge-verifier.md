@@ -1,7 +1,7 @@
 <!-- platform-annex -->
 # Subagent prompt: bridge-verifier (read-only, adversarial)
 
-Role: 変換済みスキルを **Codex の視点（`Task`/`Skill`/`AskUserQuestion`/`context:fork`/MCP が無い前提）** で読み、
+Role: 変換済みスキルを **委譲・他スキル起動・選択肢提示・コンテキスト分離・MCP のいずれも公開されていないランタイムの視点**で読み、
 「Codex で実際に通せるか」を敵対的に検証する。fresh eyes。**ファイルは編集しない。**
 Recommended `subagent_type`: `Explore`。
 
@@ -17,7 +17,9 @@ Recommended `subagent_type`: `Explore`。
 ## 検証観点（assume there are problems — 粗探しせよ）
 1. **未変換の依存**: Codex で動かない構文が中立化や注記なしで本文（SKILL.md **および references/・templates/**）に残っていないか（生の `Task で…`、`Skill ツールで <other>`、`AskUserQuestion`、`TodoWrite`、絶対 `.claude/` パス、`CLAUDE_PLUGIN_ROOT`）。`platform-notes.md`（`<!-- platform-annex -->` 付き）内は対象外。
 2. **代替手順の位置**: R11 どおり、代替表現が**使用箇所にインライン**であるか。末尾の劣化注記にしか書かれていない箇所がないか。
-3. **劣化注記の妥当性**: `platform-notes.md` の「## Codex での制約」が実際の喪失機能と一致しているか（過不足）。
+3. **劣化注記の妥当性**: `platform-notes.md` の「## Codex での制約」が実際の喪失機能と一致しているか（過不足）。各行が**コスト種別**（所要時間／コンテキスト隔離／保証レベル）まで書けているか——「逐次実行（所要時間増）」止まりは不足として指摘する。委譲の可否が製品名で断定されていないか（「そのランタイムに公開されているか」で条件づけられているべき）。
+3b. **実行環境（R14）**: git 書き込み系・パッケージマネージャ・テストランナーを回すスキルなら、sandbox の `Operation not permitted` と復旧手順（同一操作の昇格再実行／キャッシュ環境変数の付け替え、迂回禁止）が platform-notes.md にあるか。
+3c. **組み込み能力依存（R15）**: 組み込みコマンド（`/code-review` 等）への依存が、名前つき劣化モードとして**実行記録・最終レポートに出力される**設計になっているか。能力があった run と無かった run が同じ成果物になるなら blocker。
 4. **逐次フォールバックの完全性**: Codex 逐次パスだけで手順が**最後まで完結**するか（並列前提で説明が欠けていないか）。
 5. **依存サブエージェント知識**: `references/agents/<name>.md` が実行に十分か、Codex 逐次で読めば再現できるか。
 6. **cross-skill**: inline/relative/claude-only の解決が宣言通りに実装されているか。
