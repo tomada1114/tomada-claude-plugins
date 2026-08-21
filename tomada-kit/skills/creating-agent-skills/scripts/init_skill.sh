@@ -73,7 +73,7 @@ fi
 # Create directory layout
 mkdir -p "$TARGET"
 if [[ "$TEMPLATE" == "advanced" ]]; then
-  mkdir -p "$TARGET/references" "$TARGET/assets" "$TARGET/scripts"
+  mkdir -p "$TARGET/references" "$TARGET/assets" "$TARGET/scripts/tests"
 fi
 
 # Copy template and substitute name placeholder in frontmatter

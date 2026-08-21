@@ -46,6 +46,7 @@ metadata:
 - `references/[name].md` — [what it covers, and the condition under which to read it]
 - `references/platform-notes.md` — only if `metadata.platforms` includes `codex`: starts with `<!-- platform-annex -->`, holds the Claude/Codex tool mapping and the "what's lost on Codex" list. This is the only place a Claude-specific tool name may appear in body text — see references/agent-neutral-authoring.md.
 - `scripts/[name].py` — run as `python3 ${CLAUDE_SKILL_DIR}/scripts/[name].py <args>`; never a hardcoded `~/.claude/skills/...` path <!-- neutrality-ignore: N2 -->
+- `scripts/tests/test_[name].py` — stdlib `unittest`, discovered with `python3 -m unittest discover -s scripts/tests -p 'test_*.py'` from the skill directory; coverage ≥ 90% (see `references/scripts-guide.md#conventions` for the authoritative rules, checked by `scripts/check_scripts.py`). Generated files (`__pycache__/`, `.pytest_cache/`, `.coverage*`) belong in the enclosing repository's `.gitignore`.
 - `assets/[name]` — [boilerplate copied into the output]
 
 Markdown links to bundled files use relative paths (`references/foo.md`) so the validator can resolve them. Commands and sub-agent prompts use `${CLAUDE_SKILL_DIR}/...`, which expands to an absolute path before the model sees it. The two are not interchangeable.

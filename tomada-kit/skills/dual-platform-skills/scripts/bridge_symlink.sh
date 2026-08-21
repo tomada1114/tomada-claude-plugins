@@ -11,7 +11,7 @@
 # Scope resolution (when --codex-dir not given):
 #   user  -> $CODEX_HOME/skills (default ~/.codex/skills)
 #   repo  -> <repo-root>/.agents/skills   (repo-root = git toplevel of the real skill)
-#   auto  -> if real skill is under $HOME/.claude/skills      => user
+#   auto  -> if real skill is under $HOME/.claude/skills      => user   # scripts-ignore: S006
 #            if real skill is under <repo>/.claude/skills     => repo
 #
 # Safety:
@@ -69,7 +69,7 @@ repo_root_of() {
 if [[ -z "$CODEX_DIR" ]]; then
   if [[ "$SCOPE" == "auto" ]]; then
     case "$REAL" in
-      "$HOME/.claude/skills/"*) SCOPE="user" ;;
+      "$HOME/.claude/skills/"*) SCOPE="user" ;;  # scripts-ignore: S006
       *"/.claude/skills/"*)     SCOPE="repo" ;;
       *) SCOPE="user" ;;
     esac

@@ -104,7 +104,7 @@ def agent_registry(skill_path: Path) -> dict[str, str]:
 
 
 def skill_registry(skill_path: Path) -> set[str]:
-    """Names of sibling skills (same .claude/skills tree) + user ~/.claude/skills."""
+    """Names of sibling skills (same .claude/skills tree) + user ~/.claude/skills."""  # scripts-ignore: S006
     names: set[str] = set()
     dirs: list[Path] = [Path.home() / ".claude" / "skills"]
     root = _claude_root(skill_path)

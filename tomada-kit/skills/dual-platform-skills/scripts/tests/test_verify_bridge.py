@@ -6,9 +6,13 @@ Run: python3 -m unittest scripts.tests.test_verify_bridge -v
 """
 from __future__ import annotations
 
+import io
+import json
+import os
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -160,6 +164,130 @@ class TestCodexLinkDiscovery(unittest.TestCase):
         link.symlink_to(skill)
         found = vb.find_codex_links(skill, [str(link)])
         self.assertEqual(found, [str(link)])
+
+    def test_codex_home_symlink_is_found(self):
+        # CODEX_HOME/skills/<name> is the primary discovery path (find_codex_links'
+        # first candidate); point it at a tmpdir so this doesn't depend on the
+        # real user's ~/.codex.
+        skill = write_skill(self.root)
+        codex_home = self.root / "fake-codex-home"
+        (codex_home / "skills").mkdir(parents=True)
+        link = codex_home / "skills" / skill.name
+        link.symlink_to(skill)
+        old = os.environ.get("CODEX_HOME")
+        os.environ["CODEX_HOME"] = str(codex_home)
+        try:
+            found = vb.find_codex_links(skill, [])
+        finally:
+            if old is None:
+                os.environ.pop("CODEX_HOME", None)
+            else:
+                os.environ["CODEX_HOME"] = old
+        self.assertEqual(found, [str(link)])
+
+    def test_same_link_passed_as_extra_is_not_duplicated(self):
+        # When a link already found via CODEX_HOME is also passed via --codex-link,
+        # `seen` must prevent it from appearing twice.
+        skill = write_skill(self.root)
+        codex_home = self.root / "fake-codex-home"
+        (codex_home / "skills").mkdir(parents=True)
+        link = codex_home / "skills" / skill.name
+        link.symlink_to(skill)
+        old = os.environ.get("CODEX_HOME")
+        os.environ["CODEX_HOME"] = str(codex_home)
+        try:
+            found = vb.find_codex_links(skill, [str(link)])
+        finally:
+            if old is None:
+                os.environ.pop("CODEX_HOME", None)
+            else:
+                os.environ["CODEX_HOME"] = old
+        self.assertEqual(found, [str(link)])
+
+
+class TestFrontmatterParsing(unittest.TestCase):
+    def test_no_frontmatter_returns_empty(self):
+        keys, vals, body_start = vb.fm_keys_and_required("no frontmatter here\njust text\n")
+        self.assertEqual((keys, vals, body_start), ([], {}, 0))
+
+    def test_missing_name_is_v2_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            skill = write_skill(Path(td), "---\ndescription: test\n---\nBody.\n")
+            r = vb.verify(skill, [])
+            v2 = [f for f in r.errors if f.code == "V2"]
+            self.assertTrue(any("name" in f.message for f in v2))
+
+
+class TestV3ExtraFrontmatterFields(unittest.TestCase):
+    def test_non_codex_field_is_v3_warning(self):
+        with tempfile.TemporaryDirectory() as td:
+            fm = "---\nname: sample-skill\ndescription: test\nallowed-tools: Read\n---\n"
+            skill = write_skill(Path(td), fm + "\nBody.\n")
+            r = vb.verify(skill, [])
+            v3 = [f for f in r.findings if f.code == "V3"]
+            self.assertEqual(len(v3), 1)
+            self.assertIn("allowed-tools", v3[0].message)
+
+
+class TestV7SkipsExternalLinks(unittest.TestCase):
+    def test_http_mailto_and_absolute_links_are_skipped(self):
+        with tempfile.TemporaryDirectory() as td:
+            body = (
+                FM
+                + "\nSee [ext](https://example.com/x), [mail](mailto:a@example.com), "
+                + "and [abs](/etc/passwd).\n"
+            )
+            skill = write_skill(Path(td), body)
+            r = vb.verify(skill, [])
+            self.assertFalse([f for f in r.findings if f.code == "V7"])
+
+
+class TestRenderHuman(unittest.TestCase):
+    def test_clean_report_renders_ok(self):
+        with tempfile.TemporaryDirectory() as td:
+            skill = write_skill(Path(td))
+            codex_dir = Path(td) / "codex-skills"
+            codex_dir.mkdir()
+            (codex_dir / skill.name).symlink_to(skill)
+            r = vb.verify(skill, [str(codex_dir / skill.name)])
+            out = vb.render_human(r)
+            self.assertIn("OK — fully bridged, no issues.", out)
+            self.assertIn(skill.name, out)
+
+    def test_report_with_findings_groups_by_level(self):
+        with tempfile.TemporaryDirectory() as td:
+            skill = write_skill(Path(td), "---\ndescription: test\n---\nBody.\n")
+            r = vb.verify(skill, [])
+            out = vb.render_human(r)
+            self.assertIn("ERRORS:", out)
+            self.assertIn("V2:", out)
+
+
+class TestMainCLI(unittest.TestCase):
+    def test_help_returns_2(self):
+        self.assertEqual(vb.main(["verify_bridge.py", "--help"]), 2)
+
+    def test_no_args_returns_2(self):
+        self.assertEqual(vb.main(["verify_bridge.py"]), 2)
+
+    def test_clean_skill_returns_0_and_json_has_codex_runnable(self):
+        with tempfile.TemporaryDirectory() as td:
+            skill = write_skill(Path(td))
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                rc = vb.main(["verify_bridge.py", str(skill), "--json"])
+            self.assertEqual(rc, 0)
+            data = json.loads(buf.getvalue())
+            self.assertIn("codex_runnable", data)
+            self.assertTrue(data["codex_runnable"])
+
+    def test_broken_link_skill_returns_1(self):
+        with tempfile.TemporaryDirectory() as td:
+            skill = write_skill(Path(td), FM + "\nSee [x](references/missing.md).\n")
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                rc = vb.main(["verify_bridge.py", str(skill)])
+            self.assertEqual(rc, 1)
 
 
 if __name__ == "__main__":

@@ -272,6 +272,7 @@ Load on demand:
 - [references/patterns-and-structure.md](references/patterns-and-structure.md) — content types, storage locations, numbered checklists, scaffold-vs-guide templates, workflow shapes, tool restrictions. Holds the `ST` review checklist.
 - [references/scripts-guide.md](references/scripts-guide.md) — script-or-prose decision, script conventions, CLI contract, tests and coverage, patterns. Holds the `SC` review checklist.
 - [references/orchestration-patterns.md](references/orchestration-patterns.md) — sub-agent invocation (A1–A6) and phase handoff (B1–B3) patterns, when to propose orchestration and its limits. Holds the `OR` review checklist.
+- [references/platform-notes.md](references/platform-notes.md) — the Claude Code / Codex tool mapping for `orchestration-patterns.md`'s neutral runner terms; load only if writing or reviewing orchestration guidance that needs the concrete tool name.
 - [references/workspace-conventions.md](references/workspace-conventions.md) — deterministic output paths, input/output contracts, snapshot/restore. Load for any skill that writes more than one file.
 - [references/evaluating-skills.md](references/evaluating-skills.md) — eval-driven authoring, baseline comparison, should/should-not-trigger cases, the skill-creator plugin.
 - [references/agents/review-lens.md](references/agents/review-lens.md) — the prompt template each Improving lens is filled from.

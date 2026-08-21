@@ -2,7 +2,7 @@
 
 Patterns for skills that orchestrate sub-agents and chain skills via file artifacts. Use them when a skill must spawn specialists, run independent investigations in parallel, or hand off to a downstream skill. If your skill is a single linear walkthrough, you do not need this file.
 
-> **Triage first.** For parallel or multi-stage execution, make the Workflow tool (Dynamic Workflow) the first candidate — it has deterministic control flow (loops, branching, fan-out), token-budget awareness, resume, and progress visibility, which suits large decomposable verification-heavy orchestration. The `Task`-based patterns in this file are the fallback for when Workflow does not fit: steering interactively mid-run, driving a real TUI from outside, and similar. Conversational questions and single trivial edits need neither.
+> **Triage first.** For parallel or multi-stage execution, make a deterministic fan-out runner — one with deterministic control flow (loops, branching, fan-out), token-budget awareness, resume, and progress visibility — the first candidate where the host offers one; it suits large decomposable verification-heavy orchestration. The single-spawn patterns in this file are the fallback for when a fan-out runner doesn't fit, or isn't available: steering interactively mid-run, driving a real TUI from outside, and similar. Conversational questions and single trivial edits need neither. Host-specific runner names: `references/platform-notes.md`.
 
 ## Table of Contents
 
@@ -199,7 +199,7 @@ Why this matters when designing a skill:
 - The main agent is responsible for deduplication, severity ranking, and conflict resolution. Build a "Phase 1.5: Merge findings" step into SKILL.md whenever you spawn multiple sub-agents.
 - If two sub-agents disagree, the main agent's merge step is where that gets resolved — possibly by spawning a third tie-breaker sub-agent in a follow-up phase.
 
-**Barrier only where the merge needs it.** "No agent-to-agent messaging" does not mean the main agent must sit idle until the slowest sub-agent returns. Block on the whole set only when the next step genuinely needs cross-item context — deduplicating across all findings, ranking a complete list, early-exiting on a zero count. Otherwise let each item flow to its next stage as it completes (`pipeline()` in the Workflow tool), and keep working meanwhile. A needless barrier costs the difference between the fastest and slowest sub-agent, every phase.
+**Barrier only where the merge needs it.** "No agent-to-agent messaging" does not mean the main agent must sit idle until the slowest sub-agent returns. Block on the whole set only when the next step genuinely needs cross-item context — deduplicating across all findings, ranking a complete list, early-exiting on a zero count. Otherwise let each item flow to its next stage as it completes (pipelining, where the runner supports it), and keep working meanwhile. A needless barrier costs the difference between the fastest and slowest sub-agent, every phase.
 
 ---
 
@@ -211,7 +211,7 @@ Assign by **spec completeness, not task size**: `opus` for hard implementation, 
 
 A useful shape for a phase is mixed rather than uniform — several cheap collectors fanned out on disjoint slices, then one `opus` agent that reconciles their reports. The reconciliation is the part that needs the capable model; the collection is not.
 
-Effort is a separate lever. The Workflow tool's `agent()` takes `model` and `effort`; the Agent tool takes `model` only. Lowering effort on `opus` is usually a better first cost cut than dropping to `sonnet`. Full treatment in `prompt-authoring.md` (load via SKILL.md).
+Effort is a separate lever, where the host exposes one — see `references/platform-notes.md` for which spawn mechanisms take it. Lowering effort on `opus` is usually a better first cost cut than dropping to `sonnet`. Full treatment in `prompt-authoring.md` (load via SKILL.md).
 
 ---
 

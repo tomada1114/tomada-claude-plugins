@@ -6,10 +6,14 @@ Run: python3 -m unittest scripts.tests.test_classify_skill -v
 """
 from __future__ import annotations
 
+import io
+import json
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import classify_skill as cs  # noqa: E402
@@ -127,6 +131,99 @@ class TestCLI(unittest.TestCase):
 
     def test_main_bad_path_returns_2(self):
         self.assertEqual(cs.main(["classify_skill.py", str(self.root / "missing")]), 2)
+
+    def test_main_help_returns_2(self):
+        self.assertEqual(cs.main(["classify_skill.py", "--help"]), 2)
+
+    def test_main_no_args_returns_2(self):
+        self.assertEqual(cs.main(["classify_skill.py"]), 2)
+
+    def test_main_json_output_has_tier(self):
+        skill = write_skill(self.root)
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = cs.main(["classify_skill.py", str(skill), "--json"])
+        self.assertEqual(rc, 0)
+        data = json.loads(buf.getvalue())
+        self.assertIn("tier", data)
+
+
+class TestMissingSkillMd(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def test_classify_notes_missing_skill_md(self):
+        empty_dir = self.root / "no-skill-md"
+        empty_dir.mkdir()
+        c = cs.classify(empty_dir)
+        self.assertIn("SKILL.md not found", c.notes)
+        self.assertEqual(c.tier, "A")
+
+
+class TestFrontmatterParsingEdgeCase(unittest.TestCase):
+    def test_no_frontmatter_returns_empty(self):
+        keys, name, body_start = cs.parse_frontmatter_keys("no frontmatter\njust body text\n")
+        self.assertEqual((keys, name, body_start), ([], "", 0))
+
+
+class TestAgentRegistryAndDependents(unittest.TestCase):
+    """agent_registry()/skill_registry() read Path.home(); patch it to a tmpdir
+    so results don't depend on the real user's ~/.claude contents."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.fake_home = self.root / "fake-home"
+        (self.fake_home / ".claude").mkdir(parents=True)
+        patcher = patch.object(Path, "home", return_value=self.fake_home)
+        self.addCleanup(patcher.stop)
+        patcher.start()
+
+    def test_skill_local_agents_dir_is_registered(self):
+        # <claude-root>/skills/<sibling>/agents/*.md is a registry source distinct
+        # from <claude-root>/agents/ — exercises the skills_dir.iterdir() branch.
+        claude_skills = self.fake_home / ".claude" / "skills"
+        sibling_agents = claude_skills / "reviewer-skill" / "agents"
+        sibling_agents.mkdir(parents=True)
+        (sibling_agents / "codelens.md").write_text("---\nname: codelens\n---\nDoes review.\n")
+        skill = write_skill(claude_skills, skill_md=FM + "\nDelegate to codelens for review.\n")
+        c = cs.classify(skill)
+        self.assertIn("codelens", c.dependent_subagents)
+
+    def test_claude_agents_path_reference_is_dependent_subagent(self):
+        skill = write_skill(
+            self.root,
+            skill_md=FM + "\nSee .claude/agents/planner.md for instructions.\n",
+        )
+        c = cs.classify(skill)
+        self.assertIn("planner", c.dependent_subagents)
+
+    def test_explicit_cross_skill_path_is_recorded(self):
+        skill = write_skill(
+            self.root,
+            skill_md=FM + "\nSee .claude/skills/helper-skill/references/x.md for details.\n",
+        )
+        c = cs.classify(skill)
+        self.assertIn("helper-skill", c.cross_skill_refs)
+
+
+class TestRenderHumanFields(unittest.TestCase):
+    def test_render_includes_frontmatter_cross_refs_and_notes(self):
+        c = cs.Classification(
+            skill_path="/tmp/x",
+            skill_name="x",
+            tier="C",
+            claude_frontmatter_fields=["allowed-tools"],
+            cross_skill_refs=["other-skill"],
+            notes=["SKILL.md not found"],
+        )
+        out = cs.render_human(c)
+        self.assertIn("Claude-only frontmatter: allowed-tools", out)
+        self.assertIn("Cross-skill refs: other-skill", out)
+        self.assertIn("Notes: SKILL.md not found", out)
 
 
 if __name__ == "__main__":

@@ -63,6 +63,7 @@ class TestAdvancedScaffold(unittest.TestCase):
             self.assertTrue((target / "references").is_dir())
             self.assertTrue((target / "assets").is_dir())
             self.assertTrue((target / "scripts").is_dir())
+            self.assertTrue((target / "scripts" / "tests").is_dir())
 
 
 class TestScope(unittest.TestCase):
