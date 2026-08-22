@@ -1,6 +1,6 @@
 ---
 name: shipping-issues
-description: "Rank the open GitHub Issues by their `priority: P0`-`P3` labels — backfilling a label, from whether an issue unblocks others and how far its impact spreads, wherever one is missing — then implement the top one, open a PR that auto-closes the issue (Closes #N), watch CI until it is green, merge to main, and confirm the issue actually closed. With no argument it ships only the single highest-priority issue; pass \"all\" to work through every issue in dependency order (independent ones in parallel worktrees). Issue data collection, CI watching, and fix retries are delegated to scripts and sub-agents to save tokens. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, work through the open issues, or finish off every issue."
+description: "Rank the open GitHub Issues by their `priority: P0`-`P3` labels — backfilling a missing label from whether an issue unblocks others and how far its impact spreads — then implement the top one, open a PR that auto-closes the issue (Closes #N), watch CI until it is green, merge to main, and confirm the issue actually closed. With no argument it ships only the single highest-priority issue; pass \"all\" to work through every issue in dependency order (independent ones in parallel worktrees). Implementation, review, and CI fixes go to Codex runs; issue data and CI watching to scripts, so diffs and logs never enter the main context. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, work through the open issues, or finish off every issue."
 argument-hint: "[all | <issue number> | (empty = one issue)]"
 metadata:
   platforms: claude-code, codex
@@ -150,49 +150,63 @@ Ask the user directly, in plain conversation, and wait for their reply, only
 when the top two are genuinely tied on every axis, or the top issue needs a
 product decision before it can be implemented at all.
 
-### 3. Implement, with the issue link built in
+### 3. Implement — Codex writes the code, this context owns `gh`
 
-One issue = one branch = one PR, following the Implementation template in
-[references/subagent-prompts.md](references/subagent-prompts.md).
+One issue = one branch = one PR. The implementation goes to a Codex run, per
+issue, using the Implementation template in
+[references/subagent-prompts.md](references/subagent-prompts.md):
 
-Delegate this to an independent `opus` worker per issue using that template
-when this runtime exposes a delegation capability — a parallel group uses an
-isolated work copy per issue (cap 3), spawned together in one batch; serialize
-everything else. When it does not, the main context reads the same template
-skill-relatively and works through issues one at a time in the checkout (or one
-worktree at a time), inline. Judge that from what the runtime exposes, not from
-which product it is — a host that advertises parallel agents may still invoke a
-skill where no spawn capability is callable.
+```bash
+scripts/codex_run.sh check                      # once per run, before the first issue
+scripts/codex_run.sh task --write --cwd <worktree> --prompt-file <filled template>
+```
 
-Phase order (rank → implement → CI → merge) holds either way, but the inline
-path costs more than time: it gives up the per-issue context isolation too, so
-diffs, exploration, and CI logs pile up in one context for the whole run. Run
-`all` there in small batches and report the rest as deferred.
+Codex carries the issue from branch to pushed commits: read the project's own
+`CLAUDE.md`/`AGENTS.md`, implement the stated scope, add the tests, run the
+verification command, commit in coherent increments, push. **It stops at the
+push.** The Codex sandbox reaches github.com over `git`, but `gh` cannot
+authenticate inside it — so opening the PR, `link_check.sh`, CI, and the merge
+are all this context's work (steps 3.5 onward). That boundary is not a
+limitation to route around: it is what keeps every merge-gating fact established
+here, from script output, rather than accepted on a worker's say-so.
 
-Two constraints exist so the issue closes itself on merge:
+Isolation still comes from the work copy, not the runtime: `--cwd` scopes Codex
+to one worktree, so a parallel batch (cap 3) is one worktree and one Codex run
+per issue, each with its own thread, job state, and review target. Serialize
+everything else. `check` reporting `codex_mode: NONE` (exit 3) means this
+machine has no Codex — fall back to an `opus` worker per issue where this
+runtime exposes delegation, otherwise inline, one at a time, using the same
+template at the same scope.
 
-- the PR body carries **`Closes #N`** — a bare `#N` mention closes nothing;
-- the PR targets the **default branch** — GitHub's auto-close only fires there.
+Codex returns branch, changed files, the verification command it ran, `MEASURE:`
+for a performance claim, `FOLLOW-UPS` (fed to step 6.5), and `UNRESOLVED` — not
+the diff. `codex_touched:` lists only what it edited through patches, so
+`git -C <worktree> status --short` is the authority on what actually changed.
 
-The sub-agent returns branch, PR URL, base, link verdict, changed files, the
-exact verification command it ran, before/after measurements when the issue is
-a performance claim (`MEASURE:`), the self-review result (`REVIEW:`, step 4.5),
-and any out-of-scope defects it saw (`FOLLOW-UPS`, fed to step 6.5) — not the
-diff. Record each PR when its return lands (`--event pr-created --field
-issue=<n> --field pr=<url>`), before CI — a run that stops mid-watch must still
-show what was opened. Sub-agents never clean up after themselves (no `rm`, no worktree removal
-— that all happens once, in step 7), and must copy any gitignored artifacts
-they produced (fixtures, bench outputs) into the main checkout before
-returning, because worktrees are deleted at the end of the run.
+**Codex cannot ask a question back.** A spec hole returns as a decision it made
+alone, under `UNRESOLVED` if you are lucky. Fill the template's `<context>`
+block until nothing merge-gating is left to guess.
 
-That return is a claim, not a verified fact. Steps 4–6 re-establish every
-merge-gating fact — the PR exists, CI's verdict, the issue's final state — from
-script output in this context, so a report of "PR opened, CI green" changes
-nothing about which steps run, and nothing is deleted or declared done on a
-sub-agent's say-so. Push discipline is the other half of that insurance: the
-template has the agent push as soon as its first coherent commit exists, so an
-agent stopped mid-run loses at most its uncommitted tail, and step 7's script
-skips dirty worktrees rather than deleting them.
+Push discipline is the run's insurance: Codex pushes as soon as its first
+coherent commit exists, so a run stopped mid-way loses at most its uncommitted
+tail. It never cleans up after itself (no `rm`, no worktree removal — that
+happens once, in step 7) and copies any gitignored artifacts it produced into
+the main checkout before returning, since worktrees are deleted at the end.
+
+### 3.5 Open the PR
+
+```bash
+gh pr create --base <default_branch> --head <branch> --title <...> --body <...>
+```
+
+Two constraints exist so the issue closes itself on merge: the body carries
+**`Closes #N`** as the first line after the summary (a bare `#N` mention closes
+nothing), and the PR targets the **default branch** (auto-close only fires
+there). Build the body from what Codex returned — summary, `Closes #N`, and a
+test plan carrying the verification command and, for a performance issue, both
+measurements. Record it as soon as it exists (`--event pr-created --field
+issue=<n> --field pr=<url>`), before CI: a run that stops mid-watch must still
+show what was opened.
 
 ### 4. Verify the auto-close link
 
@@ -205,94 +219,101 @@ anything. `--fix` appends the missing `Closes #N` itself. `WRONG_BASE` means the
 PR targets a non-default branch — retarget it (`gh pr edit <pr> --base
 <default>`) before merging, or the issue stays open.
 
-The implementation agent already runs this; re-running here is a one-line
-confirmation, not duplicated work.
-
-### 4.5 Self-review before CI — effort scaled to the diff
+### 4.5 Review before CI — a context that did not write the diff
 
 Between the PR existing and CI judging it there is one review pass that catches
-what CI cannot: correctness bugs, dead reuse, needless complexity. A
-self-review pass, run when one is available, does it and applies its own
-fixes. Effort level, pass count, the convergence rules, and what happens to
-findings left at the ceiling all live with the agent that runs them, in the
-Implementation template in
-[references/subagent-prompts.md](references/subagent-prompts.md); what matters
-here is where they run and what comes back.
+what CI cannot: whether the change is what issue #N asked for, needless
+complexity, maintainability, and tests that would still pass with the bug
+present. Run it from here against the worktree, with the Self-review template in
+[references/subagent-prompts.md](references/subagent-prompts.md) as the prompt:
 
-**The implementation agent runs the review, inside its own worktree**, as the
-last thing it does before returning. It is the only context whose working tree
-*is* the PR branch: a self-review pass runs in the calling session's cwd and
-applying its findings writes to that working tree, so run from here it
-reviews the wrong checkout — a worktree's branch is invisible to it. That
-holds for any extra pre-merge pass too: more review happens inside the
-worktree (spawn an agent there), or not at all.
+```bash
+scripts/codex_run.sh task --cwd <worktree> --prompt-file <filled Self-review template>
+```
 
-Every pass lands on the branch before step 5 starts, so CI is watched on the
-reviewed code rather than on the pre-review commit. Leftover findings arrive as
-`UNRESOLVED` (in scope) or `FOLLOW-UPS` (out of scope) rather than blocking the
-merge; step 6.5 files what survived. Step 5's rule applies to review fixes too:
-a finding is cleared by fixing the cause, never by deleting a test, loosening an
-assertion, or silencing a check.
+No `--write`: the reviewer is read-only at the sandbox level, so it reports
+defects and cannot quietly patch them. It is a **separate run** from the one
+that implemented the change — a fresh run reads the diff in a context that never
+wrote it, which is the only thing that makes it a review — and `--cwd
+<worktree>` is what makes it reachable from here, so nothing has to be delegated
+into the worktree to see the right branch.
 
-The agent reports `REVIEW:` with the chosen effort level and per-pass finding
-and fix counts. `UNAVAILABLE` means it took neither of the rungs open to it —
-a built-in review pass, or, failing that, one independent reviewer it spawned
-itself (the Self-review template in
-[references/subagent-prompts.md](references/subagent-prompts.md)). Before
-accepting it, take the highest rung *this* context can still reach:
+For a **heavy diff** — one that touches a schema, storage layer, or public
+contract; adds or bumps a dependency; or rewires behavior across several modules
+— add the adversarial pass, which judges the axis the template does not: failure
+modes, trust boundaries, data loss, rollback safety.
 
-- a built-in pass reachable here while the sub-agent could not reach it —
-  when the branch is checked out here (single-issue mode, no worktree), run
-  the same passes here, committing and pushing each one;
-- otherwise, if this context can delegate, spawn that one reviewer against the
-  branch, fix the causes it names, commit (`review: <what was fixed>`), push,
-  and re-run the verification command before CI;
-- neither reachable — `UNAVAILABLE` stands. Do not re-read the diff here and
-  call that a review; go on to CI.
+```bash
+scripts/codex_run.sh review --cwd <worktree> --base <default_branch> --focus-file <issue context>
+```
 
-Record whichever rung ran (`--event review --field pr=<n> --field
-status=<effort|DELEGATED|UNAVAILABLE>`). `UNAVAILABLE` is a lowered assurance
-level, not a silent one — lint, types, tests and CI still ran, but nothing
-judged the change for complexity, intent, or maintainability — so it stays in
-the run record and is named again in the step 8 report.
+It returns `review_verdict: approve | needs-attention` plus one line per finding
+with severity, file, line range, and confidence; exit 1 means
+`needs-attention`. Neither pass replaces the other — the adversarial one is told
+to skip style, naming, and cleanup, which is most of what the Self-review
+template looks for.
+
+Apply the findings in the worktree — a further `codex_run.sh task --write --cwd
+<worktree>` run carrying them verbatim, or here when the fix is a line or two —
+then commit (`review: <what was fixed>`), push, and re-run the verification
+command, so CI judges the reviewed code rather than the pre-review commit. Fix
+the cause, never the check: a finding cleared by deleting a test, loosening an
+assertion, or silencing a warning is a failed outcome and goes under
+`UNRESOLVED` instead. One round is the ceiling — what is still open after it
+goes to `UNRESOLVED`, or to step 6.5 as a follow-up if it is outside issue #N's
+scope, rather than blocking the merge.
+
+Record which rung ran (`--event review --field pr=<n> --field
+status=<codex|codex+adversarial|DELEGATED|UNAVAILABLE>`). With no Codex on the
+machine, take the highest rung still reachable — one independent reviewer
+spawned against the branch where delegation is available (`DELEGATED`),
+otherwise `UNAVAILABLE`; do not re-read the diff here and call that a review.
+`UNAVAILABLE` is a lowered assurance level, not a silent one — lint, types,
+tests and CI still ran, but nothing judged the change for complexity, intent, or
+maintainability — so it stays in the run record and is named again in the step 8
+report.
 
 ### 5. CI to green
 
 Run `scripts/ci_watch.sh <pr> --timeout 1800` in the main context first — its
-output is a short verdict, and most PRs go green on the first watch, so a
-sub-agent spawn would buy nothing.
+output is a short verdict, and most PRs go green on the first watch, so a repair
+run would buy nothing.
 
 In `all` mode with several PRs in flight, run the watches concurrently where
-that is available instead of serializing them; otherwise run `ci_watch.sh` per
-PR sequentially, one wait at a time.
-
-`ci_watch.sh` is the run's only wait primitive — one blocking call per wait;
-neither this context nor any sub-agent hand-rolls a `sleep`/poll loop around
-`gh`. Record each verdict (`--event ci --field pr=<n> --field verdict=<...>`),
+that is available; otherwise run `ci_watch.sh` per PR sequentially, one wait at
+a time. It is the run's only wait primitive — one blocking call per wait;
+neither this context nor any worker hand-rolls a `sleep`/poll loop around `gh`.
+Record each verdict (`--event ci --field pr=<n> --field verdict=<...>`),
 including one that took repair attempts to reach.
 
-Only on `FAIL`, hand off the CI repair template in
-[references/subagent-prompts.md](references/subagent-prompts.md):
+Only on `FAIL`, hand the repair to Codex using the CI repair template in
+[references/subagent-prompts.md](references/subagent-prompts.md). `ci_watch.sh`
+prints the failing logs to stdout and Codex cannot run `gh` itself, so redirect
+that output into the worktree and pass the path — the logs reach the repair
+without landing in this context:
 
-Delegate this to an independent `sonnet` worker per failing PR using that
-template where delegation is available; otherwise the main context reads the
-same template skill-relatively and performs the same repair steps inline, one
-PR at a time. Either way: it reads the failing logs the script printed, fixes
-the branch in its worktree, pushes, and re-watches — up to **3 attempts**
-total. If the same failure survives two attempts, escalate to `opus` with the
-accumulated failure detail (re-spawning on `opus` where delegation is
-available, or raising its own effort inline otherwise). CI logs stay with the
-worker doing the repair; the main context gets its verdict lines only.
+```bash
+scripts/ci_watch.sh <pr> --timeout 1800 > <worktree>/.ci-failure.log
+scripts/codex_run.sh task --write --cwd <worktree> --prompt-file <filled template>
+```
+
+Codex reads that log, fixes the cause, commits, and pushes; this context
+re-watches and decides whether to go again — up to **3 attempts** total. The
+loop lives here because only this context can watch. Delete the log before step
+7 if the repo does not ignore it, or cleanup skips the worktree as dirty. If the
+same failure survives two attempts, put the accumulated detail in the third
+prompt rather than sending the same instruction again. With no Codex on the
+machine, fall back to a `sonnet` worker per failing PR where delegation is
+available — escalating to `opus` after two failed attempts — otherwise inline.
 
 A green CI is the goal. A check that passes because a test was deleted, skipped,
 or weakened is a failed outcome and gets reported as such — same for a "flaky"
 job re-run until it happens to pass without a diagnosis.
 
 `NO_CHECKS` — this repo has no CI on this PR. Do not merge on the absence of
-evidence: run the project's own verification command (the one the implementation
-agent reported) in the branch worktree, and merge on a local green. If the
-project has no such command either, say so explicitly in the report and ask
-before merging.
+evidence: run the project's own verification command (the one Codex reported)
+in the branch worktree, and merge on a local green. If the project has no such
+command either, say so explicitly in the report and ask before merging.
 
 ### 6. Merge and confirm the issue closed
 
@@ -347,7 +368,7 @@ final report loses it the moment the conversation ends. File it.
 
 - it needs its own tests, schema change, or design decision;
 - it changes behavior outside the shipped issue's stated scope;
-- the implementation agent already returned it under `SCOPE-NOTES` or
+- the implementing run already returned it under `SCOPE-NOTES` or
   `FOLLOW-UPS` as something it declined on purpose;
 - the fix would push a green PR back through CI for a reason unrelated to its
   own issue.
@@ -365,7 +386,7 @@ existing open issue that turns out to be purely operational is not shippable;
 close it with a comment naming the action that resolves it, and record the
 closure in the report.
 
-**Verify before filing.** A sub-agent's out-of-scope observation is a lead, not
+**Verify before filing.** A worker's out-of-scope observation is a lead, not
 a fact — it saw the code while working on something else. Read the lines it
 names and confirm the defect is real, and confirm what actually prevents it
 today. That check routinely changes the tier: a gap that sounds severe but is
@@ -415,7 +436,7 @@ scripts/cleanup_run.sh [--remote] [--dry-run] [--merged-only]
 
 All deletion goes through `cleanup_run.sh`, in one batch after the last merge.
 Never run `rm`, `git worktree remove`, or `git branch -D` ad hoc in the main
-context or in sub-agents — raw `rm` is flagged as dangerous and stalls the run
+context or in a Codex run — raw `rm` is flagged as dangerous and stalls the run
 on a permission prompt. The script only touches `<repo>/.claude/worktrees/*`,
 harness `worktree-agent-*` branches, and branches whose PR is merged;
 `--remote` extends that to the same refs on origin. A worktree with
@@ -465,9 +486,9 @@ ones that hit the retry ceiling — with the specific reason each.
 ## Cost discipline
 
 The main context holds the selection and the verdicts, nothing else — issue
-bodies, diffs, and CI logs each stay with the agent that needs them. What
-belongs where, the per-issue spawn budget, and why the model assignments are
-fixed: [references/cost-discipline.md](references/cost-discipline.md).
+bodies, diffs, and CI logs each stay with the run that needs them. What belongs
+where, the per-issue Codex-run budget, and why the model assignments are what
+they are: [references/cost-discipline.md](references/cost-discipline.md).
 
 ## Stop conditions
 

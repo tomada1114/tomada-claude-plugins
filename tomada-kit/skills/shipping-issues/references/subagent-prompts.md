@@ -1,21 +1,31 @@
-# Sub-agent Prompt Templates
+# Delegation Prompt Templates
 
 ## Table of Contents
 
 - [Priority research and labeling](#priority-research-and-labeling-sonnet)
-- [Implementation](#implementation-opus-isolation-worktree-for-parallel-batches)
-- [Self-review by delegation](#self-review-by-delegation-opus-heavy-diff--sonnet-otherwise)
-- [CI repair](#ci-repair-sonnet-spawned-only-on-fail)
-- [Merge and issue closure](#merge-and-issue-closure-no-spawn)
+- [Implementation](#implementation-codex-write-capable-one-worktree-per-issue)
+- [Review](#review-codex-read-only-run-from-the-parent)
+- [CI repair](#ci-repair-codex-write-capable-only-on-fail)
+- [Merge and issue closure](#merge-and-issue-closure-no-delegation)
 
-Copy-and-fill templates for the spawns this skill makes. Each carries intent,
+Copy-and-fill templates for the handoffs this skill makes. Each carries intent,
 concrete paths, embedded context, and an output contract, so the parent never
 receives raw `gh` JSON or full CI logs.
 
-Model choices follow `orchestrating-models` §2: unresolved spec → `opus`,
-fully specified pass/fail → `sonnet`. <!-- derived from orchestrating-models §2 -->
+Implementation, review, and CI repair go to Codex through
+`scripts/codex_run.sh`; priority research stays on a Claude sub-agent because it
+lives entirely in `gh`, which the Codex sandbox cannot authenticate. Model and
+reasoning effort are deliberately not passed on the Codex path — see the header
+of `scripts/codex_run.sh` for why. For the Claude-side model choices, follow
+`orchestrating-models` §2: unresolved spec → `opus`, fully specified pass/fail →
+`sonnet`. <!-- derived from orchestrating-models §2 -->
 
-Placeholders in `{braces}` are filled by the parent before spawning.
+**A Codex run cannot ask a question back.** It is non-interactive with approvals
+off, so a hole in the prompt does not return as a clarifying question — it
+returns as a decision made alone. Fill every `{brace}` before running, and leave
+nothing merge-gating to guess.
+
+Placeholders in `{braces}` are filled by the parent before the run.
 
 ## Priority research and labeling (`sonnet`)
 
@@ -26,6 +36,9 @@ and no spawn is warranted.
 
 The agent writes the labels itself — that is the point of the spawn. The parent
 gets the pick and a summary line; the per-issue tier list never crosses back.
+
+This one stays on a Claude sub-agent: every step of it is a `gh` call, and `gh`
+cannot authenticate inside the Codex sandbox.
 
 ```
 Intent: I am about to implement and ship GitHub issues in {owner}/{repo}. Priority
@@ -90,32 +103,47 @@ If the top two are genuinely tied on every axis of the rubric, list both under
 "Unresolved" with the trade-off rather than picking one.
 ```
 
-## Implementation (`opus`, `isolation: "worktree"` for parallel batches)
+## Implementation (Codex, write-capable, one worktree per issue)
 
-Implementation carries unresolved spec by definition — always `opus`.
+Write the filled template to a file and run it against the issue's worktree:
+
+```bash
+scripts/codex_run.sh task --write --cwd {worktree_path} --prompt-file {filled_template}
+```
+
+Scope is **branch to pushed commits**. The PR, the link check, CI, and the merge
+belong to the parent — `gh` cannot authenticate inside the Codex sandbox, and
+keeping those in the parent is also what lets every merge-gating fact be
+established from script output rather than accepted on a worker's report.
+
+With no Codex on the machine (`codex_run.sh check` exits 3), hand this same
+template to an independent `opus` worker per issue where delegation is
+available, otherwise work through it inline, one issue at a time. The scope does
+not change in the fallback.
 
 ```
-Intent: You are shipping GitHub issue #{n} in {owner}/{repo} end to end. Your
-branch will be merged automatically once CI is green, and issue #{n} must close
-when it merges — so the PR must be complete, correct, and correctly linked.
+Intent: You are implementing GitHub issue #{n} in {owner}/{repo}. Your branch
+will be turned into a PR and merged automatically once CI is green, so it must
+be complete and correct by the time you push. You cannot ask me a question
+mid-run — if something is genuinely undecidable, make the call, implement it,
+and report it under UNRESOLVED.
 
 <issue>
 {full issue body + relevant comments, pasted by the parent}
 </issue>
 
 <context>
-Repo root: {path}
-Base branch: {default_branch}   <- the PR MUST target this branch; GitHub only
-                                   auto-closes issues on merges into the default branch
+Worktree: {worktree_path}   <- work only here; this is the branch's checkout
+Base branch: {default_branch}
 Likely files: {paths from triage}
 Project conventions: read {repo}/CLAUDE.md and {repo}/AGENTS.md before writing code.
 Related decisions already made: {anything the parent resolved}
+Verification command, if the parent already knows it: {verify_command or "find it"}
 </context>
 
 Do:
 1. Read the project's own instruction files and follow them, including its test
-   and commit conventions. If the project ships its own skills for committing or
-   opening PRs (check {repo}/.claude/skills/), use them instead of raw git/gh.
+   and commit conventions.
 2. Create a branch named {type}/{n}-{slug} off {default_branch}. If the issue
    claims a performance improvement (runtime, throughput, memory, latency),
    measure the *before* state right here, on the unmodified code, using the
@@ -124,110 +152,78 @@ Do:
    conditions. Measuring later, after step 3 has already changed the code,
    leaves no clean baseline to measure.
 3. Implement the issue's stated scope. Deliver what the issue asks, at the scope
-   it asks. If a better approach exists, note it in the PR body in one sentence
-   and implement as asked.
+   it asks. If a better approach exists, say so in one sentence under
+   SCOPE-NOTES and implement as asked.
 4. Add or update the tests that cover the change, and run the project's own
    verification command (check its CLAUDE.md/AGENTS.md/justfile/Makefile for it).
    Report the exact command — the parent needs it if this repo has no CI.
    For a performance issue, re-run step 2's baseline command now, under the
    same conditions, and state why the delta is a real improvement and not
-   noise. Put both numbers and the command in the PR body's test plan, and
-   report them under MEASURE below.
+   noise. Report both numbers and the command under MEASURE.
 5. Commit in coherent increments, and push as soon as the first coherent commit
-   exists — a stopped agent's worktree keeps only what was pushed. Then open
-   the PR against {default_branch} with a body whose FIRST
-   line after the summary is exactly:  Closes #{n}
-   (not "see #{n}", not "related to #{n}" — those do not close anything), plus a
-   summary and a test plan.
-6. Confirm GitHub actually registered the link, and repair it if not:
-     {SKILL_DIR}/scripts/link_check.sh <pr> --issue {n} --fix
-   Report its verdict verbatim. Do not return until it says LINKED, or explain
-   why it cannot.
-7. Self-review the branch before it reaches CI, with the effort level chosen
-   from the diff you just produced. Take the first rung that is actually
-   available to you: (a) a built-in review pass; (b) no built-in one, but you
-   can delegate — hand the branch to one independent reviewer using the
-   Self-review template in this file and apply what it returns; (c) neither —
-   report REVIEW: UNAVAILABLE and continue. Rung (b) is a real review because
-   the reviewer reads the diff in a context that never wrote it; re-reading
-   your own diff yourself is not, so do not report that as a review.
-   With a built-in pass available:
-   - Heavy diff (touches a schema, storage layer, or public contract; adds or
-     bumps a dependency; or rewires behavior across several modules): one pass
-     at high effort, applying its findings to the working tree.
-   - Anything else: one pass at low effort, applying its findings, twice — the
-     second pass reviews the code as the first pass changed it.
-   Applying findings updates the working tree but does not commit them.
-   So, per pass: read what it changed, commit it on its own
-   (`review: <what was fixed>`), and push before any next pass, so it sees the
-   fixed code. Re-run the step 4 verification command after the final pass and
-   report that final result under VERIFY.
-   The pass count is a ceiling: after the final pass there is no further
-   review round. Findings still open at that point go under UNRESOLVED (in
-   scope) or FOLLOW-UPS (out of scope) — the parent merges and files them
-   rather than iterating.
-   Fix the cause, never the check: clearing a finding by deleting a test,
-   loosening an assertion, or silencing a warning is a failed outcome — say so
-   under UNRESOLVED instead. A finding outside issue #{n}'s scope does not get
-   fixed here; it goes under FOLLOW-UPS and the parent files it.
-   With no built-in pass but delegation available, spawn one reviewer (the
-   Self-review template below), fix the causes it names in your worktree,
-   commit (`review: <what was fixed>`), push, re-run the step 4 verification
-   command, and report REVIEW: DELEGATED with the finding and fix counts. One
-   reviewer, one round — leftovers go to UNRESOLVED / FOLLOW-UPS as above.
-   With neither, report REVIEW: UNAVAILABLE and continue — do not re-read your
-   own diff and call it a review.
-8. Do NOT clean up after yourself — no `rm`, no worktree removal, no branch
+   exists — a run stopped mid-way keeps only what was pushed. Then stop.
+   Do NOT open a pull request and do NOT run `gh` at all; the parent opens the
+   PR from what you return here.
+6. Do NOT clean up after yourself — no `rm`, no worktree removal, no branch
    deletion; the parent runs one batch cleanup at the end. If you produced
-   gitignored artifacts (fixtures, bench outputs) in a worktree, copy them into
-   the main checkout at {repo root} before returning or they will be lost.
+   gitignored artifacts (fixtures, bench outputs) in the worktree, copy them
+   into the main checkout at {repo_root} before returning or they will be lost.
    Do not watch CI or wait on anything after your final push either — the
-   parent watches CI; return as soon as the review passes have landed.
+   parent watches CI; return as soon as your last commit is pushed.
 
 Return exactly:
 BRANCH: <name>
-PR: <url or "none" + reason>
-BASE: <branch the PR targets>
-LINK: <link_check.sh verdict — LINKED | NOT_LINKED(<detail>) | WRONG_BASE>
+PUSHED: <yes + the remote ref, or "no" + why>
 CHANGED: <file list>
 VERIFY: <exact command run> -> <pass/fail + the failing output if any>
 MEASURE: <perf issue: command + before + after + why it counts as improved. Otherwise "n/a">
-REVIEW: <effort level + per pass: N findings, M applied>
-        <or "DELEGATED: N findings, M applied">
-        <or "UNAVAILABLE" + why>
+PR-TITLE: <one line the parent can use verbatim>
+PR-SUMMARY: <2-4 lines: what changed and why, for the PR body>
+TEST-PLAN: <what the parent should put under the PR's test plan, including the
+            verification command and, for a perf issue, both numbers>
 SCOPE-NOTES: <anything in the issue you did not implement, and why>
 FOLLOW-UPS: <defects you saw that are NOT this issue, one per line as
              `file:line — what is wrong — what prevents it today`, or "none">
 UNRESOLVED: <judgment calls you had to make, or "none">
 
 Every value in that return must come from a command output in this session —
-the parent re-verifies the PR, CI, and closure against GitHub, so a remembered
-or assumed value is caught and costs a full re-check. If a step did not run,
-say so instead of filling the field.
+the parent re-verifies the branch, the PR, CI, and closure against GitHub, so a
+remembered or assumed value is caught and costs a full re-check. If a step did
+not run, say so instead of filling the field.
 
 FOLLOW-UPS is how a real defect you must not fix here still survives the run —
 the parent files it as its own issue (SKILL.md step 6.5). Report it there
-rather than widening this PR, and rather than staying silent about it. Always
-include what currently prevents it (a guard at another layer, a provider that
-filters the input, a caller that cannot reach it) or "nothing": the parent tiers
-the issue on exactly that, and "nothing" versus "an adapter drops it first" is
-the difference between a live bug and a missing defense layer. Do not file the
-issue yourself — you see only your own worktree.
+rather than widening this change, and rather than staying silent about it.
+Always include what currently prevents it (a guard at another layer, a provider
+that filters the input, a caller that cannot reach it) or "nothing": the parent
+tiers the issue on exactly that, and "nothing" versus "an adapter drops it
+first" is the difference between a live bug and a missing defense layer. Do not
+file the issue yourself — you see only this worktree.
 
 If the issue cannot be implemented as written, stop before creating a branch and
 return only UNRESOLVED with what is missing.
 ```
 
-## Self-review by delegation (`opus` heavy diff / `sonnet` otherwise)
+## Review (Codex, read-only, run from the parent)
 
-Used only when no built-in review pass is reachable but delegation is — rung
-(b) of step 7 above. Spawn it from wherever the branch is held: the
-implementation agent when it can delegate, otherwise the main context after
-that agent returns `REVIEW: UNAVAILABLE` (SKILL.md step 4.5). The reviewer is
-read-only and never touches the branch; the holder applies the fixes.
+Run from the parent against the worktree, after the PR exists and before CI
+(SKILL.md step 4.5):
 
-`opus` when the diff is heavy (schema, storage layer, public contract, new or
-bumped dependency, behavior rewired across modules), `sonnet` otherwise.
+```bash
+scripts/codex_run.sh task --cwd {worktree_path} --prompt-file {filled_template}
+```
+
+No `--write`, so the reviewer is read-only at the sandbox level and cannot
+quietly patch what it finds. This is a **separate run** from the one that
+implemented the change: a fresh run reads the diff in a context that never wrote
+it, which is the only thing that makes it a review. Re-reading a diff in the
+context that produced it is not one, and neither is the parent skimming it here.
+
+For a heavy diff, add the adversarial pass alongside this one
+(`codex_run.sh review --cwd {worktree_path} --base {base} --focus-file {issue_context}`).
+It judges failure modes, trust boundaries, and rollback safety, and is
+explicitly told to skip style, naming, and cleanup — which is most of what this
+template is looking for. Neither pass replaces the other.
 
 ```
 Intent: PR #{pr} implements issue #{n} and merges as soon as CI is green. Lint,
@@ -237,7 +233,11 @@ context that did not write it.
 
 The branch {branch} is checked out at {worktree_path}. Read the issue and the
 diff against {base}:
-  gh issue view {n}
+
+<issue>
+{issue body, pasted by the parent — you cannot run `gh` from here}
+</issue>
+
   git -C {worktree_path} diff {base}...HEAD
 
 Judge exactly what CI cannot:
@@ -254,8 +254,8 @@ Judge exactly what CI cannot:
   it left silent.
 
 Report the defect, never the patch: file, line, what is wrong, why it matters.
-The holder of the branch re-derives the fix in the code it can see; a patch
-written from your context is how a review fix causes the next regression.
+The context that holds the branch re-derives the fix in the code it can see; a
+patch written from your context is how a review fix causes the next regression.
 Do not edit, commit, or push anything.
 
 Rank findings by whether they should block this merge. A finding outside issue
@@ -271,48 +271,70 @@ INTENT-MATCH: <does the diff implement issue #{n} as written — yes / no + what
                is missing or extra>
 ```
 
-## CI repair (`sonnet`, spawned only on FAIL)
+Applying what comes back is the parent's call: hand the findings verbatim to a
+further `codex_run.sh task --write --cwd {worktree_path}` run, or fix them in
+the parent when it is a line or two. Either way, commit
+(`review: <what was fixed>`), push, and re-run the verification command before
+CI starts.
 
-Fully specified pass/fail work — `sonnet`. The parent runs `ci_watch.sh` in its
-own context first (a green first watch needs no agent) and spawns this only on
-a `FAIL` verdict. Escalate to `opus` only if the same failure survives two
-repair attempts.
+## CI repair (Codex, write-capable, only on `FAIL`)
+
+The parent runs `ci_watch.sh` in its own context first — a green first watch
+needs no repair run — and only on a `FAIL` verdict redirects the watch output
+into the worktree and hands Codex the path:
+
+```bash
+scripts/ci_watch.sh {pr} --timeout 1800 > {worktree_path}/.ci-failure.log
+scripts/codex_run.sh task --write --cwd {worktree_path} --prompt-file {filled_template}
+```
+
+The log goes through a file rather than the prompt so the failing output never
+lands in the parent's context. Codex cannot run `ci_watch.sh` itself — it is a
+`gh` wrapper — so the watch/repair loop lives in the parent: repair, push, the
+parent re-watches, up to **3 attempts** total.
+
+With no Codex on the machine, hand this template to an independent `sonnet`
+worker per failing PR where delegation is available (escalating to `opus` after
+two failed attempts), otherwise work through it inline, one PR at a time.
 
 ```
 Intent: PR #{pr} implements issue #{n} and will be merged as soon as CI is green.
-Its CI just failed: {failing_check_names_from_parent_watch}. I need it green, or
-a clear statement of why it cannot be.
+Its CI just failed: {failing_check_names_from_parent_watch}. I need the cause
+fixed and pushed. I will re-watch CI myself after you return — you cannot, and
+must not try to.
 
-Start by reading the failing logs:
-  {SKILL_DIR}/scripts/ci_watch.sh {pr} --timeout 1800
+The failing checks and the tail of each failing run's log are in:
+  {worktree_path}/.ci-failure.log
 
-If verdict is NO_CHECKS, this repo has no CI on this PR. Do not merge on that
-alone: run the project's own verification command in the branch worktree at
-{worktree_path} — {verify_command} — and report its result as LOCAL-VERIFY.
+Read that file first. Then fix the cause in the branch worktree at
+{worktree_path}, commit, and push. Do not run `gh`, do not watch CI, do not
+sleep or poll — return as soon as your fix is pushed.
 
-If verdict is FAIL: read the failing logs the script printed, fix the cause in
-the branch worktree at {worktree_path}, commit, push, and re-run ci_watch.sh.
-Repeat at most {max_retries} times total. ci_watch.sh is your only wait
-primitive — it blocks until checks settle; never write a sleep/poll loop
-around `gh` instead.
+This is attempt {attempt} of {max_retries}. {accumulated_failure_detail_if_any}
 
 Fix the failure, not the check. Deleting, skipping, or weakening a test to make
 CI pass is a failed outcome — if the test is genuinely wrong, say so in
-UNRESOLVED and stop. Same for retrying a flaky job without diagnosing it: if you
-believe a failure is flaky, say which job and why, do not just re-run until green.
+UNRESOLVED and stop without pushing. Same for a flaky job: if you believe a
+failure is flaky, say which job and why under UNRESOLVED rather than pushing a
+no-op commit to re-trigger it.
+
+If the repo has no CI on this PR (the parent will say so), run the project's own
+verification command in {worktree_path} — {verify_command} — and report its
+result as LOCAL-VERIFY instead.
 
 Return exactly:
-VERDICT: PASS | FAIL | TIMEOUT | NO_CHECKS
-ATTEMPTS: <n>
-LOCAL-VERIFY: <command -> pass/fail, or "n/a (CI present)">
+CAUSE: <what actually failed, in one or two lines>
 FIXES: <one line per repair commit, or "none">
-REMAINING-FAILURE: <check name + the 5 most relevant log lines, or "none">
-MERGE-STATE: <mergeable / merge_state / review_decision from the script>
+PUSHED: <yes + the remote ref, or "no" + why>
+LOCAL-VERIFY: <command -> pass/fail, or "n/a (CI present)">
 FOLLOW-UPS: <defects the failure exposed that are NOT this PR's to fix, one per
              line as `file:line — what is wrong — what prevents it today`, or
              "none">
 UNRESOLVED: <anything needing a human, or "none">
 ```
+
+Delete `.ci-failure.log` before step 7 if the repo does not already ignore it —
+a stray log file in the worktree makes step 7's cleanup skip it as dirty.
 
 A CI failure is a good detector of pre-existing problems — a flaky job with a
 real race behind it, a check that only passes because of ordering, a fixture
@@ -320,7 +342,7 @@ that has been wrong for months. Put those under FOLLOW-UPS with what currently
 prevents them, so the parent can file them (SKILL.md step 6.5); fix only what
 makes *this* PR green.
 
-## Merge and issue closure (no spawn)
+## Merge and issue closure (no delegation)
 
 Landing is one script call and a verdict read — run it in the main context:
 
