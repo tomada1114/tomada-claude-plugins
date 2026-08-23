@@ -1,116 +1,148 @@
 <!-- platform-annex -->
-# Platform notes（このスキル自身の Codex での制約・best-effort 劣化）
+# Platform notes (this skill's own Codex constraints and best-effort degradation)
 
-- [Codex ランタイムへの委譲](#codex-ランタイムへの委譲step-3--45--5-の主経路)
-- [ツール対応](#ツール対応)
-- [Codex での制約(best-effort 劣化)](#codex-での制約best-effort-劣化)
+- [Delegating to the Codex runtime (primary path for steps 3 / 6 / 7)](#delegating-to-the-codex-runtime-primary-path-for-steps-3--6--7)
+- [Tool mapping](#tool-mapping)
+- [Constraints under Codex (best-effort degradation)](#constraints-under-codex-best-effort-degradation)
 
-**前提: 「Codex だから使えない」ではなく「その実行ランタイムに公開されているか」で
-判断する。** Codex 製品として複数エージェントの並列実行機能があっても、スキルを
-起動したセッションからその spawn API が呼べるとは限らない（実測: agent 起動 API が
-一切公開されていないランタイムがあった）。以下の「Codex:」列は *委譲能力が公開されて
-いないランタイム* での劣化パスであって、Codex 製品の機能一覧ではない。委譲できるなら
-Claude Code 側と同じ経路を使ってよい。
+**Premise: judge by whether the running runtime exposes it, not by whether the
+product is Codex.** Codex the product may support parallel multi-agent
+execution, but that does not mean the session that launched this skill can
+call that spawn API (observed in practice: a runtime with no agent-launch API
+exposed at all). The "Codex:" column below is the degraded path for *a
+runtime that does not expose delegation* — not a feature list of the Codex
+product. Where delegation is available, use the same path as Claude Code.
 
-## Codex ランタイムへの委譲（step 3 / 4.5 / 5 の主経路）
+## Delegating to the Codex runtime (primary path for steps 3 / 6 / 7)
 
-実装・レビュー・CI 修復は `scripts/codex_run.sh` 経由で Codex に渡す。
-このスクリプトが 2 つの起動口を自動で選ぶ:
+Implementation, review, and CI repair are handed to Codex through
+`scripts/codex_run.sh`. The script automatically picks one of two entry
+points:
 
-- `codex_mode: companion` — Claude Code に openai-codex プラグインが入っている場合。
+- `codex_mode: companion` — when the openai-codex plugin is installed in
+  Claude Code. Calls
   `~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs`
-  （バージョン番号がパスに入るため、最新版を `sort -V` で解決している）を叩く。
-  ジョブ追跡・`--resume-last`・構造化レビュー出力が使える。
-- `codex_mode: exec` — プラグインは無いが `codex` CLI はある場合。`codex exec` を
-  直接叩く。`review` は構造化 JSON を返せず `review_verdict: UNSTRUCTURED` になり、
-  `--resume` も使えない。
-- `codex_mode: NONE`（exit 3）— `codex` CLI が無い。SKILL.md の各ステップに書いた
-  従来の委譲パス（`opus`/`sonnet` サブエージェント、または逐次インライン）に落ちる。
+  (the version number sits in the path, so the latest is resolved with
+  `sort -V`). Job tracking, `--resume-last`, and structured review output are
+  all available.
+- `codex_mode: exec` — no plugin, but the `codex` CLI is present. Calls
+  `codex exec` directly. `review` cannot return structured JSON, so
+  `review_verdict: UNSTRUCTURED`, and `--resume` is unavailable.
+- `codex_mode: NONE` (exit 3) — no *usable* Codex: the `codex` CLI is absent,
+  or present but unauthenticated (`codex_auth: NOT_AUTHENTICATED`) or not
+  ready (`codex_ready: no`). `check` reports `codex_auth` and `codex_ready`
+  lines that say which one it was. Falls back to the legacy delegation paths
+  described in each SKILL.md step (`opus`/`sonnet` sub-agents, or sequential
+  inline work).
 
-**モデルと effort は渡さない。** 未指定にすることで `~/.codex/config.toml` の
-`model` / `model_reasoning_effort` が効く。これが唯一 `max` を使える経路でもある
-（companion 側は `--effort max` を明示的に拒否する）。新しいモデルに乗り換えるときは
-config.toml の 1 行だけを変える。一時的に上書きしたいときだけ
-`CODEX_RUN_MODEL` / `CODEX_RUN_EFFORT` を export する。
+**Do not pass model or effort.** Leaving them unset lets
+`~/.codex/config.toml`'s `model` / `model_reasoning_effort` take effect — the
+only path that can use `max` (the companion side explicitly rejects
+`--effort max`). Switching to a new model is a one-line change in
+config.toml. Export `CODEX_RUN_MODEL` / `CODEX_RUN_EFFORT` only for a one-off
+override.
 
-**`gh` は Codex サンドボックス内で認証できない**（`git` での github.com 到達は可能、
-`gh auth status` は失敗する）。したがって GitHub API に触る作業 — 優先度リサーチ、
-PR 作成、`link_check.sh`、`ci_watch.sh`、`land_pr.sh` — はすべて親側に残る。
-Codex 側は worktree の中のコードだけを扱う。
+**`gh` cannot authenticate inside the Codex sandbox** (`git` can still reach
+github.com; `gh auth status` fails). So every task that touches the GitHub
+API — priority research, PR creation, `link_check.sh`, `ci_watch.sh`,
+`land_pr.sh` — stays in the parent. Codex only handles code inside the
+worktree.
 
-**`codex_touched:` は patch 経由の編集しか拾わない。** シェルのリダイレクトで
-書いたファイルは出てこないので、実際に何が変わったかは
-`git -C <worktree> status --short` を正とする。
+**`codex_touched:` only picks up edits made through patches.** Files written
+via shell redirection do not show up there, so
+`git -C <worktree> status --short` is the authority on what actually
+changed.
 
-**Codex は聞き返せない。** 非対話・承認オフで走るため、プロンプトの穴は質問として
-返らず「勝手に決めた結果」として返る。テンプレートの `{brace}` を全部埋めてから
-起動する。
+**Codex cannot ask a question back.** It runs non-interactively with
+approvals off, so a hole in the prompt does not come back as a question — it
+comes back as a decision Codex made on its own. Fill every `{brace}` in the
+template before launching.
 
-## ツール対応
+## Tool mapping
 
-- 優先度リサーチの委譲(step 2)→ Claude Code: `sonnet` サブエージェントを 1 体起動し
-  [references/subagent-prompts.md](references/subagent-prompts.md) の Priority
-  research テンプレートを渡す / Codex: メインが同ファイルを skill 相対で読み、
-  read → rubric → `apply_priority_labels.py` の手順を逐次インラインで実行する。
-  このステップだけは Codex ランタイムに委譲しない — 全工程が `gh` 呼び出しであり、
-  サンドボックス内では認証が通らないため。
-- 実装(step 3)→ 両プラットフォーム共通で `codex_run.sh task --write --cwd <worktree>`。
-  `codex_mode: NONE` のときのみ従来パス（Claude Code: issue ごとに `opus` サブ
-  エージェント、並列グループは `isolation: "worktree"` で cap 3 / Codex: メインが
-  worktree を 1 つずつ逐次処理）。スコープは経路によらず「ブランチ作成 → 実装 →
-  テスト → コミット → push」まで。PR 作成は常に親。
-- レビュー(step 4.5)→ 両プラットフォーム共通で `codex_run.sh task --cwd <worktree>`
-  （`--write` なし = read-only）。実装とは**別 run** にすることが要件で、`--cwd` で
-  worktree を直接指せるため、worktree の中へ委譲を差し込む必要が無くなった。
-  heavy diff のときだけ `codex_run.sh review` を追加する。`codex_mode: NONE` の
-  ときのみ従来の梯子（委譲できるなら独立レビュアー 1 体 = `DELEGATED`、無ければ
-  `UNAVAILABLE`）に落ちる。
-- CI-watch の並列化(step 5)→ Claude Code: `all` モードで複数 PR が in-flight の
-  とき `run_in_background` で watch を背景実行 / Codex: `ci_watch.sh` を PR ごとに
-  逐次実行する。watch 自体は常に親側（`gh` を使うため）。
-- CI repair(step 5、FAIL 時のみ)→ 両プラットフォーム共通で
-  `ci_watch.sh > <worktree>/.ci-failure.log` に落としてから
-  `codex_run.sh task --write --cwd <worktree>`。再 watch と 3 回までのループは親が
-  回す。`codex_mode: NONE` のときのみ従来パス（Claude Code: 失敗 PR ごとに `sonnet`
-  サブエージェント、同一失敗が 2 回連続で残ったら `opus` に再 spawn / Codex: メインが
-  1 PR ずつ逐次で最大 3 回、2 回連続で残ったら自身の effort を上げて続行）。
-- 選択肢提示・確認(step 2 の tie-break、preflight のダーティツリー確認など)→
-  Claude Code: `AskUserQuestion` / Codex: 通常の対話文でユーザーに直接質問し、
-  回答を待つ。
-- `orchestrating-models` §2 の引用(モデル割り当ての根拠)→ Claude Code 専用スキル
-  であり、このスキルからは bridge されていないため Codex からは参照を解決できな
-  い。sonnet/opus の割り当て自体は両プラットフォームで有効な結論として SKILL.md
-  本文に残る。引用先だけが無効になる。
-- `gh` CLI(Issue/PR/Actions 操作、認証)→ 親側では両プラットフォーム共通で素の `gh`
-  がそのまま通る。追加の connector や plugin は不要。Codex サンドボックス内だけが
-  例外（上記）。
+- Delegating priority research (step 2) → Claude Code: spawn one `sonnet`
+  sub-agent and hand it the Priority research template from
+  the skill's delegation-templates reference / Codex: the main
+  context reads the same file skill-relatively and runs the read → rubric →
+  `apply_priority_labels.py` steps inline. This is the one step never
+  delegated to the Codex runtime — the whole thing is `gh` calls, and the
+  sandbox cannot authenticate them.
+- Implementation (step 3) → same on both platforms:
+  `codex_run.sh task --write --cwd <worktree>`. Only when `codex_mode: NONE`
+  does it fall to the legacy path (Claude Code: one `opus` sub-agent per
+  issue, parallel groups at `isolation: "worktree"` capped at 3 / Codex: the
+  main context processes worktrees one at a time). Scope is the same
+  regardless of path: branch → implement → test → commit → push. PR creation
+  always stays with the parent.
+- Review (step 6) → same on both platforms:
+  `codex_run.sh task --cwd <worktree>` (no `--write` = read-only). Being a
+  **separate run** from the implementation is the requirement, and `--cwd`
+  can point straight at the worktree, so there is no need to thread
+  delegation into the worktree at all. Add `codex_run.sh review` only for a
+  heavy diff. Only `codex_mode: NONE` falls back to the legacy ladder (one
+  independent reviewer where delegation is available = `DELEGATED`,
+  otherwise `UNAVAILABLE`).
+- Parallelizing CI-watch (step 7) → Claude Code: with several PRs in flight
+  in `all` mode, run watches in the background via `run_in_background` /
+  Codex: run `ci_watch.sh` per PR sequentially. The watch itself always
+  stays with the parent (it uses `gh`).
+- CI repair (step 7, on FAIL only) → same on both platforms: the watch is
+  already redirected to `<runstate>/ci/<pr>.log` — outside the worktree, so it
+  cannot leave the worktree dirty or be swept into a commit — and that path is
+  handed to `codex_run.sh task --write --cwd <worktree>`. The parent drives the
+  re-watch and the loop of up to 3 attempts. Only `codex_mode: NONE` falls
+  to the legacy path (Claude Code: one `sonnet` sub-agent per failing PR,
+  re-spawned as `opus` if the same failure survives two attempts in a row /
+  Codex: the main context works one PR at a time, up to 3 attempts, raising
+  its own effort and continuing if the same failure survives two in a row).
+- Presenting options / confirming (step 2's tie-break, preflight's
+  dirty-tree check, etc.) → Claude Code: `AskUserQuestion` / Codex: ask the
+  user directly in plain conversational text and wait for the reply.
+- The citation of `orchestrating-models` §2 (the rationale for model
+  assignment) → that is a Claude-Code-only skill, and it is not bridged
+  from this skill, so Codex cannot resolve the reference. The sonnet/opus
+  assignments themselves stay in SKILL.md's body as a conclusion valid on
+  both platforms — only the citation target goes stale.
+- The `gh` CLI (issue/PR/Actions operations, auth) → in the parent, plain
+  `gh` works as-is on both platforms — no extra connector or plugin needed.
+  The Codex sandbox is the only exception (above).
 
-## Codex での制約(best-effort 劣化)
+## Constraints under Codex (best-effort degradation)
 
-- サブエージェント起動(priority research、`codex_mode: NONE` 時の各フォールバック)→
-  spawn 能力が公開されていないランタイムでは、すべてメインの逐次インライン実行に
-  なる。能力の有無はランタイムに対して判定し、製品名から推測しない。
-- `all` モードでの issue 間並列実装・CI-watch 並列化 → 一度に 1 issue/worktree・
-  1 PR ずつの逐次実行になる。rank → implement → CI → merge のフェーズ順序は
-  保たれるが、**コストは所要時間だけではない**: 委譲が担っていた issue ごとの
-  コンテキスト隔離も失われ、diff・リポジトリ探索・CI ログが 1 つのコンテキストに
-  run 全体ぶん積み上がる。逐次パスの `all` は少数ずつに区切って回し、残りは
-  deferred として報告する。
-- ステップ 4.5 のレビュー → `codex_mode: NONE` のときは能力の梯子を上から取る:
-  ①委譲できるなら独立レビュアーを 1 体(`REVIEW: DELEGATED`。diff を書いていない
-  文脈が読む点でレビューとして成立する) ②無ければ UNAVAILABLE。②では自分の diff を
-  読み直して「レビューした」ことにせず、`REVIEW: UNAVAILABLE` として続行するが、
-  これは**明示された低保証モード**であって黙って飛ばす状態ではない: run record に
-  `--event review --field status=UNAVAILABLE` として残し、ステップ 8 のレポートの
-  当該 issue 行にも `REVIEW: UNAVAILABLE` を付ける。lint・型・テスト・CI は通って
-  いるが、不要な複雑性・issue の意図とのずれ・保守性は誰も見ていない、という
-  保証レベルの差をユーザーが読み取れるようにするため。
-- Git 操作の sandbox 制限 → `git status`/`commit`/`push`/`switch` は通っても、
-  `.git/index.lock` や `FETCH_HEAD` の書き込みを伴う操作(`git fetch`、
-  `git pull`、branch/ref 削除、worktree 操作、`cleanup_run.sh` 全体)が
-  `Operation not permitted` で失敗することがある。スキル側に分岐は設けない —
-  その Git 操作だけ権限を昇格して再実行する。
-- ツールキャッシュの書き込み制限 → パッケージマネージャやテストランナーが既定の
-  ユーザーキャッシュ(`~/.cache/...` 等)に書けず、初回の依存解決やテスト実行が
-  失敗することがある。そのツールのキャッシュ用環境変数を書き込み可能な一時
-  ディレクトリへ向けて(`<TOOL>_CACHE_DIR=<writable tmp>` の形で)再実行する。
+- Spawning sub-agents (priority research, and each fallback under
+  `codex_mode: NONE`) → on a runtime that does not expose spawn capability,
+  everything becomes sequential inline execution in the main context. Judge
+  the capability against the runtime, never guess it from the product name.
+- Parallel implementation across issues and parallelized CI-watch in `all`
+  mode → both become sequential, one issue/worktree and one PR at a time.
+  The rank → implement → CI → merge phase order is preserved, but **the cost
+  is not just wall-clock time**: the per-issue context isolation that
+  delegation provided is also lost, so diffs, repo exploration, and CI logs
+  for the whole run pile up in one context. Run the sequential path's `all`
+  in small batches and report the rest as deferred.
+- Step 6's review → with no usable Codex, take the highest rung of
+  capability still reachable:
+  1. Where the runtime exposes delegation, spawn ONE independent reviewer
+     against the branch — assign it `opus`, since review and bug-finding is
+     Opus-class work — and record `REVIEW: DELEGATED` (this counts as a
+     review because a context that never wrote the diff is reading it).
+  2. Otherwise, `REVIEW: UNAVAILABLE`.
+
+  Never re-read your own diff and call that a review. `UNAVAILABLE` is an
+  explicit lowered-assurance mode, not a silent skip: record it in the run
+  record as `--event review --field status=UNAVAILABLE`, and name it again
+  on that issue's line in the step 11 report. Lint, types, tests, and CI all
+  passed, but nothing judged the change for unnecessary complexity, intent
+  match, or maintainability — the user needs to be able to see that gap in
+  assurance.
+- Git sandbox restrictions → `git status`/`commit`/`push`/`switch` go
+  through, but operations that write to `.git/index.lock` or `FETCH_HEAD`
+  (`git fetch`, `git pull`, deleting a branch/ref, worktree operations,
+  `cleanup_run.sh` as a whole) can fail with `Operation not permitted`. The
+  skill adds no branch for this — just re-run that one Git operation with
+  elevated permissions.
+- Tool cache write restrictions → a package manager or test runner may be
+  unable to write to its default user cache (`~/.cache/...`, etc.), so the
+  first dependency resolution or test run can fail. Re-run it with that
+  tool's cache environment variable pointed at a writable temp directory
+  (`<TOOL>_CACHE_DIR=<writable tmp>`).

@@ -6,17 +6,20 @@
 - [Implementation](#implementation-codex-write-capable-one-worktree-per-issue)
 - [Review](#review-codex-read-only-run-from-the-parent)
 - [CI repair](#ci-repair-codex-write-capable-only-on-fail)
-- [Merge and issue closure](#merge-and-issue-closure-no-delegation)
+- [Adversarial focus file](#adversarial-focus-file-codex-read-only-heavy-diffs-only)
 
 Copy-and-fill templates for the handoffs this skill makes. Each carries intent,
 concrete paths, embedded context, and an output contract, so the parent never
 receives raw `gh` JSON or full CI logs.
 
 Implementation, review, and CI repair go to Codex through
-`scripts/codex_run.sh`; priority research stays on a Claude sub-agent because it
-lives entirely in `gh`, which the Codex sandbox cannot authenticate. Model and
+`{SKILL_DIR}/scripts/codex_run.sh`. Priority research does not: it is `gh` calls
+end to end, and `gh` cannot authenticate inside the Codex sandbox, so it stays
+with whatever delegation the calling runtime exposes — or runs inline when it
+exposes none. Why the boundary sits there is argued once, under "Why the split is where it
+is" in this skill's cost-discipline reference. Model and
 reasoning effort are deliberately not passed on the Codex path — see the header
-of `scripts/codex_run.sh` for why. For the Claude-side model choices, follow
+of `scripts/codex_run.sh`. For the non-Codex fallbacks, follow
 `orchestrating-models` §2: unresolved spec → `opus`, fully specified pass/fail →
 `sonnet`. <!-- derived from orchestrating-models §2 -->
 
@@ -34,11 +37,10 @@ when the top rows of a labeled backlog are close enough that the pick needs
 evidence. On a fully labeled backlog, `issue_digest.py --select` is the answer
 and no spawn is warranted.
 
-The agent writes the labels itself — that is the point of the spawn. The parent
-gets the pick and a summary line; the per-issue tier list never crosses back.
-
-This one stays on a Claude sub-agent: every step of it is a `gh` call, and `gh`
-cannot authenticate inside the Codex sandbox.
+The worker writes the labels itself — that is the point of the handoff. What
+comes back is the pick with its evidence, the order behind it, and the
+blocked/unclear lists; the issue prose and the raw digest table never cross
+back.
 
 ```
 Intent: I am about to implement and ship GitHub issues in {owner}/{repo}. Priority
@@ -99,8 +101,11 @@ Return exactly these sections, nothing else:
 - [#A, #B] — disjoint file sets
 - serialize: #C (touches {lockfile/CI/schema})
 
+## Unresolved
+- #N vs #M — the trade-off, left unpicked   (omit this section when there is no tie)
+
 If the top two are genuinely tied on every axis of the rubric, list both under
-"Unresolved" with the trade-off rather than picking one.
+Unresolved with the trade-off rather than picking one.
 ```
 
 ## Implementation (Codex, write-capable, one worktree per issue)
@@ -108,18 +113,16 @@ If the top two are genuinely tied on every axis of the rubric, list both under
 Write the filled template to a file and run it against the issue's worktree:
 
 ```bash
-scripts/codex_run.sh task --write --cwd {worktree_path} --prompt-file {filled_template}
+{SKILL_DIR}/scripts/codex_run.sh task --write --cwd {worktree_path} --prompt-file {filled_template}
 ```
 
-Scope is **branch to pushed commits**. The PR, the link check, CI, and the merge
-belong to the parent — `gh` cannot authenticate inside the Codex sandbox, and
-keeping those in the parent is also what lets every merge-gating fact be
-established from script output rather than accepted on a worker's report.
+Scope is **branch to pushed commits**; the PR, the link check, CI, and the merge
+belong to the parent.
 
-With no Codex on the machine (`codex_run.sh check` exits 3), hand this same
-template to an independent `opus` worker per issue where delegation is
-available, otherwise work through it inline, one issue at a time. The scope does
-not change in the fallback.
+With no usable Codex (`codex_run.sh check` exits 3), hand this same template to
+an independent `opus` worker per issue where delegation is available, otherwise
+work through it inline, one issue at a time. The scope does not change in the
+fallback.
 
 ```
 Intent: You are implementing GitHub issue #{n} in {owner}/{repo}. Your branch
@@ -161,15 +164,18 @@ Do:
    same conditions, and state why the delta is a real improvement and not
    noise. Report both numbers and the command under MEASURE.
 5. Commit in coherent increments, and push as soon as the first coherent commit
-   exists — a run stopped mid-way keeps only what was pushed. Then stop.
-   Do NOT open a pull request and do NOT run `gh` at all; the parent opens the
-   PR from what you return here.
-6. Do NOT clean up after yourself — no `rm`, no worktree removal, no branch
-   deletion; the parent runs one batch cleanup at the end. If you produced
-   gitignored artifacts (fixtures, bench outputs) in the worktree, copy them
-   into the main checkout at {repo_root} before returning or they will be lost.
-   Do not watch CI or wait on anything after your final push either — the
-   parent watches CI; return as soon as your last commit is pushed.
+   exists — a run stopped mid-way keeps only what was pushed.
+6. Two hard prohibitions, both irreversible from here: do NOT run `gh` at all
+   (the parent opens the PR and watches CI), and do NOT delete anything — no
+   `rm`, no worktree removal, no branch deletion; the parent runs one batch
+   cleanup at the end.
+
+<example>
+A correct ending: your last coherent commit is pushed to the remote branch; any
+gitignored artifacts you produced (fixtures, bench outputs) are copied into the
+main checkout at {repo_root}, since this worktree is deleted later; you emit the
+return block below and stop. No PR, no CI watch, no waiting, no cleanup.
+</example>
 
 Return exactly:
 BRANCH: <name>
@@ -192,7 +198,7 @@ remembered or assumed value is caught and costs a full re-check. If a step did
 not run, say so instead of filling the field.
 
 FOLLOW-UPS is how a real defect you must not fix here still survives the run —
-the parent files it as its own issue (SKILL.md step 6.5). Report it there
+the parent files it as its own issue (SKILL.md step 9). Report it there
 rather than widening this change, and rather than staying silent about it.
 Always include what currently prevents it (a guard at another layer, a provider
 that filters the input, a caller that cannot reach it) or "nothing": the parent
@@ -207,10 +213,10 @@ return only UNRESOLVED with what is missing.
 ## Review (Codex, read-only, run from the parent)
 
 Run from the parent against the worktree, after the PR exists and before CI
-(SKILL.md step 4.5):
+(SKILL.md step 6):
 
 ```bash
-scripts/codex_run.sh task --cwd {worktree_path} --prompt-file {filled_template}
+{SKILL_DIR}/scripts/codex_run.sh task --cwd {worktree_path} --prompt-file {filled_template}
 ```
 
 No `--write`, so the reviewer is read-only at the sandbox level and cannot
@@ -219,11 +225,10 @@ implemented the change: a fresh run reads the diff in a context that never wrote
 it, which is the only thing that makes it a review. Re-reading a diff in the
 context that produced it is not one, and neither is the parent skimming it here.
 
-For a heavy diff, add the adversarial pass alongside this one
-(`codex_run.sh review --cwd {worktree_path} --base {base} --focus-file {issue_context}`).
-It judges failure modes, trust boundaries, and rollback safety, and is
-explicitly told to skip style, naming, and cleanup — which is most of what this
-template is looking for. Neither pass replaces the other.
+For a heavy diff, add the [adversarial pass](#adversarial-focus-file-codex-read-only-heavy-diffs-only)
+alongside this one. It judges failure modes, trust boundaries, and rollback
+safety, and is explicitly told to skip style, naming, and cleanup — which is most
+of what this template looks for. Neither pass replaces the other.
 
 ```
 Intent: PR #{pr} implements issue #{n} and merges as soon as CI is green. Lint,
@@ -238,7 +243,7 @@ diff against {base}:
 {issue body, pasted by the parent — you cannot run `gh` from here}
 </issue>
 
-  git -C {worktree_path} diff {base}...HEAD
+  GIT_OPTIONAL_LOCKS=0 git -C {worktree_path} diff {base}...HEAD
 
 Judge exactly what CI cannot:
 - does the implementation match what issue #{n} actually asked for — nothing
@@ -256,14 +261,15 @@ Judge exactly what CI cannot:
 Report the defect, never the patch: file, line, what is wrong, why it matters.
 The context that holds the branch re-derives the fix in the code it can see; a
 patch written from your context is how a review fix causes the next regression.
-Do not edit, commit, or push anything.
 
-Rank findings by whether they should block this merge. A finding outside issue
-#{n}'s scope is still worth reporting — mark it OUT-OF-SCOPE and it becomes a
-follow-up issue rather than a change to this PR.
+Attach a severity and a confidence to every finding and report all of them; the
+parent decides what blocks this merge. A finding outside issue #{n}'s scope is
+still worth reporting — mark it OUT-OF-SCOPE and it becomes a follow-up issue
+rather than a change to this PR.
 
 Return exactly:
-FINDINGS: <one per line as `file:line — what is wrong — why it matters`, or
+FINDINGS: <one per line as `[sev] file:line (conf) — what is wrong — why it
+           matters`, sev = high|medium|low and conf = high|medium|low, or
            "none">
 OUT-OF-SCOPE: <same shape, or "none">
 TESTS: <verdict on the test changes in one or two lines>
@@ -271,9 +277,11 @@ INTENT-MATCH: <does the diff implement issue #{n} as written — yes / no + what
                is missing or extra>
 ```
 
-Applying what comes back is the parent's call: hand the findings verbatim to a
-further `codex_run.sh task --write --cwd {worktree_path}` run, or fix them in
-the parent when it is a line or two. Either way, commit
+`INTENT-MATCH: no` is not a finding — it says the diff is not issue #{n}'s
+change, and the parent handles it as a scope defect before CI. Applying the rest
+is the parent's call: hand the findings verbatim to a further
+`{SKILL_DIR}/scripts/codex_run.sh task --write --cwd {worktree_path}` run, or fix
+them in the parent when it is a line or two. Either way, commit
 (`review: <what was fixed>`), push, and re-run the verification command before
 CI starts.
 
@@ -284,18 +292,20 @@ needs no repair run — and only on a `FAIL` verdict redirects the watch output
 into the worktree and hands Codex the path:
 
 ```bash
-scripts/ci_watch.sh {pr} --timeout 1800 > {worktree_path}/.ci-failure.log
-scripts/codex_run.sh task --write --cwd {worktree_path} --prompt-file {filled_template}
+{SKILL_DIR}/scripts/codex_run.sh task --write --cwd {worktree_path} --prompt-file {filled_template}
 ```
 
-The log goes through a file rather than the prompt so the failing output never
-lands in the parent's context. Codex cannot run `ci_watch.sh` itself — it is a
-`gh` wrapper — so the watch/repair loop lives in the parent: repair, push, the
-parent re-watches, up to **3 attempts** total.
+The failing log reaches the run through a file rather than the prompt, so it
+never lands in the parent's context. That file lives in the run's own state
+directory, **not inside the worktree** — a stray untracked file there makes the
+final cleanup skip the worktree as dirty, and a commit convention that stages
+everything would land the CI log in the PR. Codex cannot run `ci_watch.sh`
+itself — it is a `gh` wrapper — so the watch/repair loop lives in the parent:
+repair, push, the parent re-watches, up to **3 attempts** total.
 
-With no Codex on the machine, hand this template to an independent `sonnet`
-worker per failing PR where delegation is available (escalating to `opus` after
-two failed attempts), otherwise work through it inline, one PR at a time.
+With no usable Codex, hand this template to an independent `sonnet` worker per
+failing PR where delegation is available (escalating to `opus` after two failed
+attempts), otherwise work through it inline, one PR at a time.
 
 ```
 Intent: PR #{pr} implements issue #{n} and will be merged as soon as CI is green.
@@ -304,9 +314,10 @@ fixed and pushed. I will re-watch CI myself after you return — you cannot, and
 must not try to.
 
 The failing checks and the tail of each failing run's log are in:
-  {worktree_path}/.ci-failure.log
+  {ci_log_path}
 
-Read that file first. Then fix the cause in the branch worktree at
+Read that file first. It is outside your worktree; read it there and do not copy
+it in. Then fix the cause in the branch worktree at
 {worktree_path}, commit, and push. Do not run `gh`, do not watch CI, do not
 sleep or poll — return as soon as your fix is pushed.
 
@@ -318,41 +329,73 @@ UNRESOLVED and stop without pushing. Same for a flaky job: if you believe a
 failure is flaky, say which job and why under UNRESOLVED rather than pushing a
 no-op commit to re-trigger it.
 
-If the repo has no CI on this PR (the parent will say so), run the project's own
-verification command in {worktree_path} — {verify_command} — and report its
-result as LOCAL-VERIFY instead.
-
 Return exactly:
 CAUSE: <what actually failed, in one or two lines>
 FIXES: <one line per repair commit, or "none">
-PUSHED: <yes + the remote ref, or "no" + why>
-LOCAL-VERIFY: <command -> pass/fail, or "n/a (CI present)">
+PUSHED: <yes + the remote ref, or "no" + why — "no" ends the repair loop; the
+         parent does not re-watch unchanged code>
 FOLLOW-UPS: <defects the failure exposed that are NOT this PR's to fix, one per
              line as `file:line — what is wrong — what prevents it today`, or
              "none">
 UNRESOLVED: <anything needing a human, or "none">
 ```
 
-Delete `.ci-failure.log` before step 7 if the repo does not already ignore it —
-a stray log file in the worktree makes step 7's cleanup skip it as dirty.
-
 A CI failure is a good detector of pre-existing problems — a flaky job with a
 real race behind it, a check that only passes because of ordering, a fixture
 that has been wrong for months. Put those under FOLLOW-UPS with what currently
-prevents them, so the parent can file them (SKILL.md step 6.5); fix only what
+prevents them, so the parent can file them (SKILL.md step 9); fix only what
 makes *this* PR green.
 
-## Merge and issue closure (no delegation)
+## Adversarial focus file (Codex, read-only, heavy diffs only)
 
-Landing is one script call and a verdict read — run it in the main context:
+Added alongside the Review pass — never instead of it — when the diff touches a
+schema, storage layer, or public contract; adds or bumps a dependency; or
+rewires behavior across several modules.
+
+```bash
+{SKILL_DIR}/scripts/codex_run.sh review --cwd {worktree_path} --base {base} \
+    --focus-file {filled_template}
+```
+
+Both entry points consume this file, but differently, so it has to stand on its
+own: the companion appends it as focus text to a built-in reviewer, while the
+bare `codex exec` fallback pipes it in as the **entire prompt** with no reviewer
+instructions of its own. Written as below it works on either.
 
 ```
-{SKILL_DIR}/scripts/land_pr.sh {pr} --issue {n}
+Intent: PR #{pr} implements issue #{n} in {owner}/{repo} and merges as soon as
+CI is green. A separate pass has already read this diff for scope, complexity,
+and maintainability, and lint/types/tests pass. Your axis is the one neither of
+those covers: how this change fails in production.
+
+The branch is checked out at {worktree_path}; the diff is against {base}:
+
+  GIT_OPTIONAL_LOCKS=0 git -C {worktree_path} diff {base}...HEAD
+
+<issue>
+{issue body, pasted by the parent — you cannot run `gh` from here}
+</issue>
+
+Judge only these axes, and skip style, naming, and cleanup entirely — the other
+pass owns those and duplicate findings cost the parent a triage round:
+- failure modes: what input, ordering, or concurrent state makes this misbehave;
+- trust boundaries: input that reaches a new place without being validated there;
+- data loss and corruption: writes, migrations, deletions, cache invalidation;
+- rollback safety: what happens if this is reverted after it has run once, and
+  whether the change is backward-compatible with data written by the old code.
+
+Report every finding you have, including the uncertain ones, with a severity and
+a confidence. The parent filters; you do not.
+
+Return exactly:
+review_verdict: approve | needs-attention
+FINDINGS: <one per line as `[sev] file:l1-l2 (conf) — what fails — under what
+           conditions`, or "none">
 ```
 
-`--issue {n}` makes the script re-check the closing link before merging (and
-repair a missing `Closes #{n}`), then confirm after the merge that issue #{n}
-really closed — closing it explicitly if GitHub's auto-close did not fire.
-
-Add `--auto` when `ci_watch.sh` reported `review_decision: REVIEW_REQUIRED` or
-`merge_state: BLOCKED` for a reason other than failing checks.
+On the companion entry point this returns `review_verdict: approve |
+needs-attention` in structured form, exit 1 meaning `needs-attention`. On the
+bare `codex exec` fallback it returns `review_verdict: UNSTRUCTURED` followed by
+free text, and the exit code reports only whether the run completed — read the
+text rather than the code. `UNPARSED` means the structured result did not come
+back; treat it the same way.

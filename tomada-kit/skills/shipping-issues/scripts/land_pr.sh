@@ -38,8 +38,8 @@ READY=1
 shift || true
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --issue) ISSUE="${2:?}"; ISSUE="${ISSUE#\#}"; shift 2 ;;
-    --method) METHOD="${2:?}"; shift 2 ;;
+    --issue) [[ $# -ge 2 ]] || { echo "--issue needs a value" >&2; exit 2; }; ISSUE="$2"; ISSUE="${ISSUE#\#}"; shift 2 ;;
+    --method) [[ $# -ge 2 ]] || { echo "--method needs a value" >&2; exit 2; }; METHOD="$2"; shift 2 ;;
     --auto) AUTO=1; shift ;;
     --dry-run) DRY=1; shift ;;
     --no-link-check) LINK_CHECK=0; shift ;;

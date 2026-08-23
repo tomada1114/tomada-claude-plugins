@@ -28,7 +28,7 @@ FIX=0
 shift || true
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --issue) ISSUE="${2:?}"; ISSUE="${ISSUE#\#}"; shift 2 ;;
+    --issue) [[ $# -ge 2 ]] || { echo "--issue needs a value" >&2; exit 3; }; ISSUE="$2"; ISSUE="${ISSUE#\#}"; shift 2 ;;
     --fix) FIX=1; shift ;;
     *) echo "Unknown argument: $1" >&2; exit 3 ;;
   esac
@@ -57,8 +57,13 @@ closes="$(closing_numbers)"
 
 # --- repair a missing closing keyword --------------------------------------
 if [[ -n "$ISSUE" && $FIX -eq 1 ]] && ! printf ',%s,' "$closes" | grep -q ",$ISSUE,"; then
-  tmp="$(mktemp -t link_check_body)" || { echo "verdict: ERROR"; echo "detail: mktemp failed"; exit 3; }
-  gh pr view "$PR" --json body -q .body > "$tmp" 2>/dev/null
+  tmp="$(mktemp "${TMPDIR:-/tmp}/link_check_body.XXXXXX")" || { echo "verdict: ERROR"; echo "detail: mktemp failed"; exit 3; }
+  if ! gh pr view "$PR" --json body -q .body > "$tmp" 2>/dev/null; then
+    echo "verdict: ERROR"
+    echo "detail: could not read PR #$PR body — refusing to rewrite it"
+    rm -f "$tmp"
+    exit 3
+  fi
   printf '\n\nCloses #%s\n' "$ISSUE" >> "$tmp"
   if gh pr edit "$PR" --body-file "$tmp" >/dev/null 2>&1; then
     echo "fix: appended 'Closes #$ISSUE' to the PR body"

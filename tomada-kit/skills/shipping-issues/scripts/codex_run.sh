@@ -18,19 +18,26 @@
 #
 # Prints (all subcommands):
 #   codex_mode: companion | exec | NONE
+# check adds:
+#   codex_cli: <version>       or `unknown`
+#   codex_companion: <path>    or a note that the plugin is absent
+#   codex_auth: ok | NOT_AUTHENTICATED | unknown
+#   codex_ready: yes | no      the caller falls back on anything but `yes`
 # task adds:
 #   codex_status: <n>          0 = the turn completed
 #   codex_thread: <id>         companion mode only
+#   codex_touched: <files>     patch-based edits only; `git status` is the authority
 #   ---- codex output ----     followed by the run's final message, verbatim
 # review adds:
-#   review_verdict: approve | needs-attention | UNPARSED
+#   review_verdict: approve | needs-attention | UNPARSED | UNSTRUCTURED
 #   review_summary: <one line>
 #   FINDINGS:                  one `- [sev] file:l1-l2 (conf) — what — fix` per line
 #
 # Exit codes:
 #   0 = the turn completed (review: verdict approve)
 #   1 = Codex ran but the turn failed (review: verdict needs-attention)
-#   3 = no Codex entry point on this machine — the caller falls back
+#   3 = no Codex entry point on this machine, or (check) Codex is present but
+#       not ready/authenticated — the caller falls back
 #   4 = usage error
 
 set -uo pipefail
@@ -40,6 +47,8 @@ EFFORT="${CODEX_RUN_EFFORT:-}"
 
 emit() { printf '%s: %s\n' "$1" "$2"; }
 die() { printf '%s\n' "$1" >&2; exit 4; }
+
+trap 'rm -f "${ERRF:-}" "${LAST:-}"' EXIT INT TERM
 
 # --- entry point discovery -------------------------------------------------
 # The plugin installs under a version-numbered directory, so the path cannot be
@@ -70,15 +79,23 @@ WRITE=0
 RESUME=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --cwd) DIR="${2:?--cwd needs a value}"; shift 2 ;;
-    --prompt-file) PROMPT_FILE="${2:?--prompt-file needs a value}"; shift 2 ;;
-    --focus-file) FOCUS_FILE="${2:?--focus-file needs a value}"; shift 2 ;;
-    --base) BASE="${2:?--base needs a value}"; shift 2 ;;
+    --cwd) [[ $# -ge 2 ]] || die "--cwd needs a value"; DIR="$2"; shift 2 ;;
+    --prompt-file) [[ $# -ge 2 ]] || die "--prompt-file needs a value"; PROMPT_FILE="$2"; shift 2 ;;
+    --focus-file) [[ $# -ge 2 ]] || die "--focus-file needs a value"; FOCUS_FILE="$2"; shift 2 ;;
+    --base) [[ $# -ge 2 ]] || die "--base needs a value"; BASE="$2"; shift 2 ;;
     --write) WRITE=1; shift ;;
     --resume) RESUME=1; shift ;;
     *) die "Unknown argument: $1" ;;
   esac
 done
+
+if [[ "$CMD" == "--help" || "$CMD" == "-h" ]]; then
+  # Print the header comment block as help: every comment line after the
+  # shebang, up to the first line that is not a comment. Self-adjusting, so
+  # editing the header cannot silently truncate --help.
+  awk 'NR==1 {next} /^#/ {sub(/^# ?/, ""); print; next} {exit}' "$0"
+  exit 0
+fi
 
 emit codex_mode "$MODE"
 [[ "$MODE" == "NONE" ]] && {
@@ -102,22 +119,34 @@ resolve_dir() {
 # --- check -----------------------------------------------------------------
 if [[ "$CMD" == "check" ]]; then
   emit codex_cli "$(codex --version 2>/dev/null || echo unknown)"
+  ready="no"
   if [[ "$MODE" == "companion" ]]; then
     emit codex_companion "$COMPANION"
-    node "$COMPANION" setup --json 2>/dev/null | python3 -c '
+    ERRF="$(mktemp)"
+    setup_json="$(node "$COMPANION" setup --json 2>"$ERRF")"
+    node_status=$?
+    [[ $node_status -ne 0 ]] && sed -n '1,20p' "$ERRF" >&2
+    rm -f "$ERRF"
+    check_out="$(printf '%s' "$setup_json" | python3 -c '
 import json, sys
+raw = sys.stdin.read()
 try:
-    d = json.load(sys.stdin)
+    d = json.loads(raw)
 except Exception:
-    print("codex_auth: unknown"); sys.exit(0)
+    print("codex_auth: unknown")
+    print("codex_ready: no")
+    sys.exit(0)
 print("codex_auth: " + ("ok" if d.get("auth", {}).get("loggedIn") else "NOT_AUTHENTICATED"))
 print("codex_ready: " + ("yes" if d.get("ready") else "no"))
-'
+')"
+    printf '%s\n' "$check_out"
+    ready="$(printf '%s\n' "$check_out" | sed -n 's/^codex_ready: //p')"
   else
     emit codex_companion 'none (plugin not installed; using bare codex exec)'
     emit codex_auth "unknown"
   fi
-  exit 0
+  [[ "$ready" == "yes" ]] && exit 0
+  exit 3
 fi
 
 # --- task ------------------------------------------------------------------
@@ -169,13 +198,16 @@ sys.exit(0 if status == 0 else 1)
   set -- exec -C "$DIR" -s "$SANDBOX" -o "$LAST" --skip-git-repo-check
   [[ -n "$MODEL" ]] && set -- "$@" -m "$MODEL"
   [[ -n "$EFFORT" ]] && set -- "$@" -c "model_reasoning_effort=$EFFORT"
-  codex "$@" - < "$PROMPT_FILE" >/dev/null 2>&1
+  ERRF="$(mktemp)"
+  codex "$@" - < "$PROMPT_FILE" >/dev/null 2>"$ERRF"
   status=$?
+  [[ $status -ne 0 ]] && sed -n '1,20p' "$ERRF" >&2
+  rm -f "$ERRF"
   emit codex_status "$status"
   echo "---- codex output ----"
   cat "$LAST"
   rm -f "$LAST"
-  exit "$status"
+  exit $(( status == 0 ? 0 : 1 ))
 fi
 
 # --- review ----------------------------------------------------------------
@@ -237,13 +269,17 @@ sys.exit(0 if verdict == "approve" else 1)
   set -- exec -C "$DIR" -s read-only -o "$LAST" --skip-git-repo-check
   [[ -n "$MODEL" ]] && set -- "$@" -m "$MODEL"
   [[ -n "$EFFORT" ]] && set -- "$@" -c "model_reasoning_effort=$EFFORT"
-  codex "$@" - < "$FOCUS_FILE" >/dev/null 2>&1
+  ERRF="$(mktemp)"
+  codex "$@" - < "$FOCUS_FILE" >/dev/null 2>"$ERRF"
   status=$?
+  [[ $status -ne 0 ]] && sed -n '1,20p' "$ERRF" >&2
+  rm -f "$ERRF"
   emit review_verdict "UNSTRUCTURED"
   echo "---- codex output ----"
   cat "$LAST"
   rm -f "$LAST"
-  exit "$status"
+  # unstructured, unjudged fallback — never read this as an approval
+  exit 1
 fi
 
 die "Usage: codex_run.sh {check|task|review} [...]"

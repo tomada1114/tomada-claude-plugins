@@ -4,11 +4,13 @@
 # Usage: ci_watch.sh <pr-number> [--timeout SECONDS] [--log-bytes N]
 #
 # Prints:
-#   verdict: PASS | FAIL | TIMEOUT | NO_CHECKS
+#   verdict: PASS | FAIL | TIMEOUT | NO_CHECKS | ERROR
 #   mergeable / merge_state / review_decision
 #   on FAIL: the failing check names plus the tail of each failing run's log
+#   ERROR means the check results could not be read at all — never a green
 #
-# Exit codes: 0 = PASS, 1 = FAIL, 2 = TIMEOUT, 3 = NO_CHECKS, 4 = usage/lookup error
+# Exit codes: 0 = PASS, 1 = FAIL, 2 = TIMEOUT, 3 = NO_CHECKS,
+#             4 = usage/lookup error or ERROR
 
 set -uo pipefail
 
@@ -18,8 +20,8 @@ LOG_BYTES=6000
 shift || true
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --timeout) TIMEOUT="${2:?}"; shift 2 ;;
-    --log-bytes) LOG_BYTES="${2:?}"; shift 2 ;;
+    --timeout) [[ $# -ge 2 ]] || { echo "--timeout needs a value" >&2; exit 4; }; TIMEOUT="$2"; shift 2 ;;
+    --log-bytes) [[ $# -ge 2 ]] || { echo "--log-bytes needs a value" >&2; exit 4; }; LOG_BYTES="$2"; shift 2 ;;
     *) echo "Unknown argument: $1" >&2; exit 4 ;;
   esac
 done
@@ -77,6 +79,7 @@ if [[ -n "$TIMEOUT_BIN" ]]; then
   "$TIMEOUT_BIN" "$TIMEOUT" gh pr checks "$PR" --watch --interval 20 >/dev/null 2>&1
   rc=$?
 else
+  echo "timeout_enforced: no (no timeout/gtimeout on PATH — install coreutils for gtimeout)" >&2
   gh pr checks "$PR" --watch --interval 20 >/dev/null 2>&1
   rc=$?
 fi
@@ -92,7 +95,12 @@ fi
 FAIL_STATES='["FAILURE","TIMED_OUT","CANCELLED","ACTION_REQUIRED","ERROR","STARTUP_FAILURE"]'
 failed_names="$(gh pr checks "$PR" --json name,state,link \
   -q "map(select(.state as \$s | $FAIL_STATES | index(\$s)))[] | [.name, .state, .link] | @tsv" \
-  2>/dev/null)"
+  2>/dev/null)" || {
+  echo "verdict: ERROR"
+  echo "detail: could not read check results for PR #$PR"
+  report_pr_state
+  exit 4
+}
 
 if [[ -z "$failed_names" ]]; then
   echo "verdict: PASS"
@@ -111,6 +119,11 @@ printf '%s\n' "$failed_names" | awk -F'\t' '{print $3}' \
   | grep -oE '/runs/[0-9]+' | grep -oE '[0-9]+' | sort -u | head -5 \
   | while read -r run_id; do
       echo "--- run $run_id ---"
-      gh run view "$run_id" --log-failed 2>/dev/null | tail -c "$LOG_BYTES" | sed 's/^/  /'
+      log="$(gh run view "$run_id" --log-failed 2>/dev/null | tail -c "$LOG_BYTES")"
+      if [[ -n "$log" ]]; then
+        printf '%s\n' "$log" | sed 's/^/  /'
+      else
+        echo "  (no log available for run $run_id — gh run view --log-failed failed)"
+      fi
     done
 exit 1

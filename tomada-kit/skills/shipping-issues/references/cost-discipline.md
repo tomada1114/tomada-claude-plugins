@@ -22,7 +22,7 @@ Run count scales with issue count, not with thoroughness: one triage spawn
 run per failing CI attempt. The adversarial pass is the only conditional extra
 and only for a heavy diff — a schema, storage layer, or public contract; a new
 or bumped dependency; behavior rewired across modules. Filing a follow-up
-(step 6.5) never adds a run — whatever found it already returned the lead under
+(step 9) never adds a run — whatever found it already returned the lead under
 `FOLLOW-UPS`, and confirming it costs a couple of targeted reads in the main
 context, which is also what makes the tier trustworthy.
 
