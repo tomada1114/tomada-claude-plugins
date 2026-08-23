@@ -13,6 +13,7 @@ Seeing a skill trigger tells you Claude found it — not that it did what you in
 - [Running evals with skill-creator](#running-evals-with-skill-creator)
 - [The A/B iteration loop](#the-ab-iteration-loop)
 - [Reading how Claude navigates the skill](#reading-how-claude-navigates-the-skill)
+- [Testing across models](#testing-across-models)
 
 ---
 
@@ -106,3 +107,13 @@ Behavioral signals worth more than any checklist:
 | Never opens a bundled file at all | It's unnecessary, or unsignposted |
 | Activates on the wrong requests | Description too broad — tune with should-not-trigger cases |
 | Never activates unprompted | Trigger keywords are in the body instead of the description, or `paths` is gating it |
+
+## Testing across models
+
+A skill is an addition to a model, not a standalone spec — its effectiveness depends on what the underlying model already needs spelled out. If a skill runs on more than one model, run the same eval cases on each one before calling it done:
+
+- **Haiku** (fast, economical): does the skill provide enough guidance, or does it need a step spelled out that a stronger model would infer?
+- **Sonnet** (balanced): is the skill clear and efficient with no ambiguity left for judgment calls that matter?
+- **Opus** (strongest reasoning): does the skill avoid over-explaining what this model already does correctly unprompted?
+
+A prescriptive block written for Haiku's failure mode is exactly the kind of instruction Opus doesn't need — and, per `prompt-authoring.md`'s "Prescriptiveness budget" section (load via SKILL.md), costs it quality. When a skill must serve models of different strength, prefer the version that clears the weakest model with the least prescription, rather than writing to the strongest model and hoping the weakest infers the gap.

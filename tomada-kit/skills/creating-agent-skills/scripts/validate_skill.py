@@ -9,9 +9,14 @@ Checks:
     2. YAML frontmatter present and parseable (without requiring PyYAML).
     3. Required fields: `name`, `description`.
     4. `name` matches ^[a-z0-9][a-z0-9-]*[a-z0-9]$, no `--`, and len <= 64.
+       Reserved words `anthropic` and `claude` are rejected as whole
+       hyphen-delimited segments (E013).
     5. `description` length <= 1024 chars (Agent Skills limit), and
        `description` + `when_to_use` <= 1536 chars (Claude Code listing cap).
-    6. SKILL.md body <= 500 lines (warning at 500, error at 800).
+       First/second-person framing is warned about (W024), ignoring quoted
+       <example> dialogue.
+    6. SKILL.md body warns above 200 lines (target <= 150) and errors above
+       500 lines.
     7. Relative links to references/, assets/, scripts/, examples/ resolve.
     8. No single code block in SKILL.md exceeds 25 lines (warning; move logic to scripts/).
     9. Dual-platform neutrality (N1-N4, delegated to dual-platform-skills/scripts/neutrality_lint.py):
@@ -39,6 +44,17 @@ from pathlib import Path
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$")
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 CODE_BLOCK_RE = re.compile(r"^```[^\n]*\n(.*?)^```", re.DOTALL | re.MULTILINE)
+DESCRIPTION_PERSON_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bI can help\b"),
+    re.compile(r"\bI'll \b|\bI will \b"),
+    re.compile(r"\byou can use this\b", re.IGNORECASE),
+    re.compile(r"\bthis skill helps you\b", re.IGNORECASE),
+    re.compile(r"^(?:I |You |Your )"),
+)
+# Descriptions commonly embed <example>user: '...' assistant: 'I will use X
+# skill'</example> trigger examples; that quoted dialogue is not the
+# description's own voice, so it's stripped before matching (see below).
+EXAMPLE_BLOCK_RE = re.compile(r"<example>.*?</example>", re.DOTALL | re.IGNORECASE)
 
 
 def _load_neutrality_lint():
@@ -164,6 +180,13 @@ def validate(skill_path: Path) -> Report:
                 f"name '{name}' does not match ^[a-z0-9][a-z0-9-]*[a-z0-9]$",
                 "SKILL.md frontmatter",
             )
+        elif any(segment in {"anthropic", "claude"} for segment in name.lower().split("-")):
+            report.add(
+                "error",
+                "E013",
+                f"name '{name}' contains a reserved word ('anthropic' or 'claude') — not allowed in Agent Skills",
+                "SKILL.md frontmatter",
+            )
         if len(name) > 64:
             report.add("error", "E012", f"name length {len(name)} exceeds 64 chars", "SKILL.md frontmatter")
         if "--" in name:
@@ -198,6 +221,21 @@ def validate(skill_path: Path) -> Report:
                 f"description length {len(description)} approaches 1024-char limit",
                 "SKILL.md frontmatter",
             )
+        # Strip <example>...</example> blocks before scanning: these commonly
+        # quote a hypothetical assistant reply in first person ("assistant:
+        # 'I will use X skill'"), which is not the description's own voice.
+        description_text = EXAMPLE_BLOCK_RE.sub(" ", description).strip()
+        for pattern in DESCRIPTION_PERSON_PATTERNS:
+            match = pattern.search(description_text)
+            if match:
+                snippet = match.group(0).strip()
+                report.add(
+                    "warning",
+                    "W024",
+                    f"description reads in first/second person ('{snippet}'); Agent Skills descriptions should be written in third person",
+                    "SKILL.md frontmatter",
+                )
+                break
 
     # Claude Code truncates description + when_to_use at 1536 chars in the
     # skill listing. Text past the cap never reaches the model at selection time.
@@ -214,13 +252,18 @@ def validate(skill_path: Path) -> Report:
     # Body line count (excluding frontmatter)
     body_lines = text.splitlines()[body_start:]
     report.body_lines = len(body_lines)
-    if report.body_lines > 800:
-        report.add("error", "E030", f"SKILL.md body has {report.body_lines} lines (>800)", "SKILL.md")
-    elif report.body_lines > 500:
+    if report.body_lines > 500:
+        report.add(
+            "error",
+            "E030",
+            f"SKILL.md body has {report.body_lines} lines (>500). Split into references/ before this can be considered done.",
+            "SKILL.md",
+        )
+    elif report.body_lines > 200:
         report.add(
             "warning",
             "W031",
-            f"SKILL.md body has {report.body_lines} lines (>500). Consider splitting into references/.",
+            f"SKILL.md body has {report.body_lines} lines (>200); target is <=150. Split into references/.",
             "SKILL.md",
         )
 

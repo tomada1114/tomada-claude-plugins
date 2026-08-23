@@ -69,7 +69,7 @@ All fields are optional to Claude Code; only `description` is genuinely load-bea
 - Must not start or end with a hyphen
 - Must not contain consecutive hyphens (`pdf--processing` is invalid)
 - Must match the parent directory name
-- Reserved words prohibited: `anthropic`, `claude`
+- Reserved words prohibited: `anthropic`, `claude` — enforced by `validate_skill.py`'s `E013`
 
 **What it controls in Claude Code:** in a personal or project skill, `name` sets only the display label in skill listings — the command you type still comes from the directory name. In a **plugin** skill, `name` replaces the last segment of the command, so `my-plugin/skills/review/SKILL.md` with `name: fancy` becomes `/my-plugin:fancy`. Keeping `name` equal to the directory name avoids the whole class of confusion.
 
@@ -103,7 +103,7 @@ name: claude-helper        # reserved word
 Use when [scenario 1], [scenario 2], or [working with keywords].
 ```
 
-Write in **third person**. The description is injected into the system prompt, and first/second person ("I can help you…", "You can use this to…") degrades selection.
+Write in **third person**. The description is injected into the system prompt, and first/second person ("I can help you…", "You can use this to…") degrades selection — `validate_skill.py`'s `W024` flags the common patterns.
 
 Write in **English only**, even for a skill whose user speaks Japanese. Selection matches on meaning, so a Japanese request reaches an English description without a mirrored keyword list — and mirroring spends the character budget that truncation eats first.
 

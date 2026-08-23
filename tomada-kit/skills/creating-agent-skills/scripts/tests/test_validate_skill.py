@@ -256,6 +256,26 @@ class TestNameAndDescriptionLimits(unittest.TestCase):
         self.assertTrue(any(f.code == "E012" for f in r.errors))
         self.assertFalse(any(f.code == "E011" for f in r.errors))
 
+    def test_e013_reserved_name_segments(self):
+        for name in ("claude-helper", "my-claude-skill", "anthropic-tools"):
+            with self.subTest(name=name):
+                skill = write_skill(
+                    self.root,
+                    name=name,
+                    skill_md=f"---\nname: {name}\ndescription: d\n---\n",
+                )
+                r = vs.validate(skill)
+                self.assertTrue(any(f.code == "E013" for f in r.errors))
+
+    def test_e013_does_not_match_claudia(self):
+        skill = write_skill(
+            self.root,
+            name="claudia-helper",
+            skill_md="---\nname: claudia-helper\ndescription: d\n---\n",
+        )
+        r = vs.validate(skill)
+        self.assertFalse([f for f in r.findings if f.code == "E013"])
+
     def test_w022_description_approaching_limit(self):
         desc = "x" * 950  # 901-1024 range
         skill = write_skill(self.root, skill_md=f"---\nname: sample-skill\ndescription: {desc}\n---\n")
@@ -272,25 +292,98 @@ class TestNameAndDescriptionLimits(unittest.TestCase):
         self.assertTrue(any(f.code == "W023" for f in r.warnings))
 
 
+class TestDescriptionPerson(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def test_first_and_second_person_patterns_warn(self):
+        cases = (
+            ("i-prefixed", "I build concise reports."),
+            ("you-prefixed", "You build concise reports."),
+            ("your-prefixed", "Your workflow starts here."),
+            ("i-can-help", "I can help with concise reports."),
+            ("ill", "I'll build concise reports."),
+            ("i-will", "I will build concise reports."),
+            ("you-can-use-this", "Run this process; you can use this skill for reports."),
+            ("this-skill-helps-you", "This skill helps you create concise reports."),
+        )
+        for name, description in cases:
+            with self.subTest(name=name):
+                skill = write_skill(
+                    self.root,
+                    name=f"description-{name}",
+                    skill_md=(
+                        f"---\nname: description-{name}\n"
+                        f"description: {description}\n---\n"
+                    ),
+                )
+                r = vs.validate(skill)
+                w024 = [f for f in r.warnings if f.code == "W024"]
+                self.assertEqual(len(w024), 1)
+
+    def test_third_person_description_does_not_warn(self):
+        skill = write_skill(
+            self.root,
+            skill_md=(
+                "---\nname: sample-skill\n"
+                "description: Creates concise reports from source material.\n---\n"
+            ),
+        )
+        r = vs.validate(skill)
+        self.assertFalse([f for f in r.findings if f.code == "W024"])
+
+    def test_example_block_dialogue_does_not_warn(self):
+        # Third-person description with embedded trigger examples whose quoted
+        # assistant replies say "I will" / "I can help" — this is the common
+        # idiom across this skill collection and must not be mistaken for the
+        # description's own voice, regardless of which person-pattern phrase
+        # the quoted dialogue happens to use.
+        skill = write_skill(
+            self.root,
+            skill_md=(
+                "---\nname: sample-skill\n"
+                "description: >-\n"
+                "  Creates concise reports from source material. <example>user: 'Summarize this'\n"
+                "  assistant: 'I will use sample-skill'</example> <example>user: 'Help'\n"
+                "  assistant: 'I can help with sample-skill'</example>\n---\n"
+            ),
+        )
+        r = vs.validate(skill)
+        self.assertFalse([f for f in r.findings if f.code == "W024"])
+
+
 class TestBodyLineCounts(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
 
-    def test_e030_body_over_800_lines(self):
-        body = "\n".join(f"line {i}" for i in range(801))
+    def _validate_body_lines(self, count: int):
+        body = "\n".join(f"line {i}" for i in range(count))
         skill_md = "---\nname: sample-skill\ndescription: d\n---\n" + body + "\n"
         skill = write_skill(self.root, skill_md=skill_md)
-        r = vs.validate(skill)
-        self.assertTrue(any(f.code == "E030" for f in r.errors))
+        return vs.validate(skill)
 
-    def test_w031_body_between_501_and_800_lines(self):
-        body = "\n".join(f"line {i}" for i in range(600))
-        skill_md = "---\nname: sample-skill\ndescription: d\n---\n" + body + "\n"
-        skill = write_skill(self.root, skill_md=skill_md)
-        r = vs.validate(skill)
-        self.assertTrue(any(f.code == "W031" for f in r.warnings))
+    def test_body_at_200_lines_has_no_size_finding(self):
+        r = self._validate_body_lines(200)
+        self.assertFalse([f for f in r.findings if f.code in ("W031", "E030")])
+
+    def test_body_at_201_lines_warns(self):
+        r = self._validate_body_lines(201)
+        size_findings = [f for f in r.findings if f.code in ("W031", "E030")]
+        self.assertEqual([f.code for f in size_findings], ["W031"])
+
+    def test_body_at_500_lines_warns_not_errors(self):
+        r = self._validate_body_lines(500)
+        size_findings = [f for f in r.findings if f.code in ("W031", "E030")]
+        self.assertEqual([f.code for f in size_findings], ["W031"])
+
+    def test_body_at_501_lines_errors(self):
+        r = self._validate_body_lines(501)
+        size_findings = [f for f in r.findings if f.code in ("W031", "E030")]
+        self.assertEqual([f.code for f in size_findings], ["E030"])
 
 
 class TestCodeBlockSize(unittest.TestCase):

@@ -37,6 +37,9 @@ Wraps validate_skill.py and adds editorial / structural checks:
         freely, since some skills exist to produce Japanese text. There is
         no opt-out: a skill whose subject is Japanese still describes
         itself in English.
+  A010  references/*.md files over 400 lines — a candidate to split by domain
+        concern (mirrors SKILL.md's own size budget applied to references/).
+        Same opt-out mechanism as A006 (see below), code `A010`.
 
   N1-N4 Dual-platform neutrality — inherited automatically, not a separate
         check here. `validate_skill.validate()` (this script's base `report`)
@@ -44,8 +47,9 @@ Wraps validate_skill.py and adds editorial / structural checks:
         its N1-N4 findings in, so they appear in every audit report without
         duplicate logic. See validate_skill.py's own docstring (check 9).
 
-Also emits a `profile` block (body_lines, reference_count, has_scripts,
-has_tests, spawns_subagents, has_phases, code_blocks, platforms) — a
+Also emits a `profile` block (body_lines, reference_count, max_reference_lines,
+total_reference_lines, has_scripts, has_tests, spawns_subagents, has_phases,
+code_blocks, platforms) — a
 structural snapshot for deciding things like "should this skill be split"
 or "does it need scripts/tests/", not itself a pass/fail check.
 
@@ -188,6 +192,7 @@ TOC_HEADING_RE = re.compile(
 )
 ANCHOR_LINK_RE = re.compile(r"\]\(#[^)]+\)")
 TOC_HEAD_LINES = 100  # only files longer than this are required to have a ToC
+REF_SIZE_WARN_LINES = 400  # references/*.md over this: split by domain concern
 TOC_SCAN_LINES = 40  # ToC must be detectable within this many leading lines
 TOC_MIN_ANCHOR_LINKS = 3
 
@@ -286,6 +291,28 @@ def find_missing_toc(skill_path: Path, refs_dir: Path) -> list[validate_skill.Fi
     return findings
 
 
+def find_oversized_refs(skill_path: Path, refs_dir: Path) -> list[validate_skill.Finding]:
+    """A010: flag references/*.md files over the reference-size budget."""
+    findings: list[validate_skill.Finding] = []
+    for md in sorted(refs_dir.glob("*.md")):
+        rel = md.relative_to(skill_path).as_posix()
+        text = md.read_text(encoding="utf-8")
+        lines = text.splitlines()
+        if len(lines) <= REF_SIZE_WARN_LINES:
+            continue
+        if is_file_ignored(lines, "A010"):
+            continue
+        findings.append(
+            validate_skill.Finding(
+                "warning",
+                "A010",
+                f"{len(lines)}-line reference exceeds {REF_SIZE_WARN_LINES} lines — split by domain concern into multiple references/*.md files",
+                rel,
+            )
+        )
+    return findings
+
+
 def scan_legacy_phrasings(text: str, location: str) -> list[validate_skill.Finding]:
     """Flag legacy prompt phrasings, honoring audit-ignore directives.
 
@@ -326,6 +353,8 @@ HAS_PHASES_RE = re.compile(r"^#{2,4}\s+(?:Phase|Step|P\d|Stage)\b", re.MULTILINE
 class Profile:
     body_lines: int = 0
     reference_count: int = 0
+    max_reference_lines: int = 0
+    total_reference_lines: int = 0
     has_scripts: bool = False
     has_tests: bool = False
     spawns_subagents: bool = False
@@ -350,11 +379,18 @@ def build_profile(skill_path: Path, body: str) -> Profile:
     has_tests = tests_dir.is_dir() and any(tests_dir.glob("test_*.py"))
 
     refs_text = ""
+    max_reference_lines = 0
+    total_reference_lines = 0
     for md in ref_files:
         try:
-            refs_text += "\n" + md.read_text(encoding="utf-8")
+            ref_text = md.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             pass
+        else:
+            reference_lines = len(ref_text.splitlines())
+            max_reference_lines = max(max_reference_lines, reference_lines)
+            total_reference_lines += reference_lines
+            refs_text += "\n" + ref_text
     spawns_subagents = bool(SPAWNS_SUBAGENTS_RE.search(body + "\n" + refs_text))
 
     has_phases = bool(HAS_PHASES_RE.search(body))
@@ -378,6 +414,8 @@ def build_profile(skill_path: Path, body: str) -> Profile:
     return Profile(
         body_lines=len(body.splitlines()),
         reference_count=reference_count,
+        max_reference_lines=max_reference_lines,
+        total_reference_lines=total_reference_lines,
         has_scripts=has_scripts,
         has_tests=has_tests,
         spawns_subagents=spawns_subagents,
@@ -479,6 +517,7 @@ def audit(
     if refs_dir.exists():
         extras.extend(find_ref_to_ref_links(skill_path, refs_dir))
         extras.extend(find_missing_toc(skill_path, refs_dir))
+        extras.extend(find_oversized_refs(skill_path, refs_dir))
 
     profile = build_profile(skill_path, body)
 
@@ -501,6 +540,8 @@ def render_markdown(
     lines.append("## Profile")
     lines.append(f"- **body_lines:** {profile.body_lines}")
     lines.append(f"- **reference_count:** {profile.reference_count}")
+    lines.append(f"- **max_reference_lines:** {profile.max_reference_lines}")
+    lines.append(f"- **total_reference_lines:** {profile.total_reference_lines}")
     lines.append(f"- **has_scripts:** {profile.has_scripts}")
     lines.append(f"- **has_tests:** {profile.has_tests}")
     lines.append(f"- **spawns_subagents:** {profile.spawns_subagents}")

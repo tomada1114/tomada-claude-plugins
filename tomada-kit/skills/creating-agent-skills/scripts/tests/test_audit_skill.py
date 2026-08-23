@@ -284,6 +284,43 @@ class TestA008MissingToc(unittest.TestCase):
         self.assertFalse([f for f in extras if f.code == "A008"])
 
 
+class TestA010OversizedReferences(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def _reference_body(self, count: int, header: str | None = None) -> str:
+        lines = [header] if header else []
+        while len(lines) < count:
+            lines.append(f"line {len(lines)}")
+        return "\n".join(lines) + "\n"
+
+    def _audit_reference(self, content: str):
+        skill = write_skill(
+            self.root,
+            skill_md="---\nname: sample-skill\ndescription: d\n---\nSee [a](references/a.md).\n",
+            extra={"references/a.md": content},
+        )
+        return au.audit(skill)
+
+    def test_400_line_reference_is_not_flagged(self):
+        _, extras, _profile = self._audit_reference(self._reference_body(400))
+        self.assertFalse([f for f in extras if f.code == "A010"])
+
+    def test_401_line_reference_is_flagged(self):
+        _, extras, _profile = self._audit_reference(self._reference_body(401))
+        a010 = [f for f in extras if f.code == "A010"]
+        self.assertEqual(len(a010), 1)
+        self.assertEqual(a010[0].level, "warning")
+        self.assertIn("401-line reference exceeds 400 lines", a010[0].message)
+
+    def test_file_level_ignore_suppresses_a010(self):
+        content = self._reference_body(401, "<!-- audit-ignore-file: A010 -->")
+        _, extras, _profile = self._audit_reference(content)
+        self.assertFalse([f for f in extras if f.code == "A010"])
+
+
 class TestBuildProfile(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -311,6 +348,23 @@ class TestBuildProfile(unittest.TestCase):
         self.assertTrue(profile.spawns_subagents)
         self.assertEqual(profile.platforms, "claude-code, codex")
 
+    def test_reference_line_counts_are_computed(self):
+        skill = write_skill(
+            self.root,
+            skill_md=(
+                "---\nname: sample-skill\ndescription: d\n---\n"
+                "See [one](references/one.md) and [two](references/two.md).\n"
+            ),
+            extra={
+                "references/one.md": "one\n" * 3,
+                "references/two.md": "two\n" * 5,
+            },
+        )
+        _, _extras, profile = au.audit(skill)
+        self.assertEqual(profile.reference_count, 2)
+        self.assertEqual(profile.max_reference_lines, 5)
+        self.assertEqual(profile.total_reference_lines, 8)
+
     def test_audit_missing_skill_md_returns_default_profile(self):
         skill_dir = self.root / "no-skill-md"
         skill_dir.mkdir()
@@ -327,6 +381,8 @@ class TestRenderMarkdownNoFindings(unittest.TestCase):
         md = au.render_markdown(skill_path, report, [], profile)
         self.assertIn("No issues detected", md)
         self.assertIn("## Profile", md)
+        self.assertIn("- **max_reference_lines:** 0", md)
+        self.assertIn("- **total_reference_lines:** 0", md)
 
 
 class TestCLI(unittest.TestCase):
@@ -356,7 +412,8 @@ class TestCLI(unittest.TestCase):
         for key in ("validate", "audit", "profile"):
             self.assertIn(key, data)
         for key in (
-            "body_lines", "reference_count", "has_scripts", "has_tests",
+            "body_lines", "reference_count", "max_reference_lines",
+            "total_reference_lines", "has_scripts", "has_tests",
             "spawns_subagents", "has_phases", "code_blocks", "platforms",
         ):
             self.assertIn(key, data["profile"])

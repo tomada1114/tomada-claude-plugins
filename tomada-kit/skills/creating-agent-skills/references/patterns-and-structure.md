@@ -9,6 +9,7 @@ This document covers directory structure, integration patterns, workflow pattern
 - [Skills vs Slash Commands](#skills-vs-slash-commands)
 - [Three Storage Locations](#three-storage-locations)
 - [Directory Structure](#directory-structure)
+- [Sizing and slimming SKILL.md](#sizing-and-slimming-skillmd)
 - [Subagent Integration](#subagent-integration)
 - [References as Numbered Checklists](#references-as-numbered-checklists)
 - [Templates: Scaffold vs Reference Guide](#templates-scaffold-vs-reference-guide)
@@ -18,6 +19,7 @@ This document covers directory structure, integration patterns, workflow pattern
   - [Feedback Loop](#feedback-loop)
 - [One Skill = One Capability](#one-skill--one-capability)
 - [Tool Restrictions](#tool-restrictions)
+- [What the P0 script pass already covers](#what-the-p0-script-pass-already-covers)
 - [Review checklist](#review-checklist)
 
 ---
@@ -106,6 +108,40 @@ The canonical layout, the three loading levels, and the degrees-of-freedom scale
 **Migration from legacy structure:** if a skill uses flat files like `reference.md`, `examples.md`, `templates/`, or `docs/`, consolidate into `scripts/` + `references/` + `assets/` — documentation to `references/`, templates to `assets/`, utility code to `scripts/`.
 
 **Organizing `references/`:** split by domain concern, not by file type, and say in SKILL.md when each file should be read. Conditional branches ("React project → read `react-patterns.md`") are fine as long as every reference stays one level deep from SKILL.md.
+
+---
+
+## Sizing and slimming SKILL.md
+
+The numbers, stated once: SKILL.md body target ≤150 lines, warning above 200
+(`W031`), error above 500 (`E030`, `validate_skill.py`'s enforced ceiling).
+`references/*.md` warns above 400 lines (`A010`, `audit_skill.py`) — the same
+budget applied one level down, so content pushed out of the body doesn't just
+become a new monolith.
+
+**Decision rule.** The body keeps the dispatch map (what routes to what),
+the decision points (branches only the model needs to see every time), and
+the hard rules. Everything else moves to `references/`:
+
+- content only one branch of the skill's logic ever needs;
+- rationale for *why* a rule exists, as opposed to the rule itself;
+- a worked example, once the rule itself is stated;
+- any single sub-topic running past roughly 15 lines in the body.
+
+**Slimming an existing skill.** Read the body top to bottom and mark each
+section against the four bullets above. For each marked section: create (or
+extend) one `references/<topic>.md` scoped to a single domain concern — not a
+dumping ground — move the content verbatim, add a Table of Contents if the
+result exceeds 100 lines, and leave a one-line pointer in SKILL.md saying what
+the reference holds and when to read it. Re-run `validate_skill.py` and
+`audit_skill.py` after each move; `A010` catches a reference that grew past
+400 lines and needs splitting again by concern rather than by file size alone.
+
+A body sitting comfortably under 150 lines after this pass is not itself proof
+the skill still does its job — check it against `evaluating-skills.md`'s gap
+list (load via SKILL.md); a rule moved out of
+the body is only safe to remove if nothing depended on the model seeing it on
+every trigger.
 
 ---
 
@@ -265,9 +301,9 @@ Metadata for every installed skill costs only ~50-100 tokens each, so a large co
 coding-assistant/SKILL.md
 
 # Good: focused skills
-testing-code/SKILL.md       # 300 lines
-writing-documentation/SKILL.md  # 250 lines
-debugging-errors/SKILL.md   # 200 lines
+testing-code/SKILL.md           # 140 lines
+writing-documentation/SKILL.md  # 110 lines
+debugging-errors/SKILL.md       # 90 lines
 ```
 
 ---
@@ -299,15 +335,28 @@ File ops: `Read`, `Write`, `Edit`, `Glob`, `NotebookEdit`. Search: `Grep`. Execu
 
 ---
 
+## What the P0 script pass already covers
+
+The Improving playbook's lenses (`prompt-authoring.md`, `agent-neutral-authoring.md`, this file, `scripts-guide.md`, `orchestration-patterns.md`) should not re-derive what `validate_skill.py` and `audit_skill.py` already emit as findings:
+
+- frontmatter validity, name rules (reserved words: `E013`), description length and listing truncation, description person (`W024`), body and code-block size (`E030`/`W031`), broken and escaping links — E/W codes;
+- trigger headings in the body, duplicate headings, orphan references, reference-to-reference links, missing ToC, oversized references, Japanese frontmatter, legacy phrasings as a hint — `A001`–`A010`;
+- raw tool names and platform paths in body text, missing `metadata.platforms` — `N1`–`N4`;
+- test presence, test results, coverage, shebang, hardcoded paths, `.gitignore` — `S001`–`S007` (`check_scripts.py`, only when the skill has `scripts/`).
+
+A lens finding that only restates one of these codes is redundant; a lens exists to see what the scripts cannot.
+
+---
+
 ## Review checklist
 
-Used by the Improving playbook's *structure* lens. `A001`/`A002`/`A003`/`A005`/`A007`/`A008`/`A009` and the E/W codes handle the mechanical part; these items are about whether the structure does its job.
+Used by the Improving playbook's *structure* lens. `A001`/`A002`/`A003`/`A005`/`A007`/`A008`/`A009`/`A010` and the E/W codes handle the mechanical part; these items are about whether the structure does its job.
 
 ### ST1: SKILL.md dispatches rather than duplicates
 Each reference has a one-line "read when" in SKILL.md, and no content is repeated in both places.
 
 ### ST2: Three-level loading respected
-Nothing in SKILL.md that only one branch needs and runs past ~30 lines (belongs in `references/`); nothing in `references/` that every run re-reads (belongs in SKILL.md).
+Body target ≤150 lines, warning above 200, error above 500 (see [Sizing and slimming SKILL.md](#sizing-and-slimming-skillmd)). Nothing in SKILL.md that only one branch needs and runs past ~15 lines (belongs in `references/`); nothing in `references/` that every run re-reads (belongs in SKILL.md).
 
 ### ST3: Description is accurate against what the body actually does
 Key use case in the first sentence, third person, concrete trigger vocabulary, and specific enough that should-not-trigger requests stay out. No "When to use" section in the body. For "never fires" / "fires too often" complaints, use `yaml-spec.md`'s "Diagnosing activation" section (load via SKILL.md) and the should/should-not cases in `evaluating-skills.md` (load via SKILL.md).
@@ -326,3 +375,6 @@ README / CHANGELOG / setup guides / concept explanations the model already has a
 
 ### ST8: One skill, one capability
 Unrelated sections or a body past 500 lines are split candidates.
+
+### ST9: References stay scoped, not just relocated
+No `references/*.md` file over 400 lines (`A010`) without a Table of Contents and a clear single domain concern — content moved out of SKILL.md to satisfy ST2 must land in a scoped reference, not become a second monolith.
