@@ -57,6 +57,20 @@ environment variable pointed at a writable temp directory
 (`<TOOL>_CACHE_DIR=<writable tmp>`). Worth stating in the prompt when you
 already know the project needs a network install.
 
+## `--cwd` scoped too wide can fail silently
+
+Pointing `--cwd` at a large parent repository, rather than the specific
+directory the prompt actually reads and writes, can produce `codex_status`
+non-zero with **completely empty output** — no error, no partial finding, no
+clue in the return. This is not the same failure as an incomplete turn (see
+below); there is nothing to resume, because nothing ran.
+
+Scope `--cwd` to the narrowest directory that contains everything the prompt
+references, and widen it only if a run then reports it cannot reach a file it
+needs. A read-only investigation or review over one project's subtree is the
+common case this bites — point `--cwd` at that subtree, not at the workspace
+root it happens to live inside.
+
 ## `codex_touched:` is not the file list
 
 It lists only edits made through patches. Files written by shell redirection do

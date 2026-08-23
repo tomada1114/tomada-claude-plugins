@@ -44,7 +44,6 @@ Codex.** On a Codex host it may not resolve at all, in which case
 `{CODEX_SKILL_DIR}` cannot be filled and steps 3, 6 and 7 take the
 `codex_mode: NONE` ladder below. Treat that as the expected Codex-host path,
 not as a broken install.
-template before launching.
 
 ## Tool mapping
 
