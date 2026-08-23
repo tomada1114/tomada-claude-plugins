@@ -67,16 +67,19 @@ omitted when cwd is the repo being shipped. Events: `run-start`, `selection`
 ### 0. Preflight
 
 `{SKILL_DIR}` below is the absolute path of this skill's own directory, which
-the calling context substitutes before running anything. Markdown links to
-bundled files stay relative.
+the calling context substitutes before running anything; `{CODEX_SKILL_DIR}` is
+the sibling **`delegating-to-codex`** skill's directory, which owns the Codex
+runner and the generic delegation templates this one fills in. Markdown links
+to bundled files stay relative.
 
-**Requires:** `gh` (authenticated), `git`, `python3`. Optional: the Codex CLI —
-plus Node for its companion entry point — for steps 3, 6 and 7; `coreutils` for
-`gtimeout`, without which the CI watch has no enforced timeout.
+**Requires:** `gh` (authenticated), `git`, `python3`, and the
+`delegating-to-codex` skill. Optional: the Codex CLI — plus Node for its
+companion entry point — for steps 3, 6 and 7; `coreutils` for `gtimeout`,
+without which the CI watch has no enforced timeout.
 
 ```bash
 {SKILL_DIR}/scripts/preflight.sh
-{SKILL_DIR}/scripts/codex_run.sh check
+{CODEX_SKILL_DIR}/scripts/codex_run.sh check
 ```
 
 `verdict: BLOCKED` stops the run — report the blocker and stop. A dirty working
@@ -174,13 +177,13 @@ git -C <repo> worktree add <repo>/.claude/worktrees/<n> -b <type>/<n>-<slug> <de
 ```
 
 In single mode `<worktree>` may be the main checkout instead, in which case skip
-the `worktree add` and let the run create the branch. Then write the filled
-Implementation template from
-[references/delegation-templates.md](references/delegation-templates.md) to
+the `worktree add` and let the run create the branch. Then fill the generic
+Implementation template per
+[references/delegation-templates.md](references/delegation-templates.md) into
 `<runstate>/prompts/<n>-impl.md` and run it:
 
 ```bash
-{SKILL_DIR}/scripts/codex_run.sh task --write --cwd <worktree> --prompt-file <runstate>/prompts/<n>-impl.md
+{CODEX_SKILL_DIR}/scripts/codex_run.sh task --write --cwd <worktree> --prompt-file <runstate>/prompts/<n>-impl.md
 ```
 
 Codex carries the issue from branch to pushed commits: read the project's own
@@ -257,12 +260,13 @@ PR targets a non-default branch — retarget it (`gh pr edit <pr> --base
 Between the PR existing and CI judging it there is one review pass that catches
 what CI cannot: whether the change is what issue #N asked for, needless
 complexity, maintainability, and tests that would still pass with the bug
-present. Write the filled Review template from
-[references/delegation-templates.md](references/delegation-templates.md) to
-`<runstate>/prompts/<n>-review.md` and run it from here against the worktree:
+present. Fill the generic Review template the same way — issue-specific values
+in [references/delegation-templates.md](references/delegation-templates.md) —
+into `<runstate>/prompts/<n>-review.md`, and run it from here against the
+worktree:
 
 ```bash
-{SKILL_DIR}/scripts/codex_run.sh task --cwd <worktree> --prompt-file <runstate>/prompts/<n>-review.md
+{CODEX_SKILL_DIR}/scripts/codex_run.sh task --cwd <worktree> --prompt-file <runstate>/prompts/<n>-review.md
 ```
 
 No `--write`: the reviewer is read-only at the sandbox level, so it reports
@@ -272,11 +276,11 @@ makes it reachable from here.
 
 For a **heavy diff** — one that touches a schema, storage layer, or public
 contract; adds or bumps a dependency; or rewires behavior across several modules
-— add the adversarial pass, whose template is in the same file and whose axis is
-the one the Review template does not judge. Issue both in one message.
+— add the adversarial pass, which sits beside the Review one in both files and
+judges the axis Review does not. Issue both in one message.
 
 ```bash
-{SKILL_DIR}/scripts/codex_run.sh review --cwd <worktree> --base <default_branch> \
+{CODEX_SKILL_DIR}/scripts/codex_run.sh review --cwd <worktree> --base <default_branch> \
     --focus-file <runstate>/prompts/<n>-adversarial.md
 ```
 
@@ -334,12 +338,13 @@ watches concurrently where that is available, issued in one message; otherwise
 one at a time. Record each verdict (`--event ci --field pr=<n> --field
 verdict=<...>`), including one that took repair attempts to reach.
 
-Only on `FAIL`, hand the repair to Codex using the CI repair template in
+Only on `FAIL`, hand the repair to Codex: the generic Failure repair template,
+filled from the CI repair sheet in
 [references/delegation-templates.md](references/delegation-templates.md), which
-takes the log path as `{ci_log_path}`:
+passes the watch output as its `{log_path}`:
 
 ```bash
-{SKILL_DIR}/scripts/codex_run.sh task --write --cwd <worktree> --prompt-file <runstate>/prompts/<n>-cifix.md
+{CODEX_SKILL_DIR}/scripts/codex_run.sh task --write --cwd <worktree> --prompt-file <runstate>/prompts/<n>-cifix.md
 ```
 
 Codex reads that log, fixes the cause, commits, and pushes; this context

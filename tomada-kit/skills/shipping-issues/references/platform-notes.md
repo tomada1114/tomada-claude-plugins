@@ -16,46 +16,34 @@ product. Where delegation is available, use the same path as Claude Code.
 ## Delegating to the Codex runtime (primary path for steps 3 / 6 / 7)
 
 Implementation, review, and CI repair are handed to Codex through
-`scripts/codex_run.sh`. The script automatically picks one of two entry
-points:
+`{CODEX_SKILL_DIR}/scripts/codex_run.sh`, which belongs to the sibling
+**`delegating-to-codex`** skill. That skill owns the runner's contract, the
+generic prompt templates, and the full sandbox-limits list; read its
+`references/sandbox-constraints.md` when a run fails for a reason the prompt
+cannot explain. Four of its rules decide how *this* skill routes:
 
-- `codex_mode: companion` — when the openai-codex plugin is installed in
-  Claude Code. Calls
-  `~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs`
-  (the version number sits in the path, so the latest is resolved with
-  `sort -V`). Job tracking, `--resume-last`, and structured review output are
-  all available.
-- `codex_mode: exec` — no plugin, but the `codex` CLI is present. Calls
-  `codex exec` directly. `review` cannot return structured JSON, so
-  `review_verdict: UNSTRUCTURED`, and `--resume` is unavailable.
-- `codex_mode: NONE` (exit 3) — no *usable* Codex: the `codex` CLI is absent,
-  or present but unauthenticated (`codex_auth: NOT_AUTHENTICATED`) or not
-  ready (`codex_ready: no`). `check` reports `codex_auth` and `codex_ready`
-  lines that say which one it was. Falls back to the legacy delegation paths
-  described in each SKILL.md step (`opus`/`sonnet` sub-agents, or sequential
-  inline work).
+- **Entry point.** `codex_mode: companion` (the openai-codex plugin is
+  installed) has job tracking, `--resume`, and structured review output;
+  `codex_mode: exec` (bare `codex` CLI) loses `--resume` and returns
+  `review_verdict: UNSTRUCTURED`; `codex_mode: NONE` (exit 3) means no *usable*
+  Codex — absent, unauthenticated, or not ready — and every Codex step falls
+  back to the legacy paths described in each SKILL.md step (`opus`/`sonnet`
+  sub-agents, or sequential inline work). Step 0 settles this once.
+- **`gh` cannot authenticate inside the Codex sandbox** (`git` still reaches
+  github.com; `gh auth status` fails). So every task that touches the GitHub
+  API — priority research, PR creation, `link_check.sh`, `ci_watch.sh`,
+  `land_pr.sh` — stays in the parent. Codex only handles code inside the
+  worktree.
+- **Model and effort are never passed**, so each run inherits the Codex CLI's
+  own configuration file.
+- **Codex cannot ask a question back**, and **`codex_touched:` is not the file
+  list** — `git -C <worktree> status --short` is the authority.
 
-**Do not pass model or effort.** Leaving them unset lets
-`~/.codex/config.toml`'s `model` / `model_reasoning_effort` take effect — the
-only path that can use `max` (the companion side explicitly rejects
-`--effort max`). Switching to a new model is a one-line change in
-config.toml. Export `CODEX_RUN_MODEL` / `CODEX_RUN_EFFORT` only for a one-off
-override.
-
-**`gh` cannot authenticate inside the Codex sandbox** (`git` can still reach
-github.com; `gh auth status` fails). So every task that touches the GitHub
-API — priority research, PR creation, `link_check.sh`, `ci_watch.sh`,
-`land_pr.sh` — stays in the parent. Codex only handles code inside the
-worktree.
-
-**`codex_touched:` only picks up edits made through patches.** Files written
-via shell redirection do not show up there, so
-`git -C <worktree> status --short` is the authority on what actually
-changed.
-
-**Codex cannot ask a question back.** It runs non-interactively with
-approvals off, so a hole in the prompt does not come back as a question — it
-comes back as a decision Codex made on its own. Fill every `{brace}` in the
+**`delegating-to-codex` is a Claude-Code-only skill and is not bridged to
+Codex.** On a Codex host it may not resolve at all, in which case
+`{CODEX_SKILL_DIR}` cannot be filled and steps 3, 6 and 7 take the
+`codex_mode: NONE` ladder below. Treat that as the expected Codex-host path,
+not as a broken install.
 template before launching.
 
 ## Tool mapping
@@ -68,14 +56,14 @@ template before launching.
   delegated to the Codex runtime — the whole thing is `gh` calls, and the
   sandbox cannot authenticate them.
 - Implementation (step 3) → same on both platforms:
-  `codex_run.sh task --write --cwd <worktree>`. Only when `codex_mode: NONE`
+  `{CODEX_SKILL_DIR}/scripts/codex_run.sh task --write --cwd <worktree>`. Only when `codex_mode: NONE`
   does it fall to the legacy path (Claude Code: one `opus` sub-agent per
   issue, parallel groups at `isolation: "worktree"` capped at 3 / Codex: the
   main context processes worktrees one at a time). Scope is the same
   regardless of path: branch → implement → test → commit → push. PR creation
   always stays with the parent.
 - Review (step 6) → same on both platforms:
-  `codex_run.sh task --cwd <worktree>` (no `--write` = read-only). Being a
+  `{CODEX_SKILL_DIR}/scripts/codex_run.sh task --cwd <worktree>` (no `--write` = read-only). Being a
   **separate run** from the implementation is the requirement, and `--cwd`
   can point straight at the worktree, so there is no need to thread
   delegation into the worktree at all. Add `codex_run.sh review` only for a
@@ -89,7 +77,7 @@ template before launching.
 - CI repair (step 7, on FAIL only) → same on both platforms: the watch is
   already redirected to `<runstate>/ci/<pr>.log` — outside the worktree, so it
   cannot leave the worktree dirty or be swept into a commit — and that path is
-  handed to `codex_run.sh task --write --cwd <worktree>`. The parent drives the
+  handed to `{CODEX_SKILL_DIR}/scripts/codex_run.sh task --write --cwd <worktree>`. The parent drives the
   re-watch and the loop of up to 3 attempts. Only `codex_mode: NONE` falls
   to the legacy path (Claude Code: one `sonnet` sub-agent per failing PR,
   re-spawned as `opus` if the same failure survives two attempts in a row /

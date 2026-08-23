@@ -38,7 +38,9 @@ script output rather than accepted on a worker's report.
 Implementation stays delegated even when the main model is Opus — a deliberate
 exception to the Opus-main "do it yourself" default, bought for context
 isolation: the diff, the repo exploration, and the CI logs are never needed in
-the main context again. Review is a **separate** Codex run from implementation,
+the main context again. The mechanics of every Codex run — the runner, the
+generic prompt templates, the sandbox limits — belong to the
+`delegating-to-codex` skill; what stays here is which steps go there and why. Review is a **separate** Codex run from implementation,
 which costs one extra run per PR and buys the only thing that makes it a review:
 a context that did not write the diff.
 
@@ -46,9 +48,9 @@ Model and reasoning effort are not passed on the Codex path at all. Leaving them
 unset makes each run inherit the Codex CLI's own configuration file, so the
 model is changed in one place when a newer one ships, and the strongest effort
 setting stays reachable — one of the two entry points rejects the top effort
-level outright while that file accepts it. The header of
-`scripts/codex_run.sh` carries the exact path, the reasoning, and the one-off
-override; `platform-notes.md` repeats it per platform.
+level outright while that file accepts it. The `delegating-to-codex` skill owns
+that rule, the runner, and the one-off override; `platform-notes.md` notes what
+it costs this skill per platform.
 
 The Claude-side model assignments that remain (triage on `sonnet`; the
 no-Codex fallbacks — implementation on `opus`, CI repair on `sonnet` escalating

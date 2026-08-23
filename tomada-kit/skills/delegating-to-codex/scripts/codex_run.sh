@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# codex_run.sh — Run one Codex turn for this skill's implement / review /
-# CI-repair steps, through whichever entry point this machine actually has.
+# codex_run.sh — Run one Codex turn — implement, review, repair, or
+# investigate — through whichever entry point this machine actually has.
 #
 # MODEL AND EFFORT ARE DELIBERATELY NOT PASSED.
 # An unset model and effort make Codex fall back to `~/.codex/config.toml`
