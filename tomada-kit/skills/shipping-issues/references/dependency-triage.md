@@ -5,7 +5,6 @@
 - [Readiness gate](#readiness-gate)
 - [Dependency edges the regex misses](#dependency-edges-the-regex-misses)
 - [Ordering rules](#ordering-rules)
-- [Parallel vs sequential (all mode)](#parallel-vs-sequential-all-mode)
 - [Single mode: which issue](#single-mode-which-issue)
 - [Deciding a held design](#deciding-a-held-design)
 
@@ -42,7 +41,9 @@ next candidate.
 phrasings. These edges only appear on reading:
 
 - **Same-file collision** — two issues that both rewrite `foo.py` are not
-  formally dependent, but must not run in parallel worktrees. Serialize them.
+  formally dependent, but the second one's branch must be cut *after* the
+  first has merged, from the updated default branch — never from a branch
+  point that predates it.
 - **Schema-before-consumer** — an issue adding a column/field must land before
   any issue reading it, even with no cross-reference.
 - **Interface-before-implementation** — a protocol/type issue precedes the
@@ -78,25 +79,6 @@ other's branch can drift.
 The digest's `UNBLOCKS:#a,#b` flag is the reverse of `BLOCKED-BY` and is the
 main input to step 2: an issue several others wait on belongs at the front of
 its level even when it looks small.
-
-## Parallel vs sequential (all mode)
-
-Two issues may run in parallel worktrees only when **all** hold:
-
-- Neither depends on the other, directly or transitively.
-- Their likely file sets do not overlap. Estimate this before spawning by
-  grepping for the symbols/paths named in each issue body — a two-minute check
-  that prevents a merge conflict pileup.
-- Neither changes shared infrastructure (dependency manifests, CI config,
-  lockfiles, migrations, schema) or a shared append-target file (changelog,
-  decision log). Anything touching those is serialized, always.
-
-Cap parallelism at 3 concurrent worktrees. Beyond that, main drifts faster than
-branches can rebase and the conflict cost exceeds the wall-clock saving.
-
-After each merge in a parallel batch, the remaining in-flight branches are
-behind. Rebase them onto the updated default branch before their CI run rather
-than after a failure.
 
 ## Single mode: which issue
 

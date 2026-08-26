@@ -1,6 +1,6 @@
 ---
 name: shipping-issues
-description: "Rank the open GitHub Issues by their `priority: P0`-`P3` labels — backfilling a missing label from whether an issue unblocks others and how far its impact spreads — then implement the top one, open a PR that auto-closes the issue (Closes #N), watch CI until it is green, merge to main, and confirm the issue actually closed. With no argument it ships only the single highest-priority issue; pass \"all\" to work through every issue in dependency order (independent ones in parallel worktrees). Implementation, review, and CI fixes go to Codex runs; issue data and CI watching to scripts, so diffs and logs never enter the main context. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, work through the open issues, or finish off every issue."
+description: "Rank the open GitHub Issues by their `priority: P0`-`P3` labels — backfilling a missing label from whether an issue unblocks others and how far its impact spreads — then implement the top one, open a PR that auto-closes the issue (Closes #N), watch CI until it is green, merge to main, and confirm the issue actually closed. With no argument it ships only the single highest-priority issue; pass \"all\" to work through every issue in dependency order, one at a time, in the main checkout. Implementation, review, and CI fixes go to Codex runs; issue data and CI watching to scripts, so diffs and logs never enter the main context. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, work through the open issues, or finish off every issue."
 argument-hint: "[all | <issue number> | (empty = one issue)]"
 metadata:
   platforms: claude-code, codex
@@ -20,7 +20,7 @@ CLOSED, and nothing was deleted or weakened to get there.
 | Argument | Behavior |
 |---|---|
 | _(none)_ | Ship exactly one issue — the highest-priority shippable one. Stop after it merges and its issue closes. |
-| `all` | Ship every shippable issue, in dependency-then-priority order. Independent issues run in parallel worktrees (cap 3). |
+| `all` | Ship every shippable issue, one at a time, in dependency-then-priority order. Each issue runs the full workflow (steps 1–9) to completion before the next one starts. |
 | a number, e.g. `42` | Ship that specific issue, after checking nothing it depends on is still open. |
 
 Anything else in the argument is a filter hint (a label, a milestone) — apply
@@ -32,13 +32,30 @@ automatically, even under `all`. Take it on only by naming its number
 explicitly or passing `--include-design`, and only when deciding the design
 is itself part of this run — [step 2b](#2b-decide-the-design-before-implementing).
 
+## Working rules
+
+- All work happens in the repo's **main checkout** — this skill never creates
+  a git worktree. `codex:rescue` has no `--cwd` of its own, so a single
+  checkout is what makes "work only inside `{repo_root}`" an unambiguous
+  instruction instead of a guess.
+- One issue runs start to finish — branch, implement, PR, review, CI, merge,
+  issue closed — before the next one begins. `all` mode is this same
+  sequence repeated, never run concurrently.
+- Every issue starts from a clean, up-to-date default branch:
+  `git switch <default> && git pull --ff-only && git switch -c <type>/<n>-<slug>`.
+- After a merge, return to that state before ranking the next issue:
+  `git switch <default> && git pull --ff-only`.
+- A dirty working tree that this run did not create is never touched
+  silently — see [Stop conditions](#stop-conditions).
+
 ## Inputs and outputs
 
 Reads: the current repo's open issues and PRs; the project's own
 `CLAUDE.md` / `AGENTS.md` for conventions.
 Writes: `priority: P0`…`P3` labels, `blocked: design` labels, branches, PRs,
-merge commits, issue closures, follow-up issues (step 9), and a run record — layout, events, why
-nothing lives inside a worktree: [references/run-record.md](references/run-record.md).
+merge commits, issue closures, follow-up issues (step 9), and a run record —
+layout, events, why nothing this run generates lives inside the repo checkout:
+[references/run-record.md](references/run-record.md).
 Call it right after each event happens, not batched at the end:
 
 ```bash
@@ -98,8 +115,8 @@ excluded for having no settled design — expected, not an error; add
 - **more, tangled edges, or a close top-two** — hand
   [references/agents/priority-research.md](references/agents/priority-research.md)
   to an independent `sonnet` worker where delegation is available, else read
-  it and run its steps inline. Returns the pick with evidence, parallel-safe
-  groups, and blocked/unclear lists — never raw issue prose.
+  it and run its steps inline. Returns the pick with evidence, the order after
+  it, and blocked/unclear lists — never raw issue prose.
 
 `--backfill` writes suggested tiers to every unlabeled issue; `--set`
 overrides ones judged differently. Run without asking. Exit 2
@@ -126,31 +143,24 @@ runs one Codex turn and returns its output verbatim. Fill each step's request
 from [delegation-templates.md](references/delegation-templates.md). Codex
 cannot ask a question back — leave nothing merge-gating unguessed. `codex:rescue`
 has no `--cwd` of its own, so the request's opening line ("work only inside
-{worktree_path}") is the only thing scoping it — say it first, in every
-request, and run steps 3 and 7 one issue at a time even in `all` mode, since
-nothing structurally stops two concurrent write-capable calls from landing in
-the wrong worktree (step 6 is read-only and safe to parallelize against the
-same worktree). `git -C <worktree> status --short` is the authority on what
+{repo_root}, on branch {branch}") is the only thing scoping it — say it first,
+in every request. `git -C {repo_root} status --short` is the authority on what
 changed, never the run's own prose. No usable Codex (`codex:setup` reports
 not ready) → fallback ladders: [platform-notes.md](references/platform-notes.md).
 
 ### 3. Implement
 
-One issue = one branch = one PR, under the worktree root step 10 cleans:
+One issue = one branch = one PR, in the main checkout:
 
 ```bash
-git -C <repo> worktree add <repo>/.claude/worktrees/<n> -b <type>/<n>-<slug> <default_branch>
+git switch <default_branch> && git pull --ff-only && git switch -c <type>/<n>-<slug>
 ```
 
-Single mode: the main checkout may serve as `<worktree>`.
-
-A fresh worktree is not a build environment: it has no `node_modules`, no
-`vendor/`, no `.venv`, so the verification command the run is told to pass fails
-before it reads a line of code. Install into each worktree from the parent
-first, and run the project's own verification command there **once, unmodified,
-before any prompt is issued** — a red baseline is the repository's problem, not
-the issue's, and finding it here costs one command instead of three
-implementation runs. What that smoke run turns up goes to step 9.
+Before issuing the implementation prompt, run the project's own verification
+command **once, unmodified, on this branch** — a red baseline is the
+repository's problem, not the issue's, and finding it here costs one command
+instead of a wasted implementation run. What that smoke run turns up goes to
+step 9.
 
 Fill/run:
 [delegation-templates.md#implementation-step-3](references/delegation-templates.md#implementation-step-3)
@@ -165,12 +175,12 @@ as a defect, and say in the PR which of the two you saw.
 
 ### 4. Open the PR
 
-`PUSHED: no` is read against `git -C <worktree> log <base>..HEAD`, never on its
-own: a Codex sandbox has no network, so a run that did everything right still
-returns `PUSHED: no` with its commits sitting in the worktree. Commits present
-→ push them from the parent and carry on. No commits, or only `UNRESOLVED` →
-no branch: record `--event blocked --field issue=<n>`, report `SKIPPED(<why>)`
-in step 11, in `all` mode move on.
+`PUSHED: no` is read against `git log <base>..HEAD` in the checkout, never on
+its own: a Codex sandbox has no network, so a run that did everything right
+still returns `PUSHED: no` with its commits sitting on the local branch.
+Commits present → push them from the parent and carry on. No commits, or only
+`UNRESOLVED` → no branch: record `--event blocked --field issue=<n>`, report
+`SKIPPED(<why>)` in step 11, in `all` mode move on.
 
 Open a PR from `<branch>` against `<default_branch>`, titled `<PR-TITLE>`.
 Body must start with **`Closes #N`** after the summary (a bare `#N` closes
@@ -192,9 +202,9 @@ merging.
 
 Fill/run:
 [delegation-templates.md#review-step-6](references/delegation-templates.md#review-step-6),
-against the worktree, after the PR and before CI. Heavy diff (schema, storage
+against the checkout, after the PR and before CI. Heavy diff (schema, storage
 layer, public contract, new/bumped dependency, cross-module rewire) → add the
-adversarial pass from the same reference, issued alongside Review.
+adversarial pass from the same reference, run right after Review.
 
 Apply findings, commit (`review: <what was fixed>`), push, re-run
 verification so CI judges the reviewed code. Fix the cause, never the check —
@@ -215,9 +225,9 @@ grep -E '^(verdict|mergeable|merge_state|review_decision):' <runstate>/ci/<pr>.l
 
 Redirected — raw output carries failing-run log tails that must stay out of
 this context. One watch per PR; keep `failed_checks:` for repair. This is the
-run's only wait primitive — never a hand-rolled sleep/poll loop. `all` mode:
-watch several PRs concurrently. Record (`--event ci --field pr=<n> --field
-verdict=<...>`).
+run's only wait primitive — never a hand-rolled sleep/poll loop. Block on it
+directly, one PR at a time, even in `all` mode. Record (`--event ci --field
+pr=<n> --field verdict=<...>`).
 
 On `FAIL`, fill/run:
 [delegation-templates.md#ci-repair-step-7-only-on-fail](references/delegation-templates.md#ci-repair-step-7-only-on-fail)
@@ -236,9 +246,12 @@ re-read the actual PR/CI state before treating it as a green.
 Merge once step 7 reports `verdict: PASS`. Re-checks the closing link,
 confirms the issue closed — read `result:` and `issue:`. Six results, one
 must never read as success: [landing-outcomes.md](references/landing-outcomes.md).
-Record (`--event merged ...`). `all` mode: rebase in-flight branches onto the
-updated default branch after each merge, and re-rank with `issue_digest.py
---select` — one script call, not another research pass.
+Record (`--event merged ...`).
+
+Then return to the starting point for the next issue:
+`git switch <default_branch> && git pull --ff-only`. `all` mode: re-rank with
+`issue_digest.py --select` from there — one script call, not another research
+pass — and start the next issue's step 3 from this same up-to-date branch.
 
 ### 9. File the findings the run turned up
 
@@ -263,17 +276,15 @@ go, right after the PR that surfaced it lands; record (`--event followup`).
 
 ### 10. Clean up — once, at the end, script only
 
-The main worktree's `HEAD` may still be on the last-implemented branch, and
-cleanup refuses to delete a branch checked out there — switch back to the
-default branch, fast-forwarded, **before** cleanup runs:
+Step 8 already leaves `HEAD` on the up-to-date default branch, which is a
+precondition for the branch deletion below (it refuses to delete whatever is
+currently checked out):
 
 ```bash
-git switch <default> && git pull --ff-only
-{SKILL_DIR}/scripts/cleanup_run.sh [--remote] [--dry-run] [--merged-only]
+{SKILL_DIR}/scripts/cleanup_run.sh [--remote] [--dry-run]
 ```
 
-Scope, `--merged-only` semantics, and the worktree-cost argument:
-[references/closing-out.md#cleanup-scope](references/closing-out.md#cleanup-scope)
+Scope: [references/closing-out.md#cleanup-scope](references/closing-out.md#cleanup-scope)
 — record the cleanup outcome (`--event cleanup ...`).
 
 ### 11. Report
@@ -299,7 +310,7 @@ Also stop on **a change in the repository that this run did not make** — the
 main checkout dirty with files no step here touched, a branch moved underneath
 you, main ahead of what the last merge left. Someone else is working in the same
 tree. Prove it is not yours before concluding it (compare the actual hunks
-against what your own worktrees hold; "it edits a file my issue also edits" is
+against what your own branch holds; "it edits a file my issue also edits" is
 not proof either way), then leave it exactly as found — no stash, no restore, no
 commit — and ask. Their uncommitted work is unrecoverable if you discard it, and
 a gate failing on their half-finished edit is not yours to fix. Record it

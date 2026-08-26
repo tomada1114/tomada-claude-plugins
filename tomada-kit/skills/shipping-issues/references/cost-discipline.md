@@ -31,7 +31,7 @@ context, which is also what makes the tier trustworthy.
 The dividing line is **the GitHub API**. A Codex run has no network, so
 anything that talks to it — priority research, opening the PR, `link_check.sh`,
 `ci_watch.sh`, `land_pr.sh` — stays with the parent, and everything that is
-code in a worktree goes to Codex. That is not a workaround being tolerated; it
+code in the checkout goes to Codex. That is not a workaround being tolerated; it
 is what keeps every merge-gating fact established here from script output
 rather than accepted on a worker's report.
 

@@ -11,31 +11,18 @@ and safety rules the SKILL.md body already states inline.
 ## Cleanup scope
 
 ```bash
-git switch <default> && git pull --ff-only
-{SKILL_DIR}/scripts/cleanup_run.sh [--remote] [--dry-run] [--merged-only]
+{SKILL_DIR}/scripts/cleanup_run.sh [--remote] [--dry-run]
 ```
 
 All deletion goes through `cleanup_run.sh`, in one batch after the last merge.
-Never run `rm`, `git worktree remove`, or `git branch -D` ad hoc in the main
-context or in a Codex run — raw `rm` is flagged as dangerous and stalls the run
-on a permission prompt. The script only touches `<repo>/.claude/worktrees/*`,
-harness `worktree-agent-*` branches, and branches whose PR is merged;
-`--remote` extends that to the same refs on origin. A worktree with
-uncommitted files is skipped and listed — salvage what matters, then rerun
-with `--force`. Nothing this run generated should be sitting in a worktree to
-begin with: prompts, issue bodies and CI logs all live under `<runstate>/`
-(run-record.md).
-
-**The worktree pass is not merge-gated by default: it removes every worktree
-under that root, including one another session is mid-run in.** That is
-correct at the end of a run this skill owns end to end, and wrong everywhere
-else. When other sessions may be working in the same repo — or when cleaning
-up outside a run, purely to reclaim disk — pass `--merged-only`, which keeps
-any worktree whose branch has no merged PR (or still has an open one).
-Worktrees are expensive to leave lying around: each one carries its own
-`.venv` and type-check caches, so a few stale ones can add up to gigabytes.
-Prefer the repo's own cleanup recipe when it exposes one, so cleanup does not
-depend on this skill's path.
+Never run `rm` or `git branch -D` ad hoc in the main context or in a Codex
+run — raw `rm` is flagged as dangerous and stalls the run on a permission
+prompt. The script only touches harness `worktree-agent-*` branches (a
+leftover branch-naming convention from the Claude Code harness, unrelated to
+this skill) and branches whose PR is merged; `--remote` extends that to the
+same refs on origin. Nothing this run generated should be sitting uncommitted
+in the checkout to begin with: prompts, issue bodies and CI logs all live
+under `<runstate>/` (run-record.md).
 
 Record the cleanup outcome (`--event cleanup ...`) and report anything it left
 `SKIPPED`.

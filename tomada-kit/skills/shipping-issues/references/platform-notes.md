@@ -26,19 +26,20 @@ things about it decide how *this* skill routes:
   inline work). Step 0 settles this once.
 - **No `--cwd` of its own.** `codex:rescue` operates wherever the calling
   session's own working directory already is — there is no flag to scope one
-  call to one worktree. The request's own opening sentence ("work only inside
-  {worktree_path}") is the entire isolation boundary, which is why steps 3 and
-  7 run one issue at a time even in `all` mode (see "Tool mapping" below).
+  call to a directory. This skill keeps that directory pinned to the repo's
+  main checkout for the whole run, and the request's own opening sentence
+  ("work only inside {repo_root}, on branch {branch}") is what scopes a given
+  call to the right branch (see "Tool mapping" below).
 - **The GitHub API is out of reach inside the Codex sandbox** (`git` still
   reaches github.com for clone/push; the sandbox otherwise has no network).
   So every task that touches it — priority research, PR creation,
   `link_check.sh`, `ci_watch.sh`, `land_pr.sh` — stays in the parent. Codex
-  only handles code inside the worktree.
+  only handles code inside the checkout.
 - **Model and effort are never passed**, so each run inherits the Codex CLI's
   own configuration file — also the only way to reach the top reasoning tier,
   since `codex:rescue`'s own `--effort` flag tops out at `xhigh`.
 - **Codex cannot ask a question back**, and the return is free text, not a
-  validated schema — `git -C <worktree> status --short` is the authority on
+  validated schema — `git -C <repo_root> status --short` is the authority on
   what changed, never the run's own prose.
 
 **The openai-codex plugin is a Claude-Code-only plugin and is not bridged to
@@ -57,40 +58,27 @@ that as the expected Codex-host path, not as a broken install.
   the sandbox has no network to make them.
 - Implementation (step 3) → Claude Code:
   `Skill(codex:rescue, args="--wait <request telling it to work only inside
-  <worktree>>")`, **one issue at a time** — `codex:rescue` has no `--cwd`, so
-  there is no structural guarantee two concurrent calls stay in the two
-  worktrees they were each told about, unlike a runner that scopes a run to a
-  directory by flag. Not ready (`codex:setup`) or on a Codex host, falls to
-  the legacy path (Claude Code: one `opus` sub-agent per issue, parallel
-  groups at `isolation: "worktree"` capped at 3 — this path *does* have real
-  per-agent isolation and may run in parallel / Codex: the main context
-  processes worktrees one at a time). Scope is the same regardless of path:
+  {repo_root}, on branch {branch}>")`, one issue at a time — this skill never
+  has two issues in flight, so there is no concurrent-call ambiguity to guard
+  against. Not ready (`codex:setup`) or on a Codex host, falls to the legacy
+  path (one `opus` sub-agent per issue, run sequentially / Codex: the main
+  context does the same work inline). Scope is the same regardless of path:
   branch → implement → test → commit → push. PR creation always stays with
   the parent.
 - Review (step 6) → Claude Code: `Skill(codex:rescue, args="--wait <read-only
-  request>")` against the worktree. Being a **separate run** from the
+  request>")` against the checkout. Being a **separate run** from the
   implementation is the requirement; explicitly asking for read-only behavior
   in the request is what keeps it from writing anything, since `codex:rescue`
-  defaults to write-capable. Unlike steps 3/7, two of these against the same
-  worktree may run in parallel (native review + adversarial), since neither
-  writes. Not ready, or on a Codex host, falls back to the legacy ladder (one
-  independent reviewer where delegation is available = `DELEGATED`, otherwise
-  `UNAVAILABLE`).
-- Parallelizing CI-watch (step 7) → Claude Code: with several PRs in flight
-  in `all` mode, run watches in the background via `run_in_background` /
-  Codex: run `ci_watch.sh` per PR sequentially. The watch itself always
-  stays with the parent (it needs the GitHub API). This backgrounding applies only to a
-  session that stays active to receive the completion — the interactive
-  top-level session, or a call actively awaited in the same turn (e.g. via
-  `Monitor`). **A delegated subagent running this skill on a caller's behalf
-  (a fork, a spawned worker) must not background a wait and end its turn
-  expecting a later wake-up** — a subagent's turn ending is how the harness
-  learns it is done, so nothing resumes it just because a job it detached
-  from later finishes. There, block on `ci_watch.sh` directly, one PR at a
-  time, even under `all` mode.
+  defaults to write-capable. The adversarial pass (heavy diffs only) runs
+  right after Review, not concurrently with it. Not ready, or on a Codex
+  host, falls back to the legacy ladder (one independent reviewer where
+  delegation is available = `DELEGATED`, otherwise `UNAVAILABLE`).
+- CI-watch (step 7) → always block on `ci_watch.sh` directly, one PR at a
+  time — `all` mode does not watch multiple PRs concurrently. The watch
+  itself always stays with the parent (it needs the GitHub API).
 - CI repair (step 7, on FAIL only) → Claude Code: the watch is already
-  redirected to `<runstate>/ci/<pr>.log` — outside the worktree, so it cannot
-  leave the worktree dirty or be swept into a commit — and that path is
+  redirected to `<runstate>/ci/<pr>.log` — outside the checkout, so it cannot
+  leave the checkout dirty or be swept into a commit — and that path is
   handed to `Skill(codex:rescue, args="--wait <request>")`, one PR at a time,
   same reasoning as step 3. The parent drives the re-watch and the loop of up
   to 3 attempts. Not ready, or on a Codex host, falls to the legacy path
@@ -116,13 +104,10 @@ that as the expected Codex-host path, not as a broken install.
   usable Codex) → on a runtime that does not expose spawn capability,
   everything becomes sequential inline execution in the main context. Judge
   the capability against the runtime, never guess it from the product name.
-- Parallel implementation across issues and parallelized CI-watch in `all`
-  mode → both become sequential, one issue/worktree and one PR at a time.
-  The rank → implement → CI → merge phase order is preserved, but **the cost
-  is not just wall-clock time**: the per-issue context isolation that
-  delegation provided is also lost, so diffs, repo exploration, and CI logs
-  for the whole run pile up in one context. Run the sequential path's `all`
-  in small batches and report the rest as deferred.
+- No usable Codex, in `all` mode → the per-issue context isolation that
+  delegation provided is lost, so diffs, repo exploration, and CI logs for the
+  whole run pile up in one context. Run the sequential path's `all` in small
+  batches and report the rest as deferred.
 - Step 6's review → with no usable Codex, take the highest rung of
   capability still reachable:
   1. Where the runtime exposes delegation, spawn ONE independent reviewer
@@ -140,10 +125,9 @@ that as the expected Codex-host path, not as a broken install.
   assurance.
 - Git sandbox restrictions → `git status`/`commit`/`push`/`switch` go
   through, but operations that write to `.git/index.lock` or `FETCH_HEAD`
-  (`git fetch`, `git pull`, deleting a branch/ref, worktree operations,
-  `cleanup_run.sh` as a whole) can fail with `Operation not permitted`. The
-  skill adds no branch for this — just re-run that one Git operation with
-  elevated permissions.
+  (`git fetch`, `git pull`, deleting a branch/ref, `cleanup_run.sh` as a
+  whole) can fail with `Operation not permitted`. The skill adds no branch
+  for this — just re-run that one Git operation with elevated permissions.
 - Tool cache write restrictions → a package manager or test runner may be
   unable to write to its default user cache (`~/.cache/...`, etc.), so the
   first dependency resolution or test run can fail. Re-run it with that

@@ -84,28 +84,29 @@ class CleanupRunTest(unittest.TestCase):
         self.assertIn("unknown flag: --no-such-flag", proc.stderr)
         self.assertEqual(calls, [])
 
-    def test_removes_clean_agent_worktree_and_internal_branch(self):
+    def test_removes_merged_and_internal_branches_keeps_unmerged(self):
         with tempfile.TemporaryDirectory() as td:
             repo = Path(td)
             make_repo(repo)
             add_local_origin(repo, Path(td))
-            worktree = repo / ".claude" / "worktrees" / "agent-one"
-            worktree.parent.mkdir(parents=True)
-            git(repo, "worktree", "add", "-q", "-b", "worktree-agent-one",
-                str(worktree), "HEAD")
-            reported_worktree = worktree.resolve()
+            git(repo, "branch", "worktree-agent-one")
+            git(repo, "branch", "feat/1-merged")
+            git(repo, "branch", "feat/2-open")
 
             proc, calls = run_script(
-                [], repo, {MERGED_LIST: "", OPEN_LIST: ""}
+                [],
+                repo,
+                {MERGED_LIST: "feat/1-merged", OPEN_LIST: "feat/2-open"},
             )
 
             branches = git(repo, "branch", "--format=%(refname:short)").stdout.splitlines()
 
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn(f"removed worktree: {reported_worktree}\n", proc.stdout)
         self.assertIn("cleanup: done\n", proc.stdout)
-        self.assertFalse(worktree.exists())
+        self.assertIn("deleted local branch: feat/1-merged\n", proc.stdout)
         self.assertNotIn("worktree-agent-one", branches)
+        self.assertNotIn("feat/1-merged", branches)
+        self.assertIn("feat/2-open", branches)
         self.assertEqual(calls, [list(MERGED_LIST), list(OPEN_LIST)])
 
     def test_gh_lookup_failure_stops_cleanup(self):
@@ -113,20 +114,18 @@ class CleanupRunTest(unittest.TestCase):
             repo = Path(td)
             make_repo(repo)
             add_local_origin(repo, Path(td))
-            worktree = repo / ".claude" / "worktrees" / "agent-one"
-            worktree.parent.mkdir(parents=True)
-            git(repo, "worktree", "add", "-q", "-b", "worktree-agent-one",
-                str(worktree), "HEAD")
+            git(repo, "branch", "worktree-agent-one")
 
             proc, calls = run_script(
                 [], repo, {MERGED_LIST: "", OPEN_LIST: ""}, exits={MERGED_LIST: 1}
             )
 
-            self.assertTrue(worktree.exists())
+            branches = git(repo, "branch", "--format=%(refname:short)").stdout.splitlines()
 
         self.assertEqual(proc.returncode, 1)
         self.assertEqual(calls, [list(MERGED_LIST)])
         self.assertNotIn("cleanup: done", proc.stdout)
+        self.assertIn("worktree-agent-one", branches)
 
 
 if __name__ == "__main__":

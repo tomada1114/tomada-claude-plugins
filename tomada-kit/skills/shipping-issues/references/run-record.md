@@ -13,10 +13,10 @@ where **`<runstate>`** is
 `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/shipping-issues/<owner>__<repo>/`
 — never rewritten or deleted, so a stopped run keeps what already landed.
 
-Every other file this run generates lives there too, and **never inside a
-worktree**: filled prompts at `<runstate>/prompts/<issue>-<step>.md`, issue
-bodies for follow-ups beside them, CI logs at `<runstate>/ci/<pr>.log`. An
-untracked file left in a worktree makes cleanup's branch pass skip it as dirty,
+Every other file this run generates lives there too, and **never inside the
+repo checkout**: filled prompts at `<runstate>/prompts/<issue>-<step>.md`,
+issue bodies for follow-ups beside them, CI logs at `<runstate>/ci/<pr>.log`.
+An untracked file left in the checkout makes the working tree read as dirty,
 and a commit convention that stages everything would land it in the PR. Call
 it right after the event happens, not batched at the end; `--repo` can be
 omitted when cwd is the repo being shipped.

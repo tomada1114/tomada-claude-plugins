@@ -23,14 +23,12 @@ template below is shaped:
 
 - **It has no `--cwd` of its own.** Unlike a runner that scopes a run to a
   directory, `codex:rescue` operates wherever the session's own working
-  directory already is. The only thing that scopes it to one issue's worktree
-  is a sentence in the request itself — put it first, and treat it as load
-  bearing, not decoration. This is also why steps 3 and 7 run **one issue at a
-  time**, even in `all` mode: two concurrent `codex:rescue` calls have no
-  structural guarantee they stay in the two different worktrees they were each
-  told about. Step 6 is the exception — a read-only ask against the same
-  worktree can run twice in parallel (native review + adversarial), since
-  neither writes anything.
+  directory already is — which this skill keeps pinned to the repo's main
+  checkout throughout the run. The only thing that scopes a given request to
+  the right branch is a sentence in the request itself — put it first, and
+  treat it as load bearing, not decoration. This is also why every step runs
+  **one issue at a time**: nothing here spawns a second concurrent
+  `codex:rescue` call against the same checkout.
 - **It defaults to write-capable.** Say "read-only, do not edit, create,
   delete, or run anything that writes to disk or git" explicitly in the
   request for step 6 — that sentence is the only thing keeping a review from
@@ -82,7 +80,7 @@ complete and correct by the time you push. You cannot ask me a question
 mid-run — if something is genuinely undecidable, make the call, implement it,
 and report it under UNRESOLVED.
 
-Work only inside {worktree_path} — not the main checkout, not any sibling
+Work only inside {repo_root} — this is the repo's main checkout, not a
 worktree.
 
 <task>
@@ -90,13 +88,13 @@ worktree.
 </task>
 
 <context>
-Work directory: {worktree_path}   <- already has its dependencies installed
+Work directory: {repo_root}
 Base branch: {base_branch}
 Branch: {branch_name}             <- already created and checked out; do not
                                       create a new one
 Likely files: {paths from step 2's triage}
-Project conventions: read {worktree_path}/CLAUDE.md and
-{worktree_path}/AGENTS.md before writing code.
+Project conventions: read {repo_root}/CLAUDE.md and
+{repo_root}/AGENTS.md before writing code.
 Decisions already made: {anything step 2/2b resolved, so it is not re-opened}
 Verification command: {verify_command, from step 3's smoke run, or "find it"}
 </context>
@@ -118,9 +116,7 @@ Do:
    commit exists — a run stopped mid-way keeps only what was pushed.
 6. Two hard prohibitions, both irreversible from here: do NOT touch the
    GitHub API at all (the parent opens the PR and watches CI), and do NOT
-   delete anything — no `rm`, no worktree removal, no branch deletion.
-7. Copy any gitignored artifacts you produce (fixtures, benchmark output) into
-   {repo_root}, since {worktree_path} is deleted after this run.
+   delete anything — no `rm`, no branch deletion.
 
 Return exactly:
 BRANCH: <name>
@@ -154,9 +150,8 @@ a time. The scope does not change in the fallback.
 
 Push discipline is the run's insurance: it pushes as soon as its first
 coherent commit exists, so a stopped run loses at most its uncommitted tail.
-It never deletes anything — that happens once, in the parent's cleanup step —
-and copies any gitignored artifacts it produced into the main checkout before
-returning, since worktrees are deleted at the end.
+It never deletes anything — that happens once, in the parent's cleanup step
+(step 10), and only after the branch is merged.
 
 ## Review (step 6)
 
@@ -173,10 +168,10 @@ in {owner}/{repo} and merges as soon as CI is green. Lint, types and tests
 already pass. What no one has done is read the change as a change. That is
 your job, and you are reading it in a context that did not write it.
 
-The branch {branch} is checked out at {worktree_path}. Read the specification
+The branch {branch} is checked out at {repo_root}. Read the specification
 and the diff against {base}:
 
-  GIT_OPTIONAL_LOCKS=0 git -C {worktree_path} diff {base}...HEAD
+  GIT_OPTIONAL_LOCKS=0 git -C {repo_root} diff {base}...HEAD
 
 <spec>
 {the issue body, pasted — you cannot fetch it from here}
@@ -236,10 +231,11 @@ No extra return fields. What the parent does with them:
 
 ## Adversarial focus (step 6, heavy diffs only)
 
-Issued **alongside** the Review pass above, never instead of it, when the diff
-touches a schema, storage layer, or public contract; adds or bumps a
+Issued **in addition to** the Review pass above, never instead of it, when the
+diff touches a schema, storage layer, or public contract; adds or bumps a
 dependency; or rewires behavior across several modules. Both are read-only
-reads of the same worktree, so they are safe to issue together in one message:
+reads of the same checkout, but this skill runs one `codex:rescue` call at a
+time — issue this one after Review returns, never concurrently with it:
 
 ```bash
 Skill(codex:rescue, args="--wait <filled request below>")
@@ -253,9 +249,9 @@ as soon as CI is green"}. A separate pass has already read this diff for
 scope, complexity, and maintainability, and lint/types/tests pass. Your axis
 is the one neither of those covers: how this change fails in production.
 
-The branch is checked out at {worktree_path}; the diff is against {base}:
+The branch is checked out at {repo_root}; the diff is against {base}:
 
-  GIT_OPTIONAL_LOCKS=0 git -C {worktree_path} diff {base}...HEAD
+  GIT_OPTIONAL_LOCKS=0 git -C {repo_root} diff {base}...HEAD
 
 <spec>
 {the issue body, pasted}
@@ -292,9 +288,9 @@ returns free text rather than a schema-validated JSON payload — read
 ## CI repair (step 7, only on `FAIL`)
 
 Only after the parent's own `ci_watch.sh` returns `FAIL`. Write the failing
-log to a file **outside** the worktree first — a stray untracked file inside
-it makes cleanup skip the directory as dirty, and a commit convention that
-stages everything would land the log in the change:
+log to a file **outside** the repo checkout first — a stray untracked file
+inside it makes cleanup skip the directory as dirty, and a commit convention
+that stages everything would land the log in the change:
 
 ```bash
 Skill(codex:rescue, args="--wait <filled request below>")
@@ -306,14 +302,13 @@ PR #{pr} implements issue #{n} in {owner}/{repo}; its CI just failed:
 and pushed. I will re-check after you return — you cannot, and must not try
 to.
 
-Work only inside {worktree_path} — not the main checkout, not any sibling
-worktree.
+Work only inside {repo_root} — this is the repo's main checkout.
 
 The failing output is in:
   {log_path}
 
 Read that file first. It is outside your work directory; read it there and do
-not copy it in. Then fix the cause at {worktree_path}, commit, and push. Do
+not copy it in. Then fix the cause at {repo_root}, commit, and push. Do
 not touch the GitHub API, do not watch CI, do not sleep or poll — return as
 soon as your fix is pushed.
 

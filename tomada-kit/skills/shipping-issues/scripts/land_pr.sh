@@ -181,7 +181,7 @@ fi
 
 # `gh pr merge` exited non-zero, which does NOT by itself mean the merge was
 # refused: `--delete-branch` also deletes the local branch, and that step fails
-# whenever a worktree still holds it — long after GitHub has already merged.
+# whenever the branch is still checked out — long after GitHub has already merged.
 # Reporting that as MERGE_REFUSED sends the caller chasing a merge that landed,
 # so ask GitHub what actually happened before calling it a refusal.
 final="$(gh pr view "$PR" --json state -q .state 2>/dev/null)"

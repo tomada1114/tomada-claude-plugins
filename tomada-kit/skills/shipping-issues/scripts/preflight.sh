@@ -50,10 +50,6 @@ else
   emit working_tree "clean"
 fi
 
-# --- existing worktrees ----------------------------------------------------
-wt="$(git worktree list 2>/dev/null | tail -n +2)"
-[[ -n "$wt" ]] && { emit existing_worktrees "$(printf '%s\n' "$wt" | wc -l | tr -d ' ')"; printf '%s\n' "$wt" | sed 's/^/  /'; }
-
 if [[ $fail -ne 0 ]]; then
   echo "verdict: BLOCKED"
   exit 1

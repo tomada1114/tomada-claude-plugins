@@ -74,10 +74,6 @@ Return exactly these sections, nothing else:
 - #N — the open design question that blocks implementation (candidate for
   `blocked: design`; do not label it yourself — omit this section when none)
 
-## Parallel-safe groups
-- [#A, #B] — disjoint file sets
-- serialize: #C (touches {lockfile/CI/schema})
-
 ## Unresolved
 - #N vs #M — the trade-off, left unpicked   (omit this section when there is no tie)
 

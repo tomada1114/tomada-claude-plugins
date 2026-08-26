@@ -11,8 +11,7 @@
 Read when the backlog has issues without a `priority:` label, or when a written
 label looks wrong. On a fully labeled backlog the pick comes from
 `issue_digest.py --select` and this file is not needed. Dependency mechanics
-(what may run in parallel, what must be serialized) live in
-`dependency-triage.md`.
+(what must land before what) live in `dependency-triage.md`.
 
 **Priority here means impact on the rest of the backlog, not "the one I feel
 like doing."** Concretely, in this order:
