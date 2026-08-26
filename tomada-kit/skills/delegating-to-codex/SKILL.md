@@ -112,7 +112,12 @@ claim from your own command output instead.
   issues, opening or editing PRs, watching CI, merging, labeling — all yours.
 - **Every wait.** One blocking call per wait, made here. No run hand-rolls a
   `sleep`/poll loop, and a repair loop is driven from here: repair → push → you
-  re-check, under a stated attempt cap.
+  re-check, under a stated attempt cap. Blocking means blocking: never fire a
+  wait (a Codex call, a CI watch) via a backgrounded shell job and then end
+  your turn assuming something will wake you up later — that only works for a
+  session that stays active to receive it. A delegated subagent (a fork, a
+  spawned worker) whose turn ends is, as far as the harness is concerned,
+  done; a job it merely detached from and stopped watching will not resume it.
 - **Deletions and worktree lifecycle.** Create the work copy before the run,
   remove it after. A run that deletes has no undo.
 - **Asking the user.** Present the options here and wait for the answer; the run

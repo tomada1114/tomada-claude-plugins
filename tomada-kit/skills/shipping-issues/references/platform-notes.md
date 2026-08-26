@@ -72,7 +72,15 @@ not as a broken install.
 - Parallelizing CI-watch (step 7) → Claude Code: with several PRs in flight
   in `all` mode, run watches in the background via `run_in_background` /
   Codex: run `ci_watch.sh` per PR sequentially. The watch itself always
-  stays with the parent (it uses `gh`).
+  stays with the parent (it uses `gh`). This backgrounding applies only to a
+  session that stays active to receive the completion — the interactive
+  top-level session, or a call actively awaited in the same turn (e.g. via
+  `Monitor`). **A delegated subagent running this skill on a caller's behalf
+  (a fork, a spawned worker) must not background a wait and end its turn
+  expecting a later wake-up** — a subagent's turn ending is how the harness
+  learns it is done, so nothing resumes it just because a job it detached
+  from later finishes. There, block on `ci_watch.sh` directly, one PR at a
+  time, even under `all` mode.
 - CI repair (step 7, on FAIL only) → same on both platforms: the watch is
   already redirected to `<runstate>/ci/<pr>.log` — outside the worktree, so it
   cannot leave the worktree dirty or be swept into a commit — and that path is
