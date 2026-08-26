@@ -16,34 +16,35 @@ product. Where delegation is available, use the same path as Claude Code.
 ## Delegating to the Codex runtime (primary path for steps 3 / 6 / 7)
 
 Implementation, review, and CI repair are handed to Codex through
-`{CODEX_SKILL_DIR}/scripts/codex_run.sh`, which belongs to the sibling
-**`delegating-to-codex`** skill. That skill owns the runner's contract, the
-generic prompt templates, and the full sandbox-limits list; read its
-`references/sandbox-constraints.md` when a run fails for a reason the prompt
-cannot explain. Four of its rules decide how *this* skill routes:
+`Skill(codex:rescue, ...)`, the **openai-codex** plugin's subagent — a thin
+forwarder that runs one Codex turn and returns its output verbatim. Five
+things about it decide how *this* skill routes:
 
-- **Entry point.** `codex_mode: companion` (the openai-codex plugin is
-  installed) has job tracking, `--resume`, and structured review output;
-  `codex_mode: exec` (bare `codex` CLI) loses `--resume` and returns
-  `review_verdict: UNSTRUCTURED`; `codex_mode: NONE` (exit 3) means no *usable*
-  Codex — absent, unauthenticated, or not ready — and every Codex step falls
-  back to the legacy paths described in each SKILL.md step (`opus`/`sonnet`
-  sub-agents, or sequential inline work). Step 0 settles this once.
-- **`gh` cannot authenticate inside the Codex sandbox** (`git` still reaches
-  github.com; `gh auth status` fails). So every task that touches the GitHub
-  API — priority research, PR creation, `link_check.sh`, `ci_watch.sh`,
-  `land_pr.sh` — stays in the parent. Codex only handles code inside the
-  worktree.
+- **Readiness.** `Skill(codex:setup)` reports whether Codex is installed and
+  authenticated. Not ready → every Codex step falls back to the legacy paths
+  described in each SKILL.md step (`opus`/`sonnet` sub-agents, or sequential
+  inline work). Step 0 settles this once.
+- **No `--cwd` of its own.** `codex:rescue` operates wherever the calling
+  session's own working directory already is — there is no flag to scope one
+  call to one worktree. The request's own opening sentence ("work only inside
+  {worktree_path}") is the entire isolation boundary, which is why steps 3 and
+  7 run one issue at a time even in `all` mode (see "Tool mapping" below).
+- **The GitHub API is out of reach inside the Codex sandbox** (`git` still
+  reaches github.com for clone/push; the sandbox otherwise has no network).
+  So every task that touches it — priority research, PR creation,
+  `link_check.sh`, `ci_watch.sh`, `land_pr.sh` — stays in the parent. Codex
+  only handles code inside the worktree.
 - **Model and effort are never passed**, so each run inherits the Codex CLI's
-  own configuration file.
-- **Codex cannot ask a question back**, and **`codex_touched:` is not the file
-  list** — `git -C <worktree> status --short` is the authority.
+  own configuration file — also the only way to reach the top reasoning tier,
+  since `codex:rescue`'s own `--effort` flag tops out at `xhigh`.
+- **Codex cannot ask a question back**, and the return is free text, not a
+  validated schema — `git -C <worktree> status --short` is the authority on
+  what changed, never the run's own prose.
 
-**`delegating-to-codex` is a Claude-Code-only skill and is not bridged to
-Codex.** On a Codex host it may not resolve at all, in which case
-`{CODEX_SKILL_DIR}` cannot be filled and steps 3, 6 and 7 take the
-`codex_mode: NONE` ladder below. Treat that as the expected Codex-host path,
-not as a broken install.
+**The openai-codex plugin is a Claude-Code-only plugin and is not bridged to
+Codex.** On a Codex host `codex:rescue`/`codex:setup` do not resolve at all,
+in which case steps 3, 6 and 7 take the "no usable Codex" ladder below. Treat
+that as the expected Codex-host path, not as a broken install.
 
 ## Tool mapping
 
@@ -52,27 +53,33 @@ not as a broken install.
   the skill's delegation-templates reference / Codex: the main
   context reads the same file skill-relatively and runs the read → rubric →
   `apply_priority_labels.py` steps inline. This is the one step never
-  delegated to the Codex runtime — the whole thing is `gh` calls, and the
-  sandbox cannot authenticate them.
-- Implementation (step 3) → same on both platforms:
-  `{CODEX_SKILL_DIR}/scripts/codex_run.sh task --write --cwd <worktree>`. Only when `codex_mode: NONE`
-  does it fall to the legacy path (Claude Code: one `opus` sub-agent per
-  issue, parallel groups at `isolation: "worktree"` capped at 3 / Codex: the
-  main context processes worktrees one at a time). Scope is the same
-  regardless of path: branch → implement → test → commit → push. PR creation
-  always stays with the parent.
-- Review (step 6) → same on both platforms:
-  `{CODEX_SKILL_DIR}/scripts/codex_run.sh task --cwd <worktree>` (no `--write` = read-only). Being a
-  **separate run** from the implementation is the requirement, and `--cwd`
-  can point straight at the worktree, so there is no need to thread
-  delegation into the worktree at all. Add `codex_run.sh review` only for a
-  heavy diff. Only `codex_mode: NONE` falls back to the legacy ladder (one
-  independent reviewer where delegation is available = `DELEGATED`,
-  otherwise `UNAVAILABLE`).
+  delegated to the Codex runtime — the whole thing is GitHub API calls, and
+  the sandbox has no network to make them.
+- Implementation (step 3) → Claude Code:
+  `Skill(codex:rescue, args="--wait <request telling it to work only inside
+  <worktree>>")`, **one issue at a time** — `codex:rescue` has no `--cwd`, so
+  there is no structural guarantee two concurrent calls stay in the two
+  worktrees they were each told about, unlike a runner that scopes a run to a
+  directory by flag. Not ready (`codex:setup`) or on a Codex host, falls to
+  the legacy path (Claude Code: one `opus` sub-agent per issue, parallel
+  groups at `isolation: "worktree"` capped at 3 — this path *does* have real
+  per-agent isolation and may run in parallel / Codex: the main context
+  processes worktrees one at a time). Scope is the same regardless of path:
+  branch → implement → test → commit → push. PR creation always stays with
+  the parent.
+- Review (step 6) → Claude Code: `Skill(codex:rescue, args="--wait <read-only
+  request>")` against the worktree. Being a **separate run** from the
+  implementation is the requirement; explicitly asking for read-only behavior
+  in the request is what keeps it from writing anything, since `codex:rescue`
+  defaults to write-capable. Unlike steps 3/7, two of these against the same
+  worktree may run in parallel (native review + adversarial), since neither
+  writes. Not ready, or on a Codex host, falls back to the legacy ladder (one
+  independent reviewer where delegation is available = `DELEGATED`, otherwise
+  `UNAVAILABLE`).
 - Parallelizing CI-watch (step 7) → Claude Code: with several PRs in flight
   in `all` mode, run watches in the background via `run_in_background` /
   Codex: run `ci_watch.sh` per PR sequentially. The watch itself always
-  stays with the parent (it uses `gh`). This backgrounding applies only to a
+  stays with the parent (it needs the GitHub API). This backgrounding applies only to a
   session that stays active to receive the completion — the interactive
   top-level session, or a call actively awaited in the same turn (e.g. via
   `Monitor`). **A delegated subagent running this skill on a caller's behalf
@@ -81,15 +88,16 @@ not as a broken install.
   learns it is done, so nothing resumes it just because a job it detached
   from later finishes. There, block on `ci_watch.sh` directly, one PR at a
   time, even under `all` mode.
-- CI repair (step 7, on FAIL only) → same on both platforms: the watch is
-  already redirected to `<runstate>/ci/<pr>.log` — outside the worktree, so it
-  cannot leave the worktree dirty or be swept into a commit — and that path is
-  handed to `{CODEX_SKILL_DIR}/scripts/codex_run.sh task --write --cwd <worktree>`. The parent drives the
-  re-watch and the loop of up to 3 attempts. Only `codex_mode: NONE` falls
-  to the legacy path (Claude Code: one `sonnet` sub-agent per failing PR,
-  re-spawned as `opus` if the same failure survives two attempts in a row /
-  Codex: the main context works one PR at a time, up to 3 attempts, raising
-  its own effort and continuing if the same failure survives two in a row).
+- CI repair (step 7, on FAIL only) → Claude Code: the watch is already
+  redirected to `<runstate>/ci/<pr>.log` — outside the worktree, so it cannot
+  leave the worktree dirty or be swept into a commit — and that path is
+  handed to `Skill(codex:rescue, args="--wait <request>")`, one PR at a time,
+  same reasoning as step 3. The parent drives the re-watch and the loop of up
+  to 3 attempts. Not ready, or on a Codex host, falls to the legacy path
+  (Claude Code: one `sonnet` sub-agent per failing PR, re-spawned as `opus` if
+  the same failure survives two attempts in a row / Codex: the main context
+  works one PR at a time, up to 3 attempts, raising its own effort and
+  continuing if the same failure survives two in a row).
 - Presenting options / confirming (step 2's tie-break, preflight's
   dirty-tree check, etc.) → Claude Code: `AskUserQuestion` / Codex: ask the
   user directly in plain conversational text and wait for the reply.
@@ -98,14 +106,14 @@ not as a broken install.
   from this skill, so Codex cannot resolve the reference. The sonnet/opus
   assignments themselves stay in SKILL.md's body as a conclusion valid on
   both platforms — only the citation target goes stale.
-- The `gh` CLI (issue/PR/Actions operations, auth) → in the parent, plain
-  `gh` works as-is on both platforms — no extra connector or plugin needed.
-  The Codex sandbox is the only exception (above).
+- Reaching the GitHub API (issue/PR/Actions operations) → the parent handles
+  it as-is on both platforms; how it does so is not this skill's concern. The
+  Codex sandbox having no network is the only exception (above).
 
 ## Constraints under Codex (best-effort degradation)
 
-- Spawning sub-agents (priority research, and each fallback under
-  `codex_mode: NONE`) → on a runtime that does not expose spawn capability,
+- Spawning sub-agents (priority research, and each fallback when there is no
+  usable Codex) → on a runtime that does not expose spawn capability,
   everything becomes sequential inline execution in the main context. Judge
   the capability against the runtime, never guess it from the product name.
 - Parallel implementation across issues and parallelized CI-watch in `all`

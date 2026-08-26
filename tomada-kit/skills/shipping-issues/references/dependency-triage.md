@@ -112,8 +112,8 @@ number or `--include-design`, never the default backlog scan.
 
 1. Settle the approach. A product/UX call you cannot make from the repo and
    its issue thread — ask the user; do not guess and implement anyway.
-2. Record the decision on the issue itself: `gh issue comment <n> --body-file
-   <path>` — the next run must read this back, not re-derive it.
+2. Record the decision as a comment on the issue itself — the next run must
+   read this back, not re-derive it.
 3. Record it in the run record (`--event design --field issue=<n>`).
 4. Clear the block: `python3 {SKILL_DIR}/scripts/apply_priority_labels.py
    --clear-design <n>`.

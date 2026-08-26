@@ -7,8 +7,8 @@ when deciding whether to delegate a step, or before changing a run count.
 The main context holds the selection and the verdicts, nothing else. Issue
 bodies go to the triage agent, diffs stay in the Codex run that produced them,
 CI logs reach the repair run through a file rather than through the prompt. If
-you find yourself about to read a full `gh` JSON blob or a workflow log in the
-main context, that is the signal to delegate instead.
+you find yourself about to read a full GitHub API JSON blob or a workflow log
+in the main context, that is the signal to delegate instead.
 
 Labeling is the cheap half of this by design: the backfill is a pure script pass
 with a one-line summary, and re-deriving priority from issue prose happens once
@@ -28,29 +28,30 @@ context, which is also what makes the tier trustworthy.
 
 ## Why the split is where it is
 
-The dividing line is **`gh`**. It cannot authenticate inside the Codex sandbox,
-so anything that talks to the GitHub API — priority research, opening the PR,
-`link_check.sh`, `ci_watch.sh`, `land_pr.sh` — stays with the parent, and
-everything that is code in a worktree goes to Codex. That is not a workaround
-being tolerated; it is what keeps every merge-gating fact established here from
-script output rather than accepted on a worker's report.
+The dividing line is **the GitHub API**. A Codex run has no network, so
+anything that talks to it — priority research, opening the PR, `link_check.sh`,
+`ci_watch.sh`, `land_pr.sh` — stays with the parent, and everything that is
+code in a worktree goes to Codex. That is not a workaround being tolerated; it
+is what keeps every merge-gating fact established here from script output
+rather than accepted on a worker's report.
 
 Implementation stays delegated even when the main model is Opus — a deliberate
 exception to the Opus-main "do it yourself" default, bought for context
 isolation: the diff, the repo exploration, and the CI logs are never needed in
-the main context again. The mechanics of every Codex run — the runner, the
-generic prompt templates, the sandbox limits — belong to the
-`delegating-to-codex` skill; what stays here is which steps go there and why. Review is a **separate** Codex run from implementation,
-which costs one extra run per PR and buys the only thing that makes it a review:
-a context that did not write the diff.
+the main context again. Every Codex run goes through `codex:rescue`, the
+**openai-codex** plugin's own subagent — a thin forwarder with no runner or
+template system of this skill's own to maintain; what stays here is which
+steps go there, how each request is filled, and why. Review is a **separate**
+Codex run from implementation, which costs one extra run per PR and buys the
+only thing that makes it a review: a context that did not write the diff.
 
-Model and reasoning effort are not passed on the Codex path at all. Leaving them
-unset makes each run inherit the Codex CLI's own configuration file, so the
-model is changed in one place when a newer one ships, and the strongest effort
-setting stays reachable — one of the two entry points rejects the top effort
-level outright while that file accepts it. The `delegating-to-codex` skill owns
-that rule, the runner, and the one-off override; `platform-notes.md` notes what
-it costs this skill per platform.
+Model and reasoning effort are not passed on the Codex path at all. Leaving
+them unset makes each run inherit the Codex CLI's own configuration file, so
+the model is changed in one place when a newer one ships, and the strongest
+effort setting stays reachable — `codex:rescue`'s own `--effort` flag tops out
+at `xhigh`, and only the config file's setting can reach the tier above it.
+`platform-notes.md` notes what leaving them unset costs this skill per
+platform.
 
 The Claude-side model assignments that remain (triage on `sonnet`; the
 no-Codex fallbacks — implementation on `opus`, CI repair on `sonnet` escalating

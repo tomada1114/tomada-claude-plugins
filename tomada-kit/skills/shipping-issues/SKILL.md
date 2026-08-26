@@ -9,8 +9,9 @@ metadata:
 # Shipping Issues
 
 Take open GitHub issues from open to merged-and-closed: rank priority →
-implement → linked PR → CI green → merge → confirm closed. Deterministic `gh`
-work lives in `scripts/`, so raw JSON and CI logs never enter the main context.
+implement → linked PR → CI green → merge → confirm closed. Deterministic
+GitHub work lives in `scripts/`, so raw JSON and CI logs never enter the main
+context.
 **Done means all three:** the PR is merged to the default branch, the issue is
 CLOSED, and nothing was deleted or weakened to get there.
 
@@ -33,7 +34,7 @@ is itself part of this run — [step 2b](#2b-decide-the-design-before-implementi
 
 ## Inputs and outputs
 
-Reads: the current repo's open issues and PRs via `gh`; the project's own
+Reads: the current repo's open issues and PRs; the project's own
 `CLAUDE.md` / `AGENTS.md` for conventions.
 Writes: `priority: P0`…`P3` labels, `blocked: design` labels, branches, PRs,
 merge commits, issue closures, follow-up issues (step 9), and a run record — layout, events, why
@@ -49,19 +50,23 @@ python3 {SKILL_DIR}/scripts/run_record.py --repo <owner>/<repo> --event <kind> \
 
 ### 0. Preflight
 
-`{SKILL_DIR}` is this skill's own absolute path, substituted by the caller;
-`{CODEX_SKILL_DIR}` is the sibling **`delegating-to-codex`** skill's directory.
+`{SKILL_DIR}` is this skill's own absolute path, substituted by the caller.
 
-**Requires:** `gh` (authenticated), `git`, `python3`, `delegating-to-codex`.
-Optional: Codex CLI (+ Node) for steps 3/6/7; `coreutils` for `gtimeout`.
+**Requires:** `git`, `python3`. Optional, Claude Code host only: the
+**openai-codex** plugin (`codex:rescue` / `codex:setup`) for steps 3/6/7;
+`coreutils` for `gtimeout`.
 
 ```bash
 {SKILL_DIR}/scripts/preflight.sh
-{CODEX_SKILL_DIR}/scripts/codex_run.sh check
 ```
 
+On a Claude Code host, also run `Skill(codex:setup)` once to confirm Codex is
+installed and authenticated. On a Codex CLI host the openai-codex plugin does
+not resolve at all — that is the expected Codex-host path, not a broken
+install; go straight to the inline fallback for steps 3/6/7.
+
 `verdict: BLOCKED` stops the run. A dirty tree is a warning — ask first.
-`check`'s result decides steps 3/6/7's route once, here — fallback ladders:
+Codex readiness decides steps 3/6/7's route once, here — fallback ladders:
 [platform-notes.md](references/platform-notes.md). Open the run record:
 `{SKILL_DIR}/scripts/run_record.py --event run-start --field mode=<single|all>`.
 
@@ -115,15 +120,19 @@ approach, recording it, and clearing the block before step 3:
 
 ### The Codex pattern (steps 3, 6, 7)
 
-Fill the matching generic template from
-`{CODEX_SKILL_DIR}/references/delegation-templates.md` — per-step fill table:
-[delegation-templates.md](references/delegation-templates.md) — write it to
-`<runstate>/prompts/<n>-<step>.md`, and run `{CODEX_SKILL_DIR}/scripts/codex_run.sh
-task [--write] --cwd <worktree> --prompt-file <path>` (`--write` for 3 and 7;
-6 omits it — read-only, which is what makes it a genuine review). Codex
-cannot ask a question back — leave nothing merge-gating unguessed.
-`codex_touched:` is not the file list; `git -C <worktree> status --short` is.
-No usable Codex → fallback ladders: [platform-notes.md](references/platform-notes.md).
+All three hand off to the same entry point: `Skill(codex:rescue, args="--wait
+<request>")`, the **openai-codex** plugin's subagent — a thin forwarder that
+runs one Codex turn and returns its output verbatim. Fill each step's request
+from [delegation-templates.md](references/delegation-templates.md). Codex
+cannot ask a question back — leave nothing merge-gating unguessed. `codex:rescue`
+has no `--cwd` of its own, so the request's opening line ("work only inside
+{worktree_path}") is the only thing scoping it — say it first, in every
+request, and run steps 3 and 7 one issue at a time even in `all` mode, since
+nothing structurally stops two concurrent write-capable calls from landing in
+the wrong worktree (step 6 is read-only and safe to parallelize against the
+same worktree). `git -C <worktree> status --short` is the authority on what
+changed, never the run's own prose. No usable Codex (`codex:setup` reports
+not ready) → fallback ladders: [platform-notes.md](references/platform-notes.md).
 
 ### 3. Implement
 
@@ -145,10 +154,9 @@ implementation runs. What that smoke run turns up goes to step 9.
 
 Fill/run:
 [delegation-templates.md#implementation-step-3](references/delegation-templates.md#implementation-step-3)
-— `--cwd` isolates each worktree, so a parallel batch (cap 3, see Modes) is
-issued together; serialize everything else. `codex_status:` non-zero → don't
-retry blindly: read `git status`/`git log` for what landed, resume naming
-what's left, or record `--event blocked`.
+— a run that stops before pushing anything → don't retry blindly: read
+`git status`/`git log` for what landed, resume naming what's left, or record
+`--event blocked`.
 
 A `VERIFY: ... -> fail` is not automatically the code's fault. The sandbox has
 no network, so any step that reaches a registry, a proxy, or a remote fails
@@ -164,14 +172,11 @@ returns `PUSHED: no` with its commits sitting in the worktree. Commits present
 no branch: record `--event blocked --field issue=<n>`, report `SKIPPED(<why>)`
 in step 11, in `all` mode move on.
 
-```bash
-gh pr create --base <default_branch> --head <branch> --title <PR-TITLE> --body <...>
-```
-
+Open a PR from `<branch>` against `<default_branch>`, titled `<PR-TITLE>`.
 Body must start with **`Closes #N`** after the summary (a bare `#N` closes
 nothing), and target the **default branch** (auto-close only fires there) —
-build from `PR-SUMMARY`, `Closes #N`, `TEST-PLAN`. Record it (`--event
-pr-created --field issue=<n> --field pr=<url>`) before CI.
+build the body from `PR-SUMMARY`, `Closes #N`, `TEST-PLAN`. Record it
+(`--event pr-created --field issue=<n> --field pr=<url>`) before CI.
 
 ### 5. Verify the auto-close link
 
@@ -180,8 +185,8 @@ pr-created --field issue=<n> --field pr=<url>`) before CI.
 ```
 
 Decides whether this run actually closes anything. `--fix` appends a missing
-`Closes #N`. `WRONG_BASE` → retarget (`gh pr edit <pr> --base <default>`)
-before merging.
+`Closes #N`. `WRONG_BASE` → retarget the PR's base to `<default>` before
+merging.
 
 ### 6. Review before CI
 
@@ -198,12 +203,12 @@ intent_match=<yes|no> --field unresolved=<count>`).
 
 ### 7. CI to green
 
+The checks API still serves the PREVIOUS commit's results for a minute or two
+after a push, so a watch started too early returns that run's verdict — a
+stale PASS is worse than a stale FAIL. Wait for the PR's new head commit to
+actually appear among the branch's CI runs before watching, then:
+
 ```bash
-# The checks API still serves the PREVIOUS commit's results for a minute or two
-# after a push, so a watch started too early returns that run's verdict — a
-# stale PASS is worse than a stale FAIL. Wait for the new head to appear first.
-head=$(gh pr view <pr> --json headRefOid -q .headRefOid)
-until gh run list --branch <branch> --limit 8 --json headSha -q '.[].headSha' | grep -q "${head:0:7}"; do sleep 15; done
 {SKILL_DIR}/scripts/ci_watch.sh <pr> --timeout 1800 > <runstate>/ci/<pr>.log
 grep -E '^(verdict|mergeable|merge_state|review_decision):' <runstate>/ci/<pr>.log
 ```
@@ -220,7 +225,7 @@ On `FAIL`, fill/run:
 or weakened to pass, or a "flaky" re-run without diagnosis, is a failed
 outcome. `NO_CHECKS` → run the project's own verification command locally and
 merge on a local green (no such command → ask first). `verdict: ERROR` →
-re-read with `gh`, not a green.
+re-read the actual PR/CI state before treating it as a green.
 
 ### 8. Merge and confirm the issue closed
 

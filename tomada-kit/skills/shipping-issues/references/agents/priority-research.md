@@ -30,9 +30,9 @@ Then run and read the full-body digest (do not paste its raw output back to me):
 written; `P2(~P0)` is a written label the signals now say is too low. Run the
 research pass from priority-rubric.md on the top 3–5 rows only, and verify each
 claim you repeat:
-  gh issue view <n> --comments        (shortlisted issues only)
+  read the shortlisted issues' own comments for evidence
   grep for the symbols/paths the body names, to confirm ripple/leverage
-  gh run list --branch {default_branch} --limit 5   (only if an issue claims CI/main is broken)
+  check whether CI/{default_branch} is actually broken, only if an issue claims it
 
 Then write the tiers — one call, both halves:
   python3 {SKILL_DIR}/scripts/apply_priority_labels.py \

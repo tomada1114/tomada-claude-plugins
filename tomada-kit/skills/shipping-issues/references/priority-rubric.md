@@ -70,8 +70,8 @@ Spend a short, bounded pass gathering evidence for the top 3–5 rows only:
 
 | Question | How to check |
 |---|---|
-| Does it really unblock the issues the table claims? | `gh issue view <n> --comments` on both ends; a bare `#12` mention is not a dependency |
-| Is the "damage" still real? | Is the failure reproducible now — `gh run list --branch <default> --limit 5` for red CI, or run the project's test command |
+| Does it really unblock the issues the table claims? | read both ends' comments; a bare `#12` mention is not a dependency |
+| Is the "damage" still real? | is the failure reproducible now — check whether CI on `<default>` is actually red, or run the project's test command |
 | Does it touch shared ground? | grep the paths/symbols the body names; a change under `src/core`, `schema/`, `.github/workflows/` has ripple by construction |
 | Is it actually specified? | Does the body state a behavior, a file, or an acceptance condition? |
 | Has someone already started? | `HAS-OPEN-PR` flag, plus recent comments claiming the work |

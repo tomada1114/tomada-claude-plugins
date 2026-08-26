@@ -17,7 +17,6 @@ Run `/plugin` to browse interactively.
 |---|---|
 | **authoring-goal-prompts** | Author a self-contained prompt for Claude Code's /goal command, run unattended in a separate session — a… |
 | **creating-agent-skills** | Create or improve Agent Skills (the shared SKILL.md format read by Claude Code and OpenAI Codex CLI —… |
-| **delegating-to-codex** | Hand a coding task to the Codex CLI as a separate non-interactive run — an implementation whose diff and repo… |
 | **designing-wireframes** | Create ASCII wireframes, user flow diagrams, and cross-cutting specifications for UI/UX visualization… |
 | **dual-platform-skills** | Convert one existing skill (Claude Code origin or Codex origin) into a layout that works on both Claude Code… |
 | **maintaining-agents-md** | Keep a project's agent rule files in one shape both Claude Code and Codex CLI obey: AGENTS.md is the master… |
