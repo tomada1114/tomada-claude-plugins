@@ -74,20 +74,6 @@ Emitted by inventory and quoted in audit output.
 | R012 | active configured fallback filename is not the canonical source |
 | R013 | Codex config could not be read completely |
 
-Hook findings, from the same inventory run (see `hooks.md`):
-
-| code | meaning |
-|---|---|
-| H001 | `.claude/hooks/` exists — scripts live in a host-local directory |
-| H002 | a hook script is wired from outside `.agents/hooks/` |
-| H003 | shareable events are wired for Claude Code but `.codex/hooks.json` is missing |
-| H004 | the shared hook projections disagree on an event; extra Codex-only commands are allowed |
-| H005 | `.codex/hooks.json` exists but `.claude/settings.json` has no hooks |
-| H006 | a command resolves its script through a host-only variable or a cwd-relative path |
-| H007 | a shared script still reads only the Claude-side payload shape (info) |
-| H008 | a hook config file is not valid JSON (error) |
-| H009 | `.codex/config.toml` also contains inline hooks (info); it is outside the merge script's write scope |
-
 ## Host loading facts
 
 Claude Code — source: https://code.claude.com/docs/en/memory
@@ -134,8 +120,7 @@ Every subdirectory master gets its own `CLAUDE.md` stub in the same directory.
 |---|---|
 | commands, architecture, conventions, gotchas, env, test approach | `AGENTS.md` (root, or the owning subdirectory) |
 | anything scoped to one package boundary | that package's `AGENTS.md` |
-| hook scripts, and the description of what they enforce | `.agents/hooks/**` for the scripts, an "Agent hooks" section in `AGENTS.md` for the description |
-| Claude-only hook events, `.claude/settings.json` policy, `.claude/rules/` listing, Claude-only skills, host-specific wording | stub free section |
+| hooks and what they enforce, `.claude/settings.json` policy, `.claude/rules/` listing, Claude-only skills, host-specific wording | stub free section |
 | personal, machine-local, uncommitted preferences | `CLAUDE.local.md` (gitignored) |
 
 Host names and tool names ("Claude", "Claude Code", tool identifiers) in `AGENTS.md` are a defect: the master is read by both hosts and must stay tool-agnostic. Move that wording to the free section.
@@ -145,10 +130,8 @@ Host names and tool names ("Claude", "Claude Code", tool identifiers) in `AGENTS
 - `CLAUDE.local.md` — personal and gitignored. Reported by inventory, never read into a shared file, never modified, never deleted.
 - `.claude/CLAUDE.md` — alternative root location. If it has content, fold it into the root `AGENTS.md` during migrate and remove it; two active root files mean duplicated context and ambiguous ordering.
 - `.claude/rules/*.md` — Claude-only. Migrate routes them by glob scope (see `migration.md`).
-- `.agents/hooks/` — hook scripts, host-neutral, wired from both hosts' configs. The `hooks` mode creates it; `.claude/hooks/` is retired in its favour. Details in `hooks.md`.
-- `.claude/settings.json` — hook wiring plus permissions and other settings. Only its `hooks` key is ever rewritten; everything else is preserved. `.claude/settings.local.json` is personal: never read, never written.
-- `.codex/hooks.json` — the Codex project JSON hook source. The skill merges the shared Claude projection into it while preserving Codex-only handlers and unrelated top-level keys; it does not claim ownership of the entire file.
-- `.codex/config.toml` — may contain Codex's inline `[hooks]` source and instruction settings. Inventory reports relevant metadata; the hooks mode leaves this file untouched.
+- `.claude/settings.json` — hook wiring plus permissions and other settings, read only; the skill never writes it. `.claude/settings.local.json` is personal: never read, never written.
+- `.codex/config.toml` — may contain Codex's inline `[hooks]` source and instruction settings; inventory reports relevant metadata but never writes it.
 - `AGENTS.override.md` — Codex reads it before `AGENTS.md` in the same directory. This skill neither creates nor manages it; report it when it is active so the user knows it wins.
 
 ## Snapshots

@@ -80,11 +80,42 @@ READY_NEGATIVE_LABELS = {
     "discussion",
     "needs discussion",
     "needs-discussion",
-    "needs design",
-    "needs-design",
     "wip",
     "draft",
 }
+
+# The design-not-settled label is a *soft* block, unlike READY_NEGATIVE_LABELS:
+# it is excluded from automatic selection by default, but an explicit issue
+# number or --include-design can still take it on (deciding the design is then
+# part of the run — see SKILL.md step 2b). Kept separate from
+# READY_NEGATIVE_LABELS so the two states never collapse into one meaning.
+# All members are normalize_label() output, so "Blocked: Design", "blocked/design"
+# and "needs-design" resolve to the same key on lookup.
+DESIGN_LABEL = ("blocked: design", "5319e7",
+                "Design/approach not settled - decide it before implementing")
+DESIGN_BLOCK_LABELS = {
+    normalize_label(n) for n in
+    ("blocked: design", "needs design", "needs-design", "needs:design",
+     "design-needed")
+}
+
+
+def resolve_design_label(existing: list[str]) -> tuple[str, bool]:
+    """Return (label name this repo uses for the design-not-settled state,
+    whether it still needs to be created). Mirrors apply_priority_labels.py's
+    tier-label resolution: prefer the canonical name, then any existing alias
+    meaning the same thing (shortest wins), only fall back to creating the
+    canonical one when the repo has neither.
+    """
+    canonical = DESIGN_LABEL[0]
+    by_norm = {normalize_label(name): name for name in existing}
+    if normalize_label(canonical) in by_norm:
+        return by_norm[normalize_label(canonical)], False
+    aliases = [name for norm, name in by_norm.items() if norm in DESIGN_BLOCK_LABELS]
+    if aliases:
+        return min(aliases, key=lambda n: (len(n), n)), False
+    return canonical, True
+
 
 # Explicit priority signals, by normalized label name (see normalize_label:
 # `Priority: P0`, `priority/p0` and `p0 ` all arrive here as one key).
@@ -344,11 +375,13 @@ def tier_cell(rec: dict[str, Any]) -> str:
     return tier
 
 
-def readiness(rec: dict[str, Any]) -> str:
+def readiness(rec: dict[str, Any], allow_design: bool = False) -> str:
     if rec["depends_on_open"]:
         return "BLOCKED-BY:" + ",".join(f"#{n}" for n in rec["depends_on_open"])
     if rec["not_ready_labels"]:
         return "LABEL:" + ",".join(rec["not_ready_labels"])
+    if rec["design_labels"] and not allow_design:
+        return "DESIGN:" + ",".join(rec["design_labels"])
     if rec["open_pr"]:
         return f"HAS-PR:#{rec['open_pr']['number']}"
     return "READY"
@@ -372,6 +405,10 @@ def main() -> int:
                         "coverage — the cheapest way to get the pick")
     p.add_argument("--no-rank", action="store_true",
                    help="omit the priority ranking table")
+    p.add_argument("--include-design", action="store_true",
+                   help="treat design-not-settled issues (blocked: design and "
+                        "equivalents) as selectable — use only when deciding "
+                        "the design is itself part of this run")
     p.add_argument("--json", action="store_true", dest="as_json")
     args = p.parse_args()
 
@@ -445,7 +482,10 @@ def main() -> int:
         labels = [lbl["name"] for lbl in it.get("labels", [])]
         body = it.get("body") or ""
         deps = all_deps[num]
-        blockers = [lbl for lbl in labels if lbl.lower() in READY_NEGATIVE_LABELS]
+        blockers = [lbl for lbl in labels
+                    if normalize_label(lbl) in READY_NEGATIVE_LABELS]
+        design_labels = [lbl for lbl in labels
+                          if normalize_label(lbl) in DESIGN_BLOCK_LABELS]
         pr = claimed.get(num)
         rec = {
             "number": num,
@@ -463,6 +503,7 @@ def main() -> int:
             "unblocks_open": sorted(unblocks.get(num, set())),
             "referenced_by_open": sorted(referenced_by.get(num, set())),
             "not_ready_labels": blockers,
+            "design_labels": design_labels,
             "open_pr": {"number": pr["number"], "url": pr["url"],
                         "draft": pr["isDraft"]} if pr else None,
             "body": squeeze(body, args.body_chars),
@@ -475,7 +516,9 @@ def main() -> int:
         # What the ordering actually uses: the label when there is one, the
         # suggestion otherwise, so a half-labeled backlog still ranks sanely.
         rec["effective_tier"] = rec["priority_tier"] or rec["suggested_tier"]
-        rec["readiness"] = readiness(rec)
+        # An explicit --issue N is itself the override: naming an issue means
+        # taking it on deliberately, same as --include-design.
+        rec["readiness"] = readiness(rec, allow_design=args.include_design or bool(wanted))
         records.append(rec)
 
     ranked = sorted(
@@ -491,6 +534,7 @@ def main() -> int:
 
     labeled = [r for r in records if r["priority_tier"]]
     unlabeled = [r for r in records if not r["priority_tier"]]
+    needs_design = [r for r in records if r["design_labels"]]
     payload = {
         "open_issue_count": len(records),
         "open_pr_count": len(prs),
@@ -500,6 +544,7 @@ def main() -> int:
             "complete": not unlabeled,
             "unlabeled": [r["number"] for r in unlabeled],
         },
+        "needs_design": [r["number"] for r in needs_design],
         "ranking": [
             {"number": r["number"], "score": r["priority_score"],
              "tier": r["priority_tier"], "suggested_tier": r["suggested_tier"],
@@ -539,9 +584,18 @@ def main() -> int:
                   f"(score {r['priority_score']} · {' · '.join(r['score_reasons']) or '—'})")
         if not picks:
             print("select: none — no READY issue matches the filter")
+        # Design-not-settled issues get their own line, not buried in `held:`
+        # with dependency/label blocks — the reason to unblock them is
+        # different (decide the design, not wait on something else).
+        needs_design = [r for r in ranked if r["readiness"].startswith("DESIGN:")]
+        if needs_design:
+            print("needs-design: " + ", ".join(
+                f"#{r['number']}[{tier_cell(r)}]" for r in needs_design)
+                + " — 設計未確定のため保留(明示指定 / --include-design で着手可)")
         # Held issues explain why the pick is what it is; the top of that list
         # is where a merge will free something up, so 10 is plenty.
-        held = [r for r in ranked if r["readiness"] != "READY"]
+        held = [r for r in ranked
+                if r["readiness"] != "READY" and not r["readiness"].startswith("DESIGN:")]
         if held:
             more = f" (+{len(held) - 10} more)" if len(held) > 10 else ""
             print("held: " + ", ".join(
@@ -574,6 +628,8 @@ def main() -> int:
         flags = []
         if r["not_ready_labels"]:
             flags.append(f"NOT-READY-LABEL:{','.join(r['not_ready_labels'])}")
+        if r["design_labels"]:
+            flags.append(f"NEEDS-DESIGN:{','.join(r['design_labels'])}")
         if r["open_pr"]:
             flags.append(
                 f"HAS-OPEN-PR:#{r['open_pr']['number']}"

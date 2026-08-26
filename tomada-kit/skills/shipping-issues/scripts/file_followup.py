@@ -20,7 +20,14 @@ to be the working directory. Pass `--repo` when in any doubt.
 
 Usage:
     file_followup.py --title T --body-file F --tier P2 [--label L ...]
-                     [--found-while N] [--repo OWNER/NAME] [--dry-run] [--json]
+                     [--needs-design] [--found-while N] [--repo OWNER/NAME]
+                     [--dry-run] [--json]
+
+`--needs-design` marks the new issue design-not-settled (`blocked: design` or
+this repo's existing equivalent) — use it only when the finding names an open
+design question rather than a verified fix. See
+references/filing-followups.md. `--tier` is still required even then, so the
+issue ranks correctly the moment the design is decided.
 
 Exit codes:
     0 = issue created (or --dry-run resolved cleanly)
@@ -39,7 +46,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from issue_digest import TIER_ALIASES, TIER_LABELS, TIER_ORDER, normalize_label
+from issue_digest import (DESIGN_LABEL, TIER_ALIASES, TIER_LABELS, TIER_ORDER,
+                          normalize_label, resolve_design_label)
 
 PERMISSION_MARKERS = ("HTTP 403", "Resource not accessible", "must have admin",
                       "does not have permission", "HTTP 404: Not Found")
@@ -116,6 +124,10 @@ def main() -> int:
                    help="priority tier for the finding, per references/priority-rubric.md")
     p.add_argument("--label", action="append", default=[], metavar="NAME",
                    help="extra label (repeatable); silently skipped if the repo lacks it")
+    p.add_argument("--needs-design", action="store_true",
+                   help="mark the new issue design-not-settled (blocked: "
+                        "design or this repo's equivalent) — excludes it "
+                        "from automatic selection until the design is decided")
     p.add_argument("--found-while", type=int, metavar="N",
                    help="issue number this was found while shipping; appends a "
                         "provenance line to the body")
@@ -154,13 +166,20 @@ def main() -> int:
     existing = repo_labels()
     tier_label = resolve_tier_label(args.tier, existing, args.dry_run)
 
+    design_label = None
+    if args.needs_design:
+        design_label, needs_create = resolve_design_label(existing)
+        if needs_create and not args.dry_run:
+            name, color, desc = DESIGN_LABEL
+            gh(["label", "create", name, "--color", color, "--description", desc])
+
     by_norm = {normalize_label(n): n for n in existing}
     extra, missing = [], []
     for name in args.label:
         match = by_norm.get(normalize_label(name))
         (extra.append(match) if match else missing.append(name))
 
-    labels = [tier_label, *dict.fromkeys(extra)]
+    labels = [tier_label, *([design_label] if design_label else []), *dict.fromkeys(extra)]
 
     if args.dry_run:
         out = {"dry_run": True, "repo": REPO, "title": args.title,

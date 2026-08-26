@@ -10,6 +10,7 @@ at the filing step, before writing any issue body.
 - [What is not an issue](#what-is-not-an-issue)
 - [Verify before filing](#verify-before-filing)
 - [What the body needs](#what-the-body-needs)
+- [Design not settled](#design-not-settled)
 
 Shipping an issue surfaces defects that are not that issue: a sibling of the bug
 just fixed, a latent gap the diff walked past, a scope the implementing run
@@ -67,3 +68,13 @@ Give the body what the next session needs and cannot cheaply re-derive:
 
 Name the open design questions and leave them open rather than deciding them
 here.
+
+## Design not settled
+
+Pass `file_followup.py --needs-design` when the body's open questions are
+something nobody can implement without answering first — a real choice
+between approaches, an undecided scope boundary, a product/UX call — so the
+finding stays out of automatic selection until a run deliberately takes it on
+and decides (see `dependency-triage.md`'s "Deciding a held design"). Do not
+add it for a verified defect with an obvious fix merely because it is
+large or touches many files — size is not the test, an undecided approach is.

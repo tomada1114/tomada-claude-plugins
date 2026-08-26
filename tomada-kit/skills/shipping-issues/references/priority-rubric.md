@@ -47,6 +47,11 @@ is never force-relabeled: `p0`/`critical`/`urgent`/`blocker` → P0,
 P3. `apply_priority_labels.py` writes the canonical spelling and strips the
 older one when it re-tiers an issue.
 
+Tier and design-readiness are orthogonal: `blocked: design` says the approach
+isn't settled, not how urgent the issue is once it is. Tier an issue even
+while it carries `blocked: design`, so it ranks correctly the instant the
+block is cleared — see `dependency-triage.md`'s "Deciding a held design".
+
 Two rules keep the labels trustworthy:
 
 - **A wrong label gets fixed, not worked around.** Ranking around a stale label

@@ -240,22 +240,86 @@ class TierCellTest(unittest.TestCase):
 class ReadinessTest(unittest.TestCase):
     def test_blocked_by_wins_over_everything(self):
         rec = {"depends_on_open": [3], "not_ready_labels": ["blocked"],
-               "open_pr": {"number": 1}}
+               "design_labels": [], "open_pr": {"number": 1}}
         self.assertEqual(idg.readiness(rec), "BLOCKED-BY:#3")
 
     def test_not_ready_label_next(self):
         rec = {"depends_on_open": [], "not_ready_labels": ["question"],
-               "open_pr": {"number": 1}}
+               "design_labels": [], "open_pr": {"number": 1}}
         self.assertEqual(idg.readiness(rec), "LABEL:question")
 
     def test_open_pr_next(self):
         rec = {"depends_on_open": [], "not_ready_labels": [],
-               "open_pr": {"number": 7}}
+               "design_labels": [], "open_pr": {"number": 7}}
         self.assertEqual(idg.readiness(rec), "HAS-PR:#7")
 
     def test_ready_when_nothing_blocks(self):
-        rec = {"depends_on_open": [], "not_ready_labels": [], "open_pr": None}
+        rec = {"depends_on_open": [], "not_ready_labels": [],
+               "design_labels": [], "open_pr": None}
         self.assertEqual(idg.readiness(rec), "READY")
+
+    def test_design_label_blocks_by_default(self):
+        rec = {"depends_on_open": [], "not_ready_labels": [],
+               "design_labels": ["blocked: design"], "open_pr": None}
+        self.assertEqual(idg.readiness(rec), "DESIGN:blocked: design")
+
+    def test_design_label_wins_over_open_pr(self):
+        rec = {"depends_on_open": [], "not_ready_labels": [],
+               "design_labels": ["needs-design"], "open_pr": {"number": 7}}
+        self.assertEqual(idg.readiness(rec), "DESIGN:needs-design")
+
+    def test_not_ready_label_wins_over_design_label(self):
+        rec = {"depends_on_open": [], "not_ready_labels": ["blocked"],
+               "design_labels": ["blocked: design"], "open_pr": None}
+        self.assertEqual(idg.readiness(rec), "LABEL:blocked")
+
+    def test_allow_design_treats_design_label_as_ready(self):
+        rec = {"depends_on_open": [], "not_ready_labels": [],
+               "design_labels": ["blocked: design"], "open_pr": None}
+        self.assertEqual(idg.readiness(rec, allow_design=True), "READY")
+
+    def test_allow_design_still_respects_open_pr(self):
+        rec = {"depends_on_open": [], "not_ready_labels": [],
+               "design_labels": ["blocked: design"], "open_pr": {"number": 7}}
+        self.assertEqual(idg.readiness(rec, allow_design=True), "HAS-PR:#7")
+
+
+class DesignBlockLabelsTest(unittest.TestCase):
+    def test_normalized_equivalents_all_recognized(self):
+        for name in ("blocked: design", "Blocked: Design", "blocked/design",
+                     "needs design", "needs-design", "needs:design",
+                     "design-needed"):
+            self.assertIn(idg.normalize_label(name), idg.DESIGN_BLOCK_LABELS,
+                          f"{name!r} should be a recognized design-block label")
+
+    def test_unrelated_label_not_recognized(self):
+        self.assertNotIn(idg.normalize_label("bug"), idg.DESIGN_BLOCK_LABELS)
+
+
+class ResolveDesignLabelTest(unittest.TestCase):
+    def test_canonical_present_is_reused(self):
+        name, needs_create = idg.resolve_design_label(["blocked: design", "bug"])
+        self.assertEqual(name, "blocked: design")
+        self.assertFalse(needs_create)
+
+    def test_alias_present_is_reused_not_duplicated(self):
+        name, needs_create = idg.resolve_design_label(["needs-design"])
+        self.assertEqual(name, "needs-design")
+        self.assertFalse(needs_create)
+
+    def test_shortest_alias_wins_when_repo_carries_several(self):
+        name, needs_create = idg.resolve_design_label(
+            ["needs design", "needs-design", "design-needed"])
+        # "needs design"/"needs-design" tie on length (12); the tie-break is
+        # plain string ordering (min()'s documented behavior) rather than a
+        # meaningful preference, and a space sorts before a hyphen.
+        self.assertEqual(name, "needs design")
+        self.assertFalse(needs_create)
+
+    def test_no_equivalent_creates_canonical(self):
+        name, needs_create = idg.resolve_design_label(["bug", "priority: P0"])
+        self.assertEqual(name, "blocked: design")
+        self.assertTrue(needs_create)
 
 
 class MainEndToEndTest(unittest.TestCase):
@@ -310,6 +374,60 @@ class MainEndToEndTest(unittest.TestCase):
         self.assertEqual(rc, 0, err)
         self.assertIn("select: #2", out)
         self.assertNotIn("select: #1", out)
+
+    def test_design_labeled_issue_excluded_from_select_by_default(self):
+        issues = [
+            gh_issue(3, title="needs a design call", labels=["priority: P0",
+                     "blocked: design"]),
+            gh_issue(4, title="ready to go", labels=["priority: P2"]),
+        ]
+        rc, out, err = self._run(["--select"], issues)
+        self.assertEqual(rc, 0, err)
+        self.assertIn("select: #4", out)
+        self.assertNotIn("select: #3", out)
+        self.assertIn("needs-design: #3", out)
+        # Not duplicated into `held:` alongside genuinely blocked issues.
+        self.assertNotIn("held:", out)
+
+    def test_include_design_makes_it_selectable(self):
+        issues = [gh_issue(3, title="needs a design call",
+                            labels=["priority: P0", "blocked: design"])]
+        rc, out, err = self._run(["--select", "--include-design"], issues)
+        self.assertEqual(rc, 0, err)
+        self.assertIn("select: #3", out)
+        self.assertNotIn("needs-design:", out)
+
+    def test_explicit_issue_number_also_bypasses_design_block(self):
+        issues = [gh_issue(3, title="needs a design call",
+                            labels=["priority: P0", "blocked: design"])]
+        rc, out, err = self._run(["--select", "--issue", "3"], issues)
+        self.assertEqual(rc, 0, err)
+        self.assertIn("select: #3", out)
+
+    def test_design_label_recognized_via_alias_and_normalization(self):
+        issues = [gh_issue(3, title="needs a design call",
+                            labels=["priority: P0", "Blocked: Design"])]
+        rc, out, err = self._run(["--select"], issues)
+        self.assertEqual(rc, 0, err)
+        self.assertIn("needs-design: #3", out)
+
+    def test_needs_design_flag_and_payload_field(self):
+        issues = [gh_issue(3, title="needs a design call",
+                            labels=["priority: P0", "blocked: design"])]
+        rc, out, err = self._run(["--json"], issues)
+        self.assertEqual(rc, 0, err)
+        payload = json.loads(out)
+        self.assertEqual(payload["needs_design"], [3])
+        rec = payload["issues"][0]
+        self.assertEqual(rec["design_labels"], ["blocked: design"])
+        self.assertEqual(rec["readiness"], "DESIGN:blocked: design")
+
+    def test_needs_design_flag_shown_in_markdown_output(self):
+        issues = [gh_issue(3, title="needs a design call",
+                            labels=["priority: P0", "blocked: design"])]
+        rc, out, err = self._run([], issues)
+        self.assertEqual(rc, 0, err)
+        self.assertIn("NEEDS-DESIGN:blocked: design", out)
 
     def test_issue_filter_restricts_output_but_not_dependency_graph(self):
         issues = [

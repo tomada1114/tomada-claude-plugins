@@ -33,7 +33,13 @@ done
 
 run() { if [ "$dry" -eq 1 ]; then echo "DRY: $*"; else "$@"; fi; }
 
-repo_root=$(git rev-parse --show-toplevel)
+# --show-toplevel answers with the *current* worktree, so running this from
+# inside one of the agent worktrees resolves wt_root to a path that does not
+# exist: the worktree pass then finds nothing and silently skips, while the
+# branch pass still runs against the shared refs. That combination deletes
+# merged branches and leaves every worktree in place, which reads as success.
+# --path-format=absolute --git-common-dir always points at the main .git.
+repo_root=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
 wt_root="$repo_root/.claude/worktrees"
 default_branch=$(git -C "$repo_root" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')
 default_branch=${default_branch:-main}

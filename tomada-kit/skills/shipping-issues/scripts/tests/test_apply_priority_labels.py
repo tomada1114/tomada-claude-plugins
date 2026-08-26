@@ -114,6 +114,68 @@ class EnsureLabelsTest(unittest.TestCase):
         self.assertEqual(calls, [])
 
 
+class SetClearDesignTest(unittest.TestCase):
+    """set_design()/clear_design() shell out to the real `gh` on PATH — route
+    PATH at a fake one instead of mocking subprocess, same as EnsureLabelsTest."""
+
+    def test_set_design_creates_label_when_repo_has_none(self):
+        with FakeGh({("label", "list"): "[]",
+                    ("label", "create"): "", ("issue", "edit"): ""}) as fake:
+            with patch.dict("os.environ", fake.env, clear=False):
+                name = apl.set_design(12, dry_run=False)
+            creates = [c for c in fake.calls if c[:2] == ["label", "create"]]
+            edits = [c for c in fake.calls if c[:2] == ["issue", "edit"]]
+        self.assertEqual(name, "blocked: design")
+        self.assertEqual(len(creates), 1)
+        self.assertEqual(edits, [["issue", "edit", "12", "--add-label", "blocked: design"]])
+
+    def test_set_design_reuses_existing_alias_without_creating(self):
+        existing = json.dumps([{"name": "needs-design"}])
+        with FakeGh({("label", "list"): existing, ("issue", "edit"): ""}) as fake:
+            with patch.dict("os.environ", fake.env, clear=False):
+                name = apl.set_design(12, dry_run=False)
+            created = any(c[:2] == ["label", "create"] for c in fake.calls)
+        self.assertEqual(name, "needs-design")
+        self.assertFalse(created)
+
+    def test_set_design_dry_run_makes_no_gh_mutations(self):
+        with FakeGh({("label", "list"): "[]"}) as fake:
+            with patch.dict("os.environ", fake.env, clear=False):
+                name = apl.set_design(12, dry_run=True)
+            mutating = [c for c in fake.calls if c[:2] in
+                       (["issue", "edit"], ["label", "create"])]
+        self.assertEqual(name, "blocked: design")
+        self.assertEqual(mutating, [])
+
+    def test_clear_design_removes_carried_alias(self):
+        view = json.dumps({"labels": [{"name": "needs-design"}, {"name": "priority: P1"}]})
+        with FakeGh({("issue", "view"): view, ("issue", "edit"): ""}) as fake:
+            with patch.dict("os.environ", fake.env, clear=False):
+                removed = apl.clear_design(12, dry_run=False)
+            edits = [c for c in fake.calls if c[:2] == ["issue", "edit"]]
+        self.assertEqual(removed, ["needs-design"])
+        self.assertEqual(edits,
+                         [["issue", "edit", "12", "--remove-label", "needs-design"]])
+
+    def test_clear_design_is_a_noop_when_not_present(self):
+        view = json.dumps({"labels": [{"name": "priority: P1"}]})
+        with FakeGh({("issue", "view"): view}) as fake:
+            with patch.dict("os.environ", fake.env, clear=False):
+                removed = apl.clear_design(12, dry_run=False)
+            edited = any(c[:2] == ["issue", "edit"] for c in fake.calls)
+        self.assertEqual(removed, [])
+        self.assertFalse(edited)
+
+    def test_clear_design_dry_run_makes_no_gh_mutations(self):
+        view = json.dumps({"labels": [{"name": "blocked: design"}]})
+        with FakeGh({("issue", "view"): view}) as fake:
+            with patch.dict("os.environ", fake.env, clear=False):
+                removed = apl.clear_design(12, dry_run=True)
+            edited = any(c[:2] == ["issue", "edit"] for c in fake.calls)
+        self.assertEqual(removed, ["blocked: design"])
+        self.assertFalse(edited)
+
+
 class MainEndToEndTest(unittest.TestCase):
     """Runs main() in-process against a fake `gh` on PATH. load_digest()
     still shells out to issue_digest.py as a real subprocess (that is its
@@ -208,6 +270,11 @@ class MainEndToEndTest(unittest.TestCase):
         rc, out, err, fake = self._run([], {})
         self.assertNotEqual(rc, 0)
 
+    def test_set_design_combined_with_backfill_is_a_usage_error(self):
+        rc, out, err, fake = self._run(["--set-design", "12", "--backfill"], {})
+        self.assertNotEqual(rc, 0)
+        self.assertIn("standalone", err)
+
     def test_gh_not_found_reports_error(self):
         rc, out, err, fake = self._run(["--backfill"], {}, path_override="/nonexistent-only")
         self.assertEqual(rc, 1)
@@ -242,6 +309,53 @@ class MainEndToEndTest(unittest.TestCase):
         payload = json.loads(out)
         self.assertEqual(payload["not_open"], [99])
         self.assertEqual(payload["changed"][0]["was"], "not-open")
+
+    def test_set_design_via_main_never_calls_the_digest(self):
+        # --set-design alone must not shell out to issue_digest.py — it needs
+        # only the repo's label list and the one issue, not the whole backlog.
+        # Written without self._run(): that helper returns `fake` only after
+        # its own `with FakeGh(...)` block has already exited and cleaned up
+        # its tmpdir, so a `fake.calls` check made after it returns is
+        # vacuously true/false regardless of what actually ran. Read calls
+        # here, inside the block, while the log file still exists.
+        responses = {
+            ("label", "list"): "[]",
+            ("label", "create"): "",
+            ("issue", "edit"): "",
+        }
+        with FakeGh(responses) as fake:
+            out, err = io.StringIO(), io.StringIO()
+            with patch.dict("os.environ", fake.env, clear=False), \
+                    patch.object(sys, "argv", ["apply_priority_labels.py",
+                                               "--set-design", "12"]), \
+                    redirect_stdout(out), redirect_stderr(err):
+                try:
+                    rc = apl.main()
+                except SystemExit as exc:
+                    rc = exc.code
+            issue_list_called = any(c[:2] == ["issue", "list"] for c in fake.calls)
+        self.assertEqual(rc, 0, err.getvalue())
+        self.assertIn("verdict: OK", out.getvalue())
+        self.assertFalse(issue_list_called)
+
+    def test_clear_design_via_main_reports_cleared(self):
+        view = json.dumps({"labels": [{"name": "blocked: design"}]})
+        rc, out, err, fake = self._run(
+            ["--clear-design", "12"],
+            {("issue", "view"): view, ("issue", "edit"): ""},
+        )
+        self.assertEqual(rc, 0, err)
+        self.assertIn("#12: needs-design cleared", out)
+
+    def test_clear_design_via_main_json_output(self):
+        view = json.dumps({"labels": []})
+        rc, out, err, fake = self._run(
+            ["--clear-design", "12", "--json"],
+            {("issue", "view"): view},
+        )
+        self.assertEqual(rc, 0, err)
+        payload = json.loads(out)
+        self.assertEqual(payload["design_cleared"], [{"number": 12, "removed": []}])
 
     def test_set_on_already_correct_label_is_unchanged(self):
         issues = json.dumps([issue(12, ["priority: P0"])])

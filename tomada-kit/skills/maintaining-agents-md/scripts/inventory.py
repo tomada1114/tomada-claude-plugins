@@ -15,10 +15,8 @@ What it reports:
       stub / stub+extras / legacy / legacy-import / missing / orphan / malformed
     * CLAUDE.local.md files, `.claude/CLAUDE.md`, and `.claude/rules/*.md`
       (with each rule's `paths:` scope: directory / pattern / mixed / global)
-    * the project's agent hooks: where the scripts live, which events each host
-      wires, and how every hook command resolves the project root
-    * findings R001-R013 / H001-H009 and a `suggested_mode` of
-      init | audit | migrate | hooks
+    * findings R001-R013 and a `suggested_mode` of
+      init | audit | migrate
 
 Finding codes:
     R001 legacy CLAUDE.md body (needs migrate)      R006 malformed managed block
@@ -28,13 +26,6 @@ Finding codes:
     R005 over the Codex document budget              R010 CLAUDE.local.md present (info)
     R011 active AGENTS.override.md                  R012 active configured fallback
     R013 Codex config could not be read completely
-
-    H001 hook scripts in a host-local directory     H005 one host wires hooks, the other does not
-    H002 a hook script wired from outside           H006 hook command resolves its script
-         the shared directory                            through a host-only or relative path
-    H003 shared events wired for one host only      H007 hook script looks host-specific (info)
-    H004 the shared hook projections disagree       H008 a hook config file is not valid JSON
-    H009 Codex inline hook configuration also exists (info)
 
 Exit codes:
     0 = no error/warn findings
@@ -485,137 +476,6 @@ def classify_rule_scope(patterns: Optional[Sequence[str]], root: Path) -> Tuple[
     return "directory", "/".join(common), False
 
 
-# --- hook wiring -------------------------------------------------------------
-# Events both hosts fire, so their wiring can live in both config files. Every
-# other event is host-local and stays in the Claude config only.
-SHAREABLE_HOOK_EVENTS = (
-    "SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse",
-    "PermissionRequest", "PostToolUse", "SubagentStart", "SubagentStop",
-    "Stop", "PreCompact", "PostCompact",
-)
-
-CLAUDE_SETTINGS_REL = ".claude/settings.json"
-CODEX_HOOKS_REL = ".codex/hooks.json"
-LEGACY_HOOKS_REL = ".claude/hooks"
-SHARED_HOOKS_REL = ".agents/hooks"
-# The one root expression both hosts expand: the Claude-only project variable
-# does not exist on the other host, and a relative path resolves against the
-# session directory, which is not the project root when a session starts deeper.
-TOPLEVEL_EXPR = "$(git rev-parse --show-toplevel)"
-HOOK_SCRIPT_SUFFIXES = (".py", ".mjs", ".js", ".sh", ".ts")
-# Keys supported by Codex's command hook definition. Unknown Claude-only keys
-# are dropped from newly generated entries, while unknown keys already present
-# in Codex are preserved by share_hooks.py.
-CODEX_HOOK_KEYS = (
-    "timeout", "async", "statusMessage", "additionalContextLimit", "commandWindows",
-)
-# The findings that make sharing the hooks the next job, once nothing needs migrate.
-HOOK_MODE_CODES = ("H001", "H002", "H003", "H004", "H005", "H006")
-
-_ROOT_PREFIX_RE = re.compile(
-    r"\$\{CLAUDE_PROJECT_DIR\}/|\$CLAUDE_PROJECT_DIR/"
-    r"|\$\(\s*git\s+rev-parse\s+--show-toplevel\s*\)/"
-)
-
-
-def load_json_object(path: Path) -> Tuple[Optional[Dict[str, object]], str]:
-    """(parsed object, error). The error is empty on success, a reason otherwise."""
-    try:
-        data = json.loads(read_text(path))
-    except ValueError as exc:
-        return None, str(exc)
-    except OSError as exc:
-        return None, str(exc)
-    if not isinstance(data, dict):
-        return None, "top level is {}, expected an object".format(type(data).__name__)
-    return data, ""
-
-
-def hooks_of(data: Optional[Dict[str, object]]) -> Dict[str, object]:
-    """The `hooks` mapping of a parsed config, or an empty one."""
-    if not data:
-        return {}
-    hooks = data.get("hooks")
-    return hooks if isinstance(hooks, dict) else {}
-
-
-def hook_script_tokens(command: str) -> List[str]:
-    """Script paths a hook command runs, root prefixes and quotes stripped."""
-    stripped = _ROOT_PREFIX_RE.sub("", command)
-    tokens: List[str] = []
-    for raw in stripped.replace('"', " ").replace("'", " ").split():
-        token = raw[2:] if raw.startswith("./") else raw
-        if token.endswith(HOOK_SCRIPT_SUFFIXES) and token not in tokens:
-            tokens.append(token)
-    return tokens
-
-
-def hook_root_form(command: str) -> str:
-    """How a hook command resolves its script: toplevel|claude-env|absolute|relative|unknown."""
-    if "git rev-parse --show-toplevel" in command:
-        return "toplevel"
-    if "CLAUDE_PROJECT_DIR" in command:
-        return "claude-env"
-    tokens = hook_script_tokens(command)
-    if not tokens:
-        return "unknown"
-    return "absolute" if tokens[0].startswith("/") else "relative"
-
-
-def hook_script_location(rel: str) -> str:
-    """Where a hook script sits: legacy (host-local) | shared | other."""
-    if rel.startswith(LEGACY_HOOKS_REL + "/"):
-        return "legacy"
-    if rel.startswith(SHARED_HOOKS_REL + "/"):
-        return "shared"
-    return "other"
-
-
-def shareable_hooks(hooks: Dict[str, object]) -> Dict[str, List[Dict[str, object]]]:
-    """The subset of a Claude `hooks` mapping the other host understands.
-
-    Host-local events are dropped, so are entries with no runnable command and
-    keys the other host does not know. Malformed fragments are skipped rather
-    than raising: a config the skill did not write is still worth reading.
-    """
-    out: Dict[str, List[Dict[str, object]]] = {}
-    for event in SHAREABLE_HOOK_EVENTS:
-        entries = hooks.get(event)
-        if not isinstance(entries, list):
-            continue
-        kept: List[Dict[str, object]] = []
-        for entry in entries:
-            if not isinstance(entry, dict):
-                continue
-            commands: List[Dict[str, object]] = []
-            for hook in entry.get("hooks", []) if isinstance(entry.get("hooks"), list) else []:
-                if not isinstance(hook, dict) or hook.get("type") != "command":
-                    continue
-                command = hook.get("command")
-                if not isinstance(command, str) or not command.strip():
-                    continue
-                new_hook: Dict[str, object] = {"type": "command", "command": command}
-                for key in CODEX_HOOK_KEYS:
-                    if key in hook:
-                        new_hook[key] = hook[key]
-                commands.append(new_hook)
-            if not commands:
-                continue
-            new_entry: Dict[str, object] = {}
-            if isinstance(entry.get("matcher"), str):
-                new_entry["matcher"] = entry["matcher"]
-            new_entry["hooks"] = commands
-            kept.append(new_entry)
-        if kept:
-            out[event] = kept
-    return out
-
-
-def dump_json(data: object) -> str:
-    """The one JSON serialization both config writers use."""
-    return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
-
-
 # --- git ---------------------------------------------------------------------
 def _git(root: Path, *args: str) -> Optional[str]:
     try:
@@ -731,35 +591,6 @@ class RuleEntry:
 
 
 @dataclass
-class HookScriptEntry:
-    path: str
-    wired_by: List[str]
-    location: str  # legacy | shared | other
-
-
-@dataclass
-class HookCommandEntry:
-    host: str  # claude | codex
-    event: str
-    matcher: str
-    command: str
-    root_form: str  # toplevel | claude-env | relative | absolute | unknown
-
-
-@dataclass
-class HooksInfo:
-    state: str = "none"  # none | claude-only | shared | drift
-    claude_settings: Optional[str] = None
-    codex_hooks: Optional[str] = None
-    codex_config: Optional[str] = None
-    legacy_dir: Optional[str] = None
-    shared_dir: Optional[str] = None
-    events: Dict[str, Dict[str, bool]] = field(default_factory=dict)
-    scripts: List[HookScriptEntry] = field(default_factory=list)
-    commands: List[HookCommandEntry] = field(default_factory=list)
-
-
-@dataclass
 class Inventory:
     root: str
     git: Dict[str, object]
@@ -769,7 +600,6 @@ class Inventory:
     dot_claude_claude_md: List[str] = field(default_factory=list)
     rules: List[RuleEntry] = field(default_factory=list)
     codex: CodexInfo = field(default_factory=CodexInfo)
-    hooks: HooksInfo = field(default_factory=HooksInfo)
     findings: List[Finding] = field(default_factory=list)
     suggested_mode: str = "audit"
 
@@ -922,9 +752,7 @@ def build_inventory(root: Path, max_depth: Optional[int] = DEFAULT_MAX_DEPTH) ->
                 )
             )
 
-    inv.hooks, hook_findings = analyze_hooks(root)
     findings = collect_findings(root, inv)
-    findings.extend(hook_findings)
     findings.sort(key=lambda f: (f.path, f.code, f.line))
     inv.findings = findings
     inv.suggested_mode = suggest_mode(root, inv)
@@ -939,244 +767,6 @@ def _chain_bytes(root: Path, target: Path, agents_bytes: Dict[str, int]) -> int:
     for part in chain:
         total += agents_bytes.get(part.as_posix(), 0)
     return total
-
-
-def _hook_commands(host: str, hooks: Dict[str, object]):
-    """Flatten one config's `hooks` mapping into HookCommandEntry rows, in file order."""
-    for event, entries in hooks.items():
-        if not isinstance(entries, list):
-            continue
-        for entry in entries:
-            if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list):
-                continue
-            matcher = entry["matcher"] if isinstance(entry.get("matcher"), str) else ""
-            for hook in entry["hooks"]:
-                if not isinstance(hook, dict):
-                    continue
-                command = hook.get("command")
-                if not isinstance(command, str) or not command.strip():
-                    continue
-                yield HookCommandEntry(
-                    host=host, event=str(event), matcher=matcher,
-                    command=command, root_form=hook_root_form(command),
-                )
-
-
-def hook_signatures(hooks: Dict[str, object]) -> Dict[str, set[str]]:
-    """Comparable signatures for command hooks, grouped by event.
-
-    The comparison deliberately ignores host-local events and unknown fields.
-    This lets a Codex-only command coexist with the shared projection instead
-    of making every inventory run report false drift.
-    """
-    result: Dict[str, set[str]] = {}
-    for event in SHAREABLE_HOOK_EVENTS:
-        entries = hooks.get(event)
-        if not isinstance(entries, list):
-            continue
-        signatures: set[str] = set()
-        for entry in entries:
-            if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list):
-                continue
-            matcher = entry.get("matcher") if isinstance(entry.get("matcher"), str) else ""
-            for hook in entry["hooks"]:
-                if not isinstance(hook, dict) or hook.get("type") != "command":
-                    continue
-                command = hook.get("command")
-                if not isinstance(command, str) or not command.strip():
-                    continue
-                normalized: Dict[str, object] = {"type": "command", "command": command}
-                for key in CODEX_HOOK_KEYS:
-                    if key in hook:
-                        normalized[key] = hook[key]
-                signatures.add(json.dumps([matcher, normalized], sort_keys=True, ensure_ascii=False))
-        if signatures:
-            result[event] = signatures
-    return result
-
-
-def shared_hook_mismatches(generated: Dict[str, object], existing: Dict[str, object]) -> List[str]:
-    """Events where a generated shared command is absent or differs in Codex.
-
-    Extra existing commands are intentionally ignored: they may be Codex-only
-    hooks and are preserved by the sharing script.
-    """
-    expected = hook_signatures(generated)
-    actual = hook_signatures(existing)
-    return [
-        event for event in sorted(expected)
-        if not expected[event].issubset(actual.get(event, set()))
-    ]
-
-
-HOST_SPECIFIC_ACCESS_RE = re.compile(
-    r"""tool_input[^\n]{0,80}file_path|\[["']file_path["']\]|\.get\(["']file_path["']"""
-    r"""|CLAUDE_PROJECT_DIR"""
-)
-
-
-def host_specific_script(text: str) -> bool:
-    """Heuristic: the script reads one host's payload shape directly and has not been
-    adapted. A script that imports the shared payload helper, or already handles
-    `apply_patch`, is never flagged even if the old field names survive as
-    identifiers or in comments."""
-    if "hook_payload" in text or "apply_patch" in text:
-        return False
-    return HOST_SPECIFIC_ACCESS_RE.search(text) is not None
-
-
-def analyze_hooks(root: Path) -> Tuple[HooksInfo, List[Finding]]:
-    """Classify project hook wiring without editing personal settings files.
-
-    The JSON project file is the part this skill can merge. An inline Codex
-    `[hooks]` table is reported but left untouched, so Codex-only definitions
-    are never silently discarded.
-    """
-    info = HooksInfo()
-    findings: List[Finding] = []
-
-    claude_data: Optional[Dict[str, object]] = None
-    settings_path = root / CLAUDE_SETTINGS_REL
-    if settings_path.is_file():
-        claude_data, error = load_json_object(settings_path)
-        if error:
-            findings.append(
-                Finding("H008", "error", CLAUDE_SETTINGS_REL, 0,
-                        "{} is not valid JSON ({}); fix it by hand before running "
-                        "hooks".format(CLAUDE_SETTINGS_REL, error)))
-    claude_hooks = hooks_of(claude_data)
-    if claude_hooks:
-        info.claude_settings = CLAUDE_SETTINGS_REL
-
-    codex_data: Optional[Dict[str, object]] = None
-    codex_path = root / CODEX_HOOKS_REL
-    codex_exists = codex_path.is_file()
-    if codex_exists:
-        info.codex_hooks = CODEX_HOOKS_REL
-        codex_data, error = load_json_object(codex_path)
-        if error:
-            findings.append(
-                Finding("H008", "error", CODEX_HOOKS_REL, 0,
-                        "{} is not valid JSON ({}); fix it by hand before running "
-                        "hooks".format(CODEX_HOOKS_REL, error)))
-    codex_hooks = hooks_of(codex_data)
-
-    codex_config_path = root / CODEX_CONFIG_REL
-    if codex_config_path.is_file():
-        info.codex_config = CODEX_CONFIG_REL
-        try:
-            codex_config_text = read_text(codex_config_path)
-        except OSError:
-            codex_config_text = ""
-        if re.search(r"(?m)^\s*\[hooks(?:\.|\])|^\s*hooks\s*=", codex_config_text):
-            findings.append(
-                Finding("H009", "info", CODEX_CONFIG_REL, 0,
-                        "Codex may also run inline [hooks] from {}; share_hooks.py manages "
-                        "{} only and leaves this Codex-specific source untouched".format(
-                            CODEX_CONFIG_REL, CODEX_HOOKS_REL)))
-
-    if (root / LEGACY_HOOKS_REL).is_dir():
-        info.legacy_dir = LEGACY_HOOKS_REL
-    if (root / SHARED_HOOKS_REL).is_dir():
-        info.shared_dir = SHARED_HOOKS_REL
-
-    info.commands = list(_hook_commands("claude", claude_hooks))
-    info.commands.extend(_hook_commands("codex", codex_hooks))
-
-    wired: Dict[str, List[str]] = {}
-    for cmd in info.commands:
-        for token in hook_script_tokens(cmd.command):
-            hosts = wired.setdefault(token, [])
-            if cmd.host not in hosts:
-                hosts.append(cmd.host)
-    info.scripts = [
-        HookScriptEntry(path=p, wired_by=wired[p], location=hook_script_location(p))
-        for p in sorted(wired)
-    ]
-
-    for name in sorted(set(claude_hooks) | set(codex_hooks)):
-        info.events[str(name)] = {
-            "claude": name in claude_hooks,
-            "codex": name in codex_hooks,
-            "shareable": name in SHAREABLE_HOOK_EVENTS,
-        }
-
-    generated = shareable_hooks(claude_hooks)
-    mismatched: List[str] = []
-    if claude_hooks and codex_exists:
-        mismatched = shared_hook_mismatches(generated, codex_hooks)
-
-    if not (claude_hooks or codex_exists or info.legacy_dir or info.shared_dir):
-        info.state = "none"
-    elif not codex_exists:
-        info.state = "claude-only"
-    elif not claude_hooks or mismatched:
-        info.state = "drift"
-    else:
-        info.state = "shared"
-
-    host_config = {"claude": CLAUDE_SETTINGS_REL, "codex": CODEX_HOOKS_REL}
-
-    if info.legacy_dir:
-        findings.append(
-            Finding("H001", "warn", LEGACY_HOOKS_REL, 0,
-                    "hook scripts live in a host-local directory; run hooks to move them to "
-                    "{}/ and wire both hosts".format(SHARED_HOOKS_REL)))
-
-    for script in info.scripts:
-        if script.location == "shared":
-            continue
-        for host in script.wired_by:
-            findings.append(
-                Finding("H002", "warn", host_config[host], 0,
-                        "{} wires {} from outside {}/; run hooks".format(
-                            host_config[host], script.path, SHARED_HOOKS_REL)))
-
-    if generated and not codex_exists:
-        findings.append(
-            Finding("H003", "warn", CLAUDE_SETTINGS_REL, 0,
-                    "{} has hooks on shareable events but {} is missing; run hooks (or "
-                    "scripts/share_hooks.py <root>)".format(CLAUDE_SETTINGS_REL, CODEX_HOOKS_REL)))
-
-    for event in mismatched:
-        findings.append(
-            Finding("H004", "warn", CODEX_HOOKS_REL, 0,
-                    "the shared projection of {} and {} disagrees on event {}; "
-                    "scripts/share_hooks.py <root>".format(
-                        CODEX_HOOKS_REL, CLAUDE_SETTINGS_REL, event)))
-
-    if codex_exists and not claude_hooks:
-        findings.append(
-            Finding("H005", "warn", CODEX_HOOKS_REL, 0,
-                    "{} exists but {} has no hooks; preserve these Codex definitions and "
-                    "decide whether Claude wiring should be added before running hooks".format(
-                        CODEX_HOOKS_REL, CLAUDE_SETTINGS_REL)))
-
-    for cmd in info.commands:
-        if cmd.root_form in ("claude-env", "relative"):
-            findings.append(
-                Finding("H006", "warn", host_config[cmd.host], 0,
-                        "hook command {!r} resolves its script through a host-only variable "
-                        "or a cwd-relative path; run hooks (rewrite to the {} form)".format(
-                            cmd.command, TOPLEVEL_EXPR)))
-
-    shared_dir = root / SHARED_HOOKS_REL
-    if shared_dir.is_dir():
-        for script in sorted(shared_dir.rglob("*")):
-            if not script.is_file() or not script.name.endswith(HOOK_SCRIPT_SUFFIXES):
-                continue
-            try:
-                text = read_text(script)
-            except OSError:  # unreadable script: nothing to say about it
-                continue
-            if host_specific_script(text):
-                findings.append(
-                    Finding("H007", "info", rel_of(root, script), 0,
-                            "{} reads one host's payload fields but never the other's patch "
-                            "format; adapt it with the hook_payload helper".format(
-                                rel_of(root, script))))
-
-    return info, findings
 
 
 def collect_findings(root: Path, inv: Inventory) -> List[Finding]:
@@ -1307,8 +897,6 @@ def suggest_mode(root: Path, inv: Inventory) -> str:
         return "migrate"
     if inv.rules:
         return "migrate"
-    if any(f.code in HOOK_MODE_CODES for f in inv.findings):
-        return "hooks"
     return "audit"
 
 
@@ -1378,23 +966,6 @@ def format_text(inv: Inventory) -> str:
             target = r.scope_dir or "-"
             out.append("  {} — scope={} dir={} paths={}".format(
                 r.path, r.scope, target, r.paths if r.paths is not None else "(none)"))
-
-    if inv.hooks.state != "none":
-        hooks = inv.hooks
-        out.append("")
-        out.append("hooks: {}".format(hooks.state))
-        out.append("  configs: {} / {}".format(
-            hooks.claude_settings or "(no hooks)", hooks.codex_hooks or "(missing)"))
-        if hooks.codex_config:
-            out.append("  Codex config: {} (inline hooks are preserved)".format(hooks.codex_config))
-        out.append("  script dirs: {} / {}".format(
-            hooks.legacy_dir or "-", hooks.shared_dir or "-"))
-        for name, flags in hooks.events.items():
-            out.append("    {} — claude={} codex={} shareable={}".format(
-                name, flags["claude"], flags["codex"], flags["shareable"]))
-        for script in hooks.scripts:
-            out.append("    {} — {}, wired by {}".format(
-                script.path, script.location, ", ".join(script.wired_by)))
 
     out.append("")
     out.append("findings ({}):".format(len(inv.findings)))

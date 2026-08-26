@@ -11,7 +11,6 @@ Shapes for `AGENTS.md`. Use the sections a project actually needs; an empty sect
 - [Template: monorepo root](#template-monorepo-root)
 - [Template: package or app directory](#template-package-or-app-directory)
 - [Pattern-scoped conventions](#pattern-scoped-conventions)
-- [Agent hooks](#agent-hooks)
 - [What to add](#what-to-add)
 - [What not to add](#what-not-to-add)
 
@@ -35,7 +34,6 @@ Shapes for `AGENTS.md`. Use the sections a project actually needs; an empty sect
 | Testing | the test workflow is non-obvious | how to run one test, fixtures/factories location, isolation requirements |
 | Gotchas | always, once the project has any history | one line per trap |
 | Review checklist | there is a gate before PR | numbered, each item verifiable |
-| Agent hooks | the repo wires hooks both hosts run | 3–6 lines: event, what it blocks, how to trust them |
 
 ## Template: root (minimal)
 
@@ -142,24 +140,6 @@ For rules bound to a file pattern rather than a directory, keep them compact in 
 ```
 
 This is the destination for a Claude-only rule file whose `paths:` glob has no literal directory prefix. Directory-shaped globs go to that directory's master instead — see `migration.md`.
-
-## Agent hooks
-
-Hooks under `.agents/hooks/` run on both hosts, so what they enforce belongs in the master, not in the stub's free section. Keep it to what changes a session's behaviour:
-
-```markdown
-## Agent hooks
-
-`.agents/hooks/` runs on both hosts; wiring lives in `.claude/settings.json` and `.codex/hooks.json`.
-
-- `guard.py` (before a tool call) — refuses edits to `uv.lock`, `.env*`, `secrets/**`, and `git commit --no-verify`.
-- `format.py` (after an edit) — formats the edited file. Do not run the formatter again yourself.
-- `stop_check.py` (end of turn) — runs `just check` when the tree has changes; fix what it reports.
-
-Codex project hooks require a trusted project layer and exact command-definition review (`/hooks`); review again when a command string changes. Start Claude Code at the repo root — hooks do not load from a subdirectory launch.
-```
-
-Skip the section when the repo has no hooks. Place it after the commands and quality-gate sections and before any project-specific closing sections (reminders, checklists). Claude-only events stay in the stub's free section; see `hooks.md`.
 
 ## What to add
 

@@ -1,5 +1,14 @@
 # Dependency and Readiness Triage
 
+## Table of Contents
+
+- [Readiness gate](#readiness-gate)
+- [Dependency edges the regex misses](#dependency-edges-the-regex-misses)
+- [Ordering rules](#ordering-rules)
+- [Parallel vs sequential (all mode)](#parallel-vs-sequential-all-mode)
+- [Single mode: which issue](#single-mode-which-issue)
+- [Deciding a held design](#deciding-a-held-design)
+
 Read after `issue_digest.py` output is in hand, before deciding what to ship.
 The script annotates mechanical signals; this file covers the judgment the
 script cannot make. Which of the ready issues is *worth* shipping first is a
@@ -14,7 +23,12 @@ An issue is **shippable** only if all of these hold:
 2. Nothing it depends on is still open (`BLOCKED-BY` flag empty).
 3. No open PR already claims it (`HAS-OPEN-PR` flag absent), unless that PR is
    stale/draft and the user asked to take it over.
-4. No `NOT-READY-LABEL` (blocked, needs-design, question, discussion, wontfix…).
+4. No `NOT-READY-LABEL` (blocked, question, discussion, wontfix…), and no
+   `NEEDS-DESIGN` (`blocked: design` or a recognized equivalent) unless it was
+   taken on deliberately — see
+   [Deciding a held design](#deciding-a-held-design) below. The two are
+   different failure modes: a hard label needs someone else to act first; a
+   design block just needs a decision, which this run can make.
 5. Its scope is one coherent change. An issue that is really five issues gets
    reported back for splitting, not implemented as a mega-PR.
 
@@ -89,3 +103,21 @@ than after a failure.
 Among the shippable issues, pick by `priority-rubric.md` — unblocks-others
 first, then leverage, then must-be-first ordering, then damage being taken
 now. State the pick with its evidence lines before implementing.
+
+## Deciding a held design
+
+Read at step 2b, only when the picked issue carries `blocked: design` (or a
+recognized equivalent) and was taken on deliberately — an explicit issue
+number or `--include-design`, never the default backlog scan.
+
+1. Settle the approach. A product/UX call you cannot make from the repo and
+   its issue thread — ask the user; do not guess and implement anyway.
+2. Record the decision on the issue itself: `gh issue comment <n> --body-file
+   <path>` — the next run must read this back, not re-derive it.
+3. Record it in the run record (`--event design --field issue=<n>`).
+4. Clear the block: `python3 {SKILL_DIR}/scripts/apply_priority_labels.py
+   --clear-design <n>`.
+
+Then continue at step 3 with the decided approach as part of the brief. The
+tier label is untouched by any of this — see priority-rubric.md's note that
+tier and design-readiness are orthogonal.

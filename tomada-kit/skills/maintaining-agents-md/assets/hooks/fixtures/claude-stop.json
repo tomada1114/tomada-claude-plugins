@@ -1,8 +1,0 @@
-{
-  "session_id": "0f8e4c2a-1b3d-4e5f-8a9b-0c1d2e3f4a5b",
-  "transcript_path": "/Users/dev/.claude/projects/demo/0f8e4c2a.jsonl",
-  "cwd": "/Users/dev/demo",
-  "permission_mode": "default",
-  "hook_event_name": "Stop",
-  "stop_hook_active": false
-}

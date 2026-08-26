@@ -21,7 +21,14 @@ so an issue always ends with exactly one.
 Usage:
     apply_priority_labels.py --backfill [--quiet] [--dry-run] [--json]
     apply_priority_labels.py --set 12=P0 [--set 9=P2 ...] [--quiet] [--dry-run]
+    apply_priority_labels.py --set-design 12 [--set-design 9 ...] [--dry-run]
+    apply_priority_labels.py --clear-design 12 [--dry-run]
     apply_priority_labels.py --ensure-labels [--dry-run]
+
+`--set-design`/`--clear-design` mark or clear the soft "design not settled"
+block (`blocked: design` or a recognized equivalent) that excludes an issue
+from automatic selection — see references/dependency-triage.md. Independent
+of the tier machinery above; tier and design-readiness are orthogonal.
 
 Exit codes:
     0 = labels applied (possibly zero changes)
@@ -42,7 +49,8 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from issue_digest import TIER_ALIASES, TIER_LABELS, TIER_ORDER, normalize_label
+from issue_digest import (DESIGN_BLOCK_LABELS, DESIGN_LABEL, TIER_ALIASES, TIER_LABELS,
+                          TIER_ORDER, normalize_label, resolve_design_label)
 
 DIGEST = Path(__file__).resolve().parent / "issue_digest.py"
 
@@ -112,6 +120,46 @@ def parse_sets(pairs: list[str]) -> dict[int, str]:
     return out
 
 
+def repo_labels() -> list[str]:
+    raw = gh(["label", "list", "--limit", "500", "--json", "name"]).stdout or "[]"
+    return [lbl["name"] for lbl in json.loads(raw)]
+
+
+def issue_labels(number: int) -> list[str]:
+    raw = gh(["issue", "view", str(number), "--json", "labels"]).stdout or "{}"
+    return [lbl["name"] for lbl in json.loads(raw).get("labels", [])]
+
+
+def set_design(number: int, dry_run: bool) -> str:
+    """Add the design-not-settled label to an issue, creating the repo's
+    definition first if it has no equivalent yet. Returns the label name used.
+    Idempotent: re-applying to an issue that already carries it is a no-op add.
+    """
+    name, needs_create = resolve_design_label(repo_labels())
+    if not dry_run:
+        if needs_create:
+            gh(["label", "create", name, "--color", DESIGN_LABEL[1],
+               "--description", DESIGN_LABEL[2]])
+        gh(["issue", "edit", str(number), "--add-label", name])
+    return name
+
+
+def clear_design(number: int, dry_run: bool) -> list[str]:
+    """Remove whichever design-block label(s) the issue actually carries.
+    Returns the label names removed — empty when the issue carried none, which
+    is success, not an error (this is the routine call after a design is
+    decided, and the issue may have been taken on with --include-design
+    instead of ever being labeled)."""
+    carried = [lbl for lbl in issue_labels(number)
+              if normalize_label(lbl) in DESIGN_BLOCK_LABELS]
+    if carried and not dry_run:
+        args = ["issue", "edit", str(number)]
+        for lbl in carried:
+            args += ["--remove-label", lbl]
+        gh(args)
+    return carried
+
+
 def apply(number: int, tier: str, current_labels: list[str], dry_run: bool) -> bool:
     """Add the tier label to an issue and strip any other tier it carries.
 
@@ -137,6 +185,14 @@ def main() -> int:
                    help="label every open issue that has no tier yet")
     p.add_argument("--set", action="append", default=[], metavar="N=TIER",
                    help="assign a tier explicitly, e.g. --set 12=P0")
+    p.add_argument("--set-design", action="append", default=[], type=int,
+                   metavar="N",
+                   help="mark an issue design-not-settled (repeatable); "
+                        "excludes it from automatic selection until cleared")
+    p.add_argument("--clear-design", action="append", default=[], type=int,
+                   metavar="N",
+                   help="remove the design-not-settled label once the design "
+                        "is decided (repeatable); a no-op if not present")
     p.add_argument("--ensure-labels", action="store_true",
                    help="only create the four label definitions")
     p.add_argument("--dry-run", action="store_true",
@@ -146,11 +202,41 @@ def main() -> int:
     p.add_argument("--json", action="store_true", dest="as_json")
     args = p.parse_args()
 
-    if not (args.backfill or args.set or args.ensure_labels):
-        p.error("one of --backfill, --set, or --ensure-labels is required")
+    if not (args.backfill or args.set or args.set_design or args.clear_design
+            or args.ensure_labels):
+        p.error("one of --backfill, --set, --set-design, --clear-design, "
+                "or --ensure-labels is required")
+    if (args.set_design or args.clear_design) and (args.backfill or args.set
+                                                    or args.ensure_labels):
+        p.error("--set-design/--clear-design run standalone — combine with "
+                "--backfill, --set, or --ensure-labels in separate calls")
     if not shutil.which("gh"):
         print("error: gh CLI not found", file=sys.stderr)
         return 1
+
+    # Design-block state is independent of the tier machinery below — no
+    # digest fetch needed.
+    if args.set_design or args.clear_design:
+        design_set = [(n, set_design(n, args.dry_run)) for n in dict.fromkeys(args.set_design)]
+        design_cleared = [(n, clear_design(n, args.dry_run))
+                          for n in dict.fromkeys(args.clear_design)]
+        if args.as_json:
+            json.dump({"verdict": "OK", "dry_run": args.dry_run,
+                      "design_set": [{"number": n, "label": lbl} for n, lbl in design_set],
+                      "design_cleared": [{"number": n, "removed": removed}
+                                         for n, removed in design_cleared]},
+                      sys.stdout, ensure_ascii=False, indent=2)
+            print()
+        else:
+            verb = "would set" if args.dry_run else "set"
+            for n, lbl in design_set:
+                print(f"#{n}: needs-design -> {lbl}")
+            for n, removed in design_cleared:
+                print(f"#{n}: needs-design cleared" if removed
+                      else f"#{n}: needs-design already clear")
+            print(f"verdict: OK\ndesign-{verb}: {len(design_set)} · "
+                  f"design-cleared: {len(design_cleared)}")
+        return 0
 
     created = ensure_labels(args.dry_run)
     if args.ensure_labels and not (args.backfill or args.set):

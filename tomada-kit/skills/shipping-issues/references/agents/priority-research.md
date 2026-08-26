@@ -44,6 +44,10 @@ re-tier an issue you have no evidence about — the suggestion is better than a
 guess. Exit code 2 means the token cannot write labels here: report that instead,
 and rank from the suggestions.
 
+Do not write `blocked: design` (or `--set-design`) on anything — that decision
+belongs to the run that takes the issue on deliberately, not to this pass.
+Report a design-not-settled issue under "Design not settled" below instead.
+
 Return exactly these sections, nothing else:
 
 ## Labels
@@ -65,6 +69,10 @@ Return exactly these sections, nothing else:
 
 ## Needs clarification
 - #N — the specific missing information
+
+## Design not settled
+- #N — the open design question that blocks implementation (candidate for
+  `blocked: design`; do not label it yourself — omit this section when none)
 
 ## Parallel-safe groups
 - [#A, #B] — disjoint file sets

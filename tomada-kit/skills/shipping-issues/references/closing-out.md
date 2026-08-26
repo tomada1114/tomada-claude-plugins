@@ -24,7 +24,7 @@ harness `worktree-agent-*` branches, and branches whose PR is merged;
 uncommitted files is skipped and listed — salvage what matters, then rerun
 with `--force`. Nothing this run generated should be sitting in a worktree to
 begin with: prompts, issue bodies and CI logs all live under `<runstate>/`
-([run-record.md](run-record.md)).
+(run-record.md).
 
 **The worktree pass is not merge-gated by default: it removes every worktree
 under that root, including one another session is mid-run in.** That is
@@ -60,4 +60,6 @@ own lines here — the backlog will never show them, so the report is their only
 record.
 
 Then list what was left undone — blocked issues, ones needing clarification,
-ones that hit the retry ceiling — with the specific reason each.
+ones that hit the retry ceiling, and ones held for `blocked: design`
+(`needs-design:` from `issue_digest.py --select`) — with the specific reason
+each.

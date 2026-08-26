@@ -44,7 +44,7 @@ comes back is the pick with its evidence, the order behind it, and the
 blocked/unclear lists; the issue prose and the raw digest table never cross
 back.
 
-Prompt body: [references/agents/priority-research.md](agents/priority-research.md).
+Prompt body: `references/agents/priority-research.md`.
 Fill its `{brace}` placeholders from the current repo and run count, then spawn
 a `sonnet` worker with it where the runtime exposes delegation, otherwise read
 the same file and run its read → rubric → `apply_priority_labels.py` steps
@@ -75,9 +75,23 @@ Fill it like this:
 | who owns the forge API | "the parent opens the PR and watches CI" |
 | `{durable_path}` (step 7 of the template) | `{repo_root}` — worktrees are deleted in step 10, so gitignored artifacts must be copied out |
 
+State in `<context>` that the worktree's dependencies are already installed, so
+the run does not spend a turn deciding whether to install them, and tell it the
+branch is already created and checked out — the template's step 2 otherwise has
+it create a second one.
+
 Every brace the table does not name is filled the obvious way from the repo —
 the project's own paths, the verification command if step 2 surfaced one, the
 decisions step 2 already resolved. None may be left as a brace.
+
+Two things the run cannot infer from the diff, and CI will fail the PR for
+either: **a merge gate that lives outside the code** — release intent
+(Changesets, a version bump), a regenerated API report, generated docs — must be
+named in `<context>` with the exact command that satisfies it; and **an issue
+that offers a choice** ("either anchor every path, or keep the bare form and
+document it") must arrive already decided, because a run that cannot ask picks
+one alone and half the file ends up in each style. Say which option, and say it
+in `Decisions already made`.
 
 Append these three fields to the template's return block. Step 4 uses them
 verbatim, so they are not optional:
@@ -125,6 +139,14 @@ Fill it like this:
 | `<spec>` | the issue body, pasted — the run cannot reach `gh` |
 | `{branch}`, `{work_dir}` | the issue's branch and worktree |
 | `{base}` | the repo's default branch |
+
+Where the implementation **departed from the issue's own "Done means"** — a
+different mechanism, a call site the issue said to leave alone — name the
+departure in the prompt and ask the run to judge it, rather than letting it
+infer the spec from the diff. A reviewer told only "this implements the issue"
+reads a deviation as the intent; a reviewer told "the issue said X, this does Y,
+decide whether Y is safe on the production path" is where the expensive finding
+actually comes from.
 
 No extra return fields. What the parent does with them:
 

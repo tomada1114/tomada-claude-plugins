@@ -13,7 +13,7 @@ Checks, not scores. Each check is a question with a definite answer and a place 
 
 ## How to run the checks
 
-Read every effective instruction source, every canonical `AGENTS.md`, every stub free section, and every `.claude/rules/*.md` in the inventory. Content checks `C1`–`C7` and the red flags apply to every file read; master-file checks `M1`–`M8` apply to `AGENTS.md` files only (a rule file's placement is migrate's job, so audit judges only its content). For each check, look at the evidence named below before judging — a claim in the rule file is only correct if the repo agrees. Record every failure you find, at every severity, with a `file:line` citation; ranking and trimming happen when the findings are presented, not while looking.
+Read every effective instruction source, every canonical `AGENTS.md`, every stub free section, and every `.claude/rules/*.md` in the inventory. Content checks `C1`–`C7` and the red flags apply to every file read; master-file checks `M1`–`M7` apply to `AGENTS.md` files only (a rule file's placement is migrate's job, so audit judges only its content). For each check, look at the evidence named below before judging — a claim in the rule file is only correct if the repo agrees. Record every failure you find, at every severity, with a `file:line` citation; ranking and trimming happen when the findings are presented, not while looking.
 
 Evidence sources, in the order they usually settle a question: package manifests (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Gemfile`), task runners (`Makefile`, `justfile`, `Taskfile.yml`, npm scripts), CI workflows (`.github/workflows/*.yml`), `README.md`, the top-level directory listing, and lockfiles for the package manager actually in use.
 
@@ -73,11 +73,7 @@ The same rule stated in the root master and a package master, or in a master and
 
 A section that only applies under one directory belongs in that directory's master (plus its stub), or — when the user prefers it guaranteed on Codex — stays at the root with the scope in its heading. A rule about `packages/api/**` living unmarked in the root master will be applied everywhere.
 
-### M7 Hook description matches the wiring
-
-If the repo has hooks, does the master's "Agent hooks" section name the events actually wired in `.claude/settings.json` and `.codex/hooks.json`, and the scripts actually present in `.agents/hooks/`? A described hook that no longer exists, or a wired hook nobody described, is a `should`. Hook scripts still under `.claude/hooks/`, or wired on one host only, are inventory findings H001–H006 with "run `hooks`" as the fix; inline Codex hooks in `.codex/config.toml` must be mentioned separately.
-
-### M8 Codex effective source is understood
+### M7 Codex effective source is understood
 
 Does the report identify the selected non-empty source in each relevant directory, the launch-directory boundary, the configured document budget, and any global Codex instruction source? An active `AGENTS.override.md` or configured fallback must not be silently treated as the canonical master; report the divergence and preserve it until the user decides.
 

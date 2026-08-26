@@ -22,5 +22,5 @@ it right after the event happens, not batched at the end; `--repo` can be
 omitted when cwd is the repo being shipped.
 
 Events: `run-start`, `selection` (the rubric-shaped block from
-[priority-rubric.md](priority-rubric.md) via `--body-file`), `labels`,
-`pr-created`, `review`, `ci`, `merged`, `followup`, `cleanup`, `blocked`, `note`.
+priority-rubric.md via `--body-file`), `labels`, `pr-created`, `review`, `ci`,
+`merged`, `followup`, `cleanup`, `blocked`, `note`.
