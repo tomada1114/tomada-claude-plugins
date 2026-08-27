@@ -1,17 +1,17 @@
 ---
 name: shipping-issues
-description: "Rank the open GitHub Issues by their `priority: P0`-`P3` labels — backfilling a missing label from whether an issue unblocks others and how far its impact spreads — then implement the top one, open a PR that auto-closes the issue (Closes #N), watch CI until it is green, merge to main, and confirm the issue actually closed. With no argument it ships only the single highest-priority issue; pass \"all\" to work through every issue in dependency order, one at a time, in the main checkout. Implementation, review, and CI fixes go to Codex runs; issue data and CI watching to scripts, so diffs and logs never enter the main context. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, work through the open issues, or finish off every issue."
+description: "Rank the open GitHub Issues by their `priority: P0`-`P3` labels — backfilling a missing label from whether an issue unblocks others and how far its impact spreads — then implement the top one, review and fix it with `/code-review` before the PR exists, open a PR that auto-closes the issue (Closes #N), watch CI until it is green, merge to main, and confirm the issue actually closed. With no argument it ships only the single highest-priority issue; pass \"all\" to work through every issue in dependency order, one at a time. Implementation and CI repair go to a `sonnet` sub-agent; the calling session judges each result and drives the PR, CI watch, and merge itself. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, work through the open issues, or finish off every issue."
 argument-hint: "[all | <issue number> | (empty = one issue)]"
 metadata:
-  platforms: claude-code, codex
+  platforms: claude-code
 ---
 
 # Shipping Issues
 
 Take open GitHub issues from open to merged-and-closed: rank priority →
-implement → linked PR → CI green → merge → confirm closed. Deterministic
-GitHub work lives in `scripts/`, so raw JSON and CI logs never enter the main
-context.
+implement → review and fix → linked PR → CI green → merge → confirm closed.
+Deterministic GitHub work lives in `scripts/`, so raw JSON and CI logs never
+enter the main context.
 **Done means all three:** the PR is merged to the default branch, the issue is
 CLOSED, and nothing was deleted or weakened to get there.
 
@@ -20,7 +20,7 @@ CLOSED, and nothing was deleted or weakened to get there.
 | Argument | Behavior |
 |---|---|
 | _(none)_ | Ship exactly one issue — the highest-priority shippable one. Stop after it merges and its issue closes. |
-| `all` | Ship every shippable issue, one at a time, in dependency-then-priority order. Each issue runs the full workflow (steps 1–9) to completion before the next one starts. |
+| `all` | Ship every shippable issue, one at a time, in dependency-then-priority order. Each issue runs the full workflow (steps 1–8) to completion before the next one starts. |
 | a number, e.g. `42` | Ship that specific issue, after checking nothing it depends on is still open. |
 
 Anything else in the argument is a filter hint (a label, a milestone) — apply
@@ -35,12 +35,12 @@ is itself part of this run — [step 2b](#2b-decide-the-design-before-implementi
 ## Working rules
 
 - All work happens in the repo's **main checkout** — this skill never creates
-  a git worktree. `codex:rescue` has no `--cwd` of its own, so a single
-  checkout is what makes "work only inside `{repo_root}`" an unambiguous
-  instruction instead of a guess.
-- One issue runs start to finish — branch, implement, PR, review, CI, merge,
-  issue closed — before the next one begins. `all` mode is this same
-  sequence repeated, never run concurrently.
+  a git worktree. Sub-agents share that same checkout, so running one issue
+  at a time, start to finish, is what keeps two runs from ever touching the
+  tree together.
+- One issue runs start to finish — branch, implement, review and fix, PR,
+  CI, merge, issue closed — before the next one begins. `all` mode is this
+  same sequence repeated, never run concurrently.
 - Every issue starts from a clean, up-to-date default branch:
   `git switch <default> && git pull --ff-only && git switch -c <type>/<n>-<slug>`.
 - After a merge, return to that state before ranking the next issue:
@@ -53,10 +53,14 @@ is itself part of this run — [step 2b](#2b-decide-the-design-before-implementi
 Reads: the current repo's open issues and PRs; the project's own
 `CLAUDE.md` / `AGENTS.md` for conventions.
 Writes: `priority: P0`…`P3` labels, `blocked: design` labels, branches, PRs,
-merge commits, issue closures, follow-up issues (step 9), and a run record —
-layout, events, why nothing this run generates lives inside the repo checkout:
-[references/run-record.md](references/run-record.md).
-Call it right after each event happens, not batched at the end:
+merge commits, issue closures, follow-up issues (step 8), and a run record.
+Every file this run generates — the run record, verify/CI logs, filled
+prompts — lives under `<runstate>` (used through the rest of this document),
+short for
+`${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/shipping-issues/<owner>__<repo>/`,
+**never inside the repo checkout**. Full layout and event list:
+[references/run-record.md](references/run-record.md). Call the run record
+right after each event happens, not batched at the end:
 
 ```bash
 python3 {SKILL_DIR}/scripts/run_record.py --repo <owner>/<repo> --event <kind> \
@@ -69,18 +73,11 @@ python3 {SKILL_DIR}/scripts/run_record.py --repo <owner>/<repo> --event <kind> \
 
 `{SKILL_DIR}` is this skill's own absolute path, substituted by the caller.
 
-**Requires:** `git`, `python3`. Optional, Claude Code host only: the
-**openai-codex** plugin (`codex:rescue` / `codex:setup`) for steps 3/6/7;
-`coreutils` for `gtimeout`.
+**Requires:** `git`, `python3`.
 
 ```bash
 {SKILL_DIR}/scripts/preflight.sh
 ```
-
-On a Claude Code host, also run `Skill(codex:setup)` once to confirm Codex is
-installed and authenticated. On a Codex CLI host the openai-codex plugin does
-not resolve at all — that is the expected Codex-host path, not a broken
-install; go straight to the inline fallback for steps 3/6/7.
 
 `verdict: BLOCKED` stops the run. A dirty tree is a warning — ask first, and
 ask *before* the step 3 baseline rather than after: an untracked build or
@@ -88,8 +85,7 @@ package-manager cache in the repo root can fail the baseline on its own (seen
 in practice: a `.pnpm-store/` holding a unix socket, which a test helper that
 copies untracked files hit with a bare `ENOTSUP`). Read a red baseline against
 what is in the tree before treating it as the repository's defect.
-Codex readiness decides steps 3/6/7's route once, here — fallback ladders:
-[platform-notes.md](references/platform-notes.md). Open the run record:
+Open the run record:
 `{SKILL_DIR}/scripts/run_record.py --event run-start --field mode=<single|all>`.
 
 ### 1. Rank — by label, not by re-reading the backlog
@@ -119,9 +115,8 @@ excluded for having no settled design — expected, not an error; add
   ```
 - **more, tangled edges, or a close top-two** — hand
   [references/agents/priority-research.md](references/agents/priority-research.md)
-  to an independent `sonnet` worker where delegation is available, else read
-  it and run its steps inline. Returns the pick with evidence, the order after
-  it, and blocked/unclear lists — never raw issue prose.
+  to an independent `sonnet` sub-agent. Returns the pick with evidence, the
+  order after it, and blocked/unclear lists — never raw issue prose.
 
 `--backfill` writes suggested tiers to every unlabeled issue; `--set`
 overrides ones judged differently. Run without asking. Exit 2
@@ -140,27 +135,6 @@ was taken on deliberately, never from the default backlog scan. Settling the
 approach, recording it, and clearing the block before step 3:
 [dependency-triage.md#deciding-a-held-design](references/dependency-triage.md#deciding-a-held-design).
 
-### The Codex pattern (steps 3, 6, 7)
-
-All three hand off to the same entry point: `Skill(codex:rescue, args="--wait
-<request>")`, the **openai-codex** plugin's subagent — a thin forwarder that
-runs one Codex turn and returns its output verbatim. Fill each step's request
-from [delegation-templates.md](references/delegation-templates.md). Codex
-cannot ask a question back — leave nothing merge-gating unguessed. `codex:rescue`
-has no `--cwd` of its own, so the request's opening line ("work only inside
-{repo_root}, on branch {branch}") is the only thing scoping it — say it first,
-in every request. `git -C {repo_root} status --short` is the authority on what
-changed, never the run's own prose. No usable Codex (`codex:setup` reports
-not ready) → fallback ladders: [platform-notes.md](references/platform-notes.md).
-
-**`--wait` dies before a long run does.** The forwarder's tool timeout (~10
-minutes) is not the Codex job's timeout: the job keeps running detached and its
-report is never flushed, so a run that fully succeeded can return nothing at
-all. Issue steps 3 and 6 with `--background` on any diff bigger than a few
-files, and recover a stranded run through the companion script rather than
-re-running it —
-[platform-notes.md#when-a---wait-run-outlives-its-forwarder](references/platform-notes.md#when-a---wait-run-outlives-its-forwarder).
-
 ### 3. Implement
 
 One issue = one branch = one PR, in the main checkout:
@@ -169,97 +143,86 @@ One issue = one branch = one PR, in the main checkout:
 git switch <default_branch> && git pull --ff-only && git switch -c <type>/<n>-<slug>
 ```
 
-Before issuing the implementation prompt, run the project's own verification
-command **once, unmodified, on this branch** — a red baseline is the
-repository's problem, not the issue's, and finding it here costs one command
-instead of a wasted implementation run. What that smoke run turns up goes to
-step 9.
+Before spawning the implementation sub-agent, run the project's own
+verification command **once, unmodified, on this branch**, redirected to
+`<runstate>/verify/<n>-baseline.log` — a red baseline is the repository's
+problem, not the issue's, and finding it here costs one command instead of a
+wasted implementation run. Read the exit code and the log's tail, never the
+full output. What that smoke run turns up goes to step 8.
 
-Fill/run:
+Fill and spawn a **`sonnet`** sub-agent with
 [delegation-templates.md#implementation-step-3](references/delegation-templates.md#implementation-step-3)
 — a run that stops before pushing anything → don't retry blindly: read
 `git status`/`git log` for what landed, resume naming what's left, or record
 `--event blocked`.
 
-A `VERIFY: ... -> fail` is not automatically the code's fault. The sandbox has
-no network, so any step that reaches a registry, a proxy, or a remote fails
-inside it and would pass outside — re-run that step yourself before treating it
-as a defect, and say in the PR which of the two you saw.
+**Judge the result in this context, against the issue and step 2b's
+decision.** Start from `git diff --stat <base>...HEAD` plus the sub-agent's
+own `CHANGED` / `SCOPE-NOTES` / `UNRESOLVED` — open the hunks only in the
+files the spec actually touches, not the whole diff by default. If the
+implementation is missing part of the spec or quietly widened it, send a new
+`sonnet` run naming only what's left; don't re-run the whole task. Up to
+**2** resume/patch runs on top of the first — a third miss means the issue
+itself is underspecified: record `--event blocked` and report
+`NEEDS-CLARIFICATION` in step 10 instead of spawning again. Use the
+returned `TEST-PLAN` verbatim later — don't re-derive it.
 
-### 4. Open the PR
+### 4. Review and fix — judge the result before the PR exists
 
-`PUSHED: no` is read against `git log <base>..HEAD` in the checkout, never on
-its own: a Codex sandbox has no network, so a run that did everything right
-still returns `PUSHED: no` with its commits sitting on the local branch.
-Commits present → push them from the parent and carry on. No commits, or only
-`UNRESOLVED` → no branch: record `--event blocked --field issue=<n>`, report
-`SKIPPED(<why>)` in step 11, in `all` mode move on.
+Run before any PR exists, against the branch:
+
+```
+/code-review <effort> <branch> --fix
+```
+
+**Effort first, branch second** — an unrecognized first token makes the
+*entire* string the target and silently falls back to the last effort used.
+Picking `<effort>` from what the diff is: [cost-discipline.md#code-review-effort](references/cost-discipline.md#code-review-effort).
+Never `ultra` — it runs in the cloud, is billed, and cannot be launched from
+this session.
+
+`--fix` applies its own findings and reports each one `fixed`,
+`no_change_needed`, or `skipped`. That inverts the read-only guarantee a
+delegated review would otherwise give — **this session reading what `--fix`
+changed** is now the safeguard against a misread finding landing unseen:
+
+- **Read `skipped` findings** — a skip is not clean, it means out-of-scope, a
+  behavior change, or a false positive. One real but outside this issue's
+  scope goes to step 8, not back into this diff.
+- **Read only `git diff <impl-commit>..HEAD`**, not the whole branch again.
+  Zero findings and zero skips → confirm with `--stat` and move on.
+- Revert anything `--fix` got wrong on closer reading.
+- Re-run the verification command (redirected as in step 3) only if `--fix`
+  changed something; otherwise step 3's verify still holds. Then push.
+
+Host won't let this session launch `/code-review` directly → one independent,
+**read-only** `opus` sub-agent against the branch, using
+[delegation-templates.md#review-fallback](references/delegation-templates.md#review-fallback),
+triaged the same way. Never re-read your own diff and call that a review.
+
+Record: `--event review --field status=<code-review|DELEGATED> --field effort=<low|medium|high> --field findings=<n> --field skipped=<n>`.
+
+### 5. Open the PR
+
+Commits on the branch but nothing pushed → push them from this session.
+No commits at all → no branch: record `--event blocked --field issue=<n>`,
+report `SKIPPED(<why>)` in step 10, in `all` mode move on.
 
 Open a PR from `<branch>` against `<default_branch>`, titled `<PR-TITLE>`.
 Body must start with **`Closes #N`** after the summary (a bare `#N` closes
 nothing), and target the **default branch** (auto-close only fires there) —
 build the body from `PR-SUMMARY`, `Closes #N`, `TEST-PLAN`. Record it
-(`--event pr-created --field issue=<n> --field pr=<url>`) before CI.
-
-### 5. Verify the auto-close link
+(`--event pr-created --field issue=<n> --field pr=<url>`), then verify the
+closing link:
 
 ```bash
 {SKILL_DIR}/scripts/link_check.sh <pr> --issue <n> --fix
 ```
 
-Decides whether this run actually closes anything. `--fix` appends a missing
-`Closes #N`. `WRONG_BASE` → retarget the PR's base to `<default>` before
-merging.
+`--fix` appends a missing `Closes #N`. `WRONG_BASE` → retarget the PR's base
+to `<default>` before merging.
 
-### 6. Review before CI
-
-Fill/run:
-[delegation-templates.md#review-step-6](references/delegation-templates.md#review-step-6),
-against the checkout, after the PR and before CI. Issue it as written — it is
-a plain review, and telling the reviewer to expect the diff to be wrong buys
-noise, not rigor.
-
-The adversarial pass from the same reference is **opt-in**, not a property of
-the diff: run it when the user asks for one, or when the change can lose or
-corrode data already in production (a migration, a storage-layer write, a
-released public contract real consumers are on). A large or cross-module diff
-is not by itself a reason — the Review pass already reads for scope and
-correctness. When it does run, it runs right after Review, never instead of
-it, and never concurrently.
-
-**The review never applies its own findings.** It comes back to the parent as
-prose, and the parent decides, one finding at a time, which are real — a
-reviewer that patches what it thinks it found merges its own misreadings, and
-the parent never sees the ones it would have rejected. Keep the template's
-read-only sentence; it is what enforces this.
-
-So the loop is three steps, and the middle one is not delegated:
-
-1. **Review (Codex, read-only).** Findings return as prose with severity and
-   confidence.
-2. **Triage (the parent, in this context).** Accept, reject, or defer each
-   finding. Rejecting one is a normal outcome — say why in the PR. A finding
-   that is real but outside issue #{n}'s scope goes to step 9 as a follow-up,
-   not into this diff. Deciding this costs a couple of targeted reads, not a
-   run.
-3. **Fix (Codex).**
-   [delegation-templates.md#review-fix-step-6](references/delegation-templates.md#review-fix-step-6),
-   carrying only the accepted findings. Skip this run entirely when triage
-   accepts nothing — the common case on a clean diff, and the reason the fix
-   run is conditional rather than automatic.
-
-**A review that did not finish is not a review that passed.** When the run is
-cut short — the forwarder timed out, the job hung, the report never
-arrived — salvage what its log holds, say in the PR that the pass was partial
-and what it did and did not cover, and let the merge rest on the parent's own
-read of the diff plus a green gate. Reporting an incomplete review as a clean
-one is the exact failure this step exists to prevent.
-
-Then push and re-run verification so CI judges the reviewed code. Fix the
-cause, never the check — then record (`--event review --field pr=<n> --field status=<...> --field
-intent_match=<yes|no> --field unresolved=<count>`).
-
-### 7. CI to green
+### 6. CI to green
 
 The checks API still serves the PREVIOUS commit's results for a minute or two
 after a push, so a watch started too early returns that run's verdict — a
@@ -277,21 +240,22 @@ run's only wait primitive — never a hand-rolled sleep/poll loop. Block on it
 directly, one PR at a time, even in `all` mode. Record (`--event ci --field
 pr=<n> --field verdict=<...>`).
 
-On `FAIL`, fill/run:
-[delegation-templates.md#ci-repair-step-7-only-on-fail](references/delegation-templates.md#ci-repair-step-7-only-on-fail)
+On `FAIL`, fill and spawn a **`sonnet`** sub-agent (escalate to `opus` after
+the same failure survives two attempts in a row) with
+[delegation-templates.md#ci-repair-step-6](references/delegation-templates.md#ci-repair-step-6)
 — up to **3 attempts**. `PUSHED: no` ends the loop. A test deleted, skipped,
 or weakened to pass, or a "flaky" re-run without diagnosis, is a failed
 outcome. `NO_CHECKS` → run the project's own verification command locally and
 merge on a local green (no such command → ask first). `verdict: ERROR` →
 re-read the actual PR/CI state before treating it as a green.
 
-### 8. Merge and confirm the issue closed
+### 7. Merge and confirm the issue closed
 
 ```bash
 {SKILL_DIR}/scripts/land_pr.sh <pr> --issue <n>
 ```
 
-Merge once step 7 reports `verdict: PASS`. Re-checks the closing link,
+Merge once step 6 reports `verdict: PASS`. Re-checks the closing link,
 confirms the issue closed — read `result:` and `issue:`. Six results, one
 must never read as success: [landing-outcomes.md](references/landing-outcomes.md).
 Record (`--event merged ...`).
@@ -299,9 +263,10 @@ Record (`--event merged ...`).
 Then return to the starting point for the next issue:
 `git switch <default_branch> && git pull --ff-only`. `all` mode: re-rank with
 `issue_digest.py --select` from there — one script call, not another research
-pass — and start the next issue's step 3 from this same up-to-date branch.
+pass — and start the next issue's step 3 from this same up-to-date branch,
+without pausing for confirmation in between.
 
-### 9. File the findings the run turned up
+### 8. File the findings the run turned up
 
 Every run surfaces defects outside the issue being shipped — returned under
 `SCOPE-NOTES`, `OUT-OF-SCOPE`, or `FOLLOW-UPS`.
@@ -319,12 +284,12 @@ even with `--needs-design` — the moment the design is decided the issue must
 already rank correctly. Add `--needs-design` only when the finding is an open
 design question rather than a verified fix —
 [filing-followups.md](references/filing-followups.md) settles which. Exit 2
-(`NO_WRITE_ACCESS`) means report the finding in step 11 instead. File as you
+(`NO_WRITE_ACCESS`) means report the finding in step 10 instead. File as you
 go, right after the PR that surfaced it lands; record (`--event followup`).
 
-### 10. Clean up — once, at the end, script only
+### 9. Clean up — once, at the end, script only
 
-Step 8 already leaves `HEAD` on the up-to-date default branch, which is a
+Step 7 already leaves `HEAD` on the up-to-date default branch, which is a
 precondition for the branch deletion below (it refuses to delete whatever is
 currently checked out):
 
@@ -335,7 +300,7 @@ currently checked out):
 Scope: [references/closing-out.md#cleanup-scope](references/closing-out.md#cleanup-scope)
 — record the cleanup outcome (`--event cleanup ...`).
 
-### 11. Report
+### 10. Report
 
 Shape: [references/closing-out.md#report-shape](references/closing-out.md#report-shape)
 — selection rationale, per-issue outcomes, follow-ups filed and checked but
@@ -344,8 +309,8 @@ merged PR explicitly — that is the failure mode this skill exists to prevent.
 
 ## Cost discipline
 
-What belongs in this context versus a delegated run, the per-issue Codex-run
-budget, and why the model assignments are what they are:
+What belongs in this context versus a sub-agent's, the per-issue run budget,
+and why the model and effort assignments are what they are:
 [references/cost-discipline.md](references/cost-discipline.md).
 
 ## Stop conditions
@@ -366,9 +331,3 @@ before stopping (`--event blocked --field reason=<what stopped it>`).
 
 In `all` mode, a single failed issue does not stop the run — mark it FAILED,
 record it the same way, skip anything that depended on it, and continue.
-
-## Platform notes
-
-Codex-runtime constraints for this skill, the fallback ladders when no usable
-Codex is present, and the best-effort degradations:
-[references/platform-notes.md](references/platform-notes.md).

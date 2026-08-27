@@ -1,6 +1,6 @@
 # Closing out: cleanup and report
 
-Read at step 10 (cleanup) and step 11 (report) — everything past the ordering
+Read at step 9 (cleanup) and step 10 (report) — everything past the ordering
 and safety rules the SKILL.md body already states inline.
 
 ## Table of Contents
@@ -15,9 +15,9 @@ and safety rules the SKILL.md body already states inline.
 ```
 
 All deletion goes through `cleanup_run.sh`, in one batch after the last merge.
-Never run `rm` or `git branch -D` ad hoc in the main context or in a Codex
-run — raw `rm` is flagged as dangerous and stalls the run on a permission
-prompt. The script only touches harness `worktree-agent-*` branches (a
+Never run `rm` or `git branch -D` ad hoc in the main context or in a
+sub-agent — raw `rm` is flagged as dangerous and stalls the run on a
+permission prompt. The script only touches harness `worktree-agent-*` branches (a
 leftover branch-naming convention from the Claude Code harness, unrelated to
 this skill) and branches whose PR is merged; `--remote` extends that to the
 same refs on origin. Nothing this run generated should be sitting uncommitted
@@ -33,12 +33,14 @@ Open with the selection rationale in one line — why this issue was first, by
 tier — and, when step 2 wrote labels, one line for that (`labeled 9 issues: 2
 P0, 3 P1, …`, straight from the script's summary). Then
 per issue: `#N <title> → PR #M → MERGED, issue CLOSED | AUTO-ARMED | FAILED(<why>)
-| SKIPPED(<why>)`, plus `REVIEW: UNAVAILABLE` or `REVIEW: UNRESOLVED(<n>)`
-whenever step 6 did not run clean — a run that shipped unreviewed must not
-read like one that passed review. Flag any issue left open behind a merged PR
-explicitly; that is the failure mode this skill exists to prevent.
+| SKIPPED(<why>)`, plus `REVIEW: DELEGATED` or `REVIEW: UNRESOLVED(<n>)`
+whenever step 4 did not run clean on the `/code-review` path — a run that
+shipped unreviewed, or reviewed by the fallback rather than `/code-review`
+itself, must not read like one that passed the default review. Never re-read
+your own diff and report that as a review. Flag any issue left open behind a
+merged PR explicitly; that is the failure mode this skill exists to prevent.
 
-Then, when step 9 filed anything, one line per follow-up: `filed #N <title>
+Then, when step 8 filed anything, one line per follow-up: `filed #N <title>
 [tier] — found while shipping #M`. Also state the findings you checked and did
 *not* file, with what prevented them — a verified non-issue is a result, and
 silence reads as "nothing was noticed". Operator actions the run surfaced

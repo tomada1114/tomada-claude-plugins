@@ -1,63 +1,74 @@
 # Cost discipline
 
-What this skill keeps out of the main context, why the run count is what it is,
-and why the work is split the way it is between Codex and the parent. Read it
-when deciding whether to delegate a step, or before changing a run count.
+What this skill keeps out of the main context, why the run count is what it
+is, and why each spawn gets the model it gets. Read it when deciding whether
+to delegate a step, before changing a run count, or before picking a
+`/code-review` effort.
+
+## Table of Contents
+
+- [Code review effort](#code-review-effort)
+- [Run budget](#run-budget)
+- [Model and effort assignment](#model-and-effort-assignment)
 
 The main context holds the selection and the verdicts, nothing else. Issue
-bodies go to the triage agent, diffs stay in the Codex run that produced them,
-CI logs reach the repair run through a file rather than through the prompt. If
-you find yourself about to read a full GitHub API JSON blob or a workflow log
-in the main context, that is the signal to delegate instead.
+bodies go to the triage agent, diffs stay in the sub-agent run that produced
+them, CI logs and verify output reach the parent through a file rather than
+through the prompt. If you find yourself about to read a full GitHub API JSON
+blob, a workflow log, or an unrelated part of a diff in the main context,
+that is the signal to delegate or scope the read instead.
 
-Labeling is the cheap half of this by design: the backfill is a pure script pass
-with a one-line summary, and re-deriving priority from issue prose happens once
-per issue — ever — because the answer is written back to GitHub. On a labeled
-backlog the whole ranking step is `--select`, three lines, no spawn at all.
-Never re-read bodies to reconstruct a priority a label already carries; if a
-label looks wrong, fix the label.
+Labeling is the cheap half of this by design: the backfill is a pure script
+pass with a one-line summary, and re-deriving priority from issue prose
+happens once per issue — ever — because the answer is written back to GitHub.
+On a labeled backlog the whole ranking step is `--select`, three lines, no
+spawn at all. Never re-read bodies to reconstruct a priority a label already
+carries; if a label looks wrong, fix the label.
+
+## Code review effort
+
+`/code-review <effort> <branch> --fix` forks and runs entirely outside this
+session's context — the finders' reads never reach here, only the findings
+do. Effort controls how much of that runs:
+
+| effort | pipeline | when |
+|---|---|---|
+| `low` | one pass, no verify sub-pass, ≤4 findings, skips test/fixture hunks | a few files, no new public surface or data path — docs, config, copy, a small bug fix with its own test |
+| `medium` | 8 finder angles × 6 candidates, 1-vote verify, ≤8 findings (precision-biased) | the default — anything not covered by the other two rows |
+| `high` | same 8 angles, 1-vote verify biased toward recall, ≤10 findings | the change can lose or corrode data that already exists — a migration, a storage-layer write, a released public contract real consumers are on — or the user asked for one |
+
+Diff size or file count alone is not a reason for `high` — `medium` already
+reads for scope and correctness across the whole diff. Never `ultra`: it runs
+in the cloud, is billed per use, and the prompt that defines it says
+explicitly that a model cannot launch it itself.
+
+## Run budget
 
 Run count scales with issue count, not with thoroughness: one triage spawn
-(optional), one implementation run per issue, one review run per PR, one review
-fix run per PR whose triage accepted a finding, one repair run per failing CI
-attempt. Two of those are conditional rather than automatic: the review fix run
-is skipped outright when triage accepts nothing, and the adversarial pass is
-opt-in — the user asked for one, or the change can lose or corrode data that
-already exists. Triage itself is never a run: the parent does it in its own
-context, on prose the review already returned. Filing a follow-up
-(step 9) never adds a run — whatever found it already returned the lead under
-`FOLLOW-UPS`, and confirming it costs a couple of targeted reads in the main
-context, which is also what makes the tier trustworthy.
+(optional), one implementation sub-agent per issue plus up to 2 resume/patch
+runs when this session's judgment finds the first incomplete, one
+`/code-review` per branch, one repair sub-agent per failing CI attempt (capped
+at 3). This session's own
+judgment calls — reading the implementation diff, reading `--fix`'s diff,
+deciding what CI failure means — cost targeted reads in this context, never a
+spawn. Filing a follow-up (step 8) never adds a run either: whatever found it
+already returned the lead under `FOLLOW-UPS`, and confirming it costs a
+couple of targeted reads.
 
-## Why the split is where it is
+## Model and effort assignment
 
-The dividing line is **the GitHub API**. A Codex run has no network, so
-anything that talks to it — priority research, opening the PR, `link_check.sh`,
-`ci_watch.sh`, `land_pr.sh` — stays with the parent, and everything that is
-code in the checkout goes to Codex. That is not a workaround being tolerated; it
-is what keeps every merge-gating fact established here from script output
-rather than accepted on a worker's report.
+Implementation and priority research run on `sonnet` — fully specified work
+with a clear pass/fail. CI repair starts on `sonnet` and escalates to `opus`
+once the same failure survives two attempts in a row — persistent failure is
+a sign the spec (or the fix) needs more judgment, not more mechanical retries.
+The `/code-review` fallback runs on `opus`, since review and bug-finding is
+Opus-class work with genuinely unresolved spec.
 
-Implementation stays delegated even when the main model is Opus — a deliberate
-exception to the Opus-main "do it yourself" default, bought for context
-isolation: the diff, the repo exploration, and the CI logs are never needed in
-the main context again. Every Codex run goes through `codex:rescue`, the
-**openai-codex** plugin's own subagent — a thin forwarder with no runner or
-template system of this skill's own to maintain; what stays here is which
-steps go there, how each request is filled, and why. Review is a **separate**
-Codex run from implementation, which costs one extra run per PR and buys the
-only thing that makes it a review: a context that did not write the diff.
+The Agent tool used for these spawns takes a `model` but not a per-spawn
+`effort` — a sub-agent's reasoning effort follows this session's own
+configuration, there is no separate dial to set here.
 
-Model and reasoning effort are not passed on the Codex path at all. Leaving
-them unset makes each run inherit the Codex CLI's own configuration file, so
-the model is changed in one place when a newer one ships, and the strongest
-effort setting stays reachable — `codex:rescue`'s own `--effort` flag tops out
-at `xhigh`, and only the config file's setting can reach the tier above it.
-`platform-notes.md` notes what leaving them unset costs this skill per
-platform.
-
-The Claude-side model assignments that remain (triage on `sonnet`; the
-no-Codex fallbacks — implementation on `opus`, CI repair on `sonnet` escalating
-to `opus` after two failed attempts) are baked-in conclusions on spec
-completeness, and apply as stated on both platforms. (See `orchestrating-models`
-§2 for the reasoning; `platform-notes.md` notes where that citation resolves.)
+Implementation stays delegated even when the main model is Opus — a
+deliberate exception to the Opus-main "do it yourself" default, bought for
+context isolation: the diff and the repo exploration are never needed in the
+main context again once this session has judged the result.
