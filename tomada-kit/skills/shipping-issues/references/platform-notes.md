@@ -2,6 +2,7 @@
 # Platform notes (this skill's own Codex constraints and best-effort degradation)
 
 - [Delegating to the Codex runtime (primary path for steps 3 / 6 / 7)](#delegating-to-the-codex-runtime-primary-path-for-steps-3--6--7)
+- [When a `--wait` run outlives its forwarder](#when-a---wait-run-outlives-its-forwarder)
 - [Tool mapping](#tool-mapping)
 - [Constraints under Codex (best-effort degradation)](#constraints-under-codex-best-effort-degradation)
 
@@ -41,6 +42,42 @@ things about it decide how *this* skill routes:
 - **Codex cannot ask a question back**, and the return is free text, not a
   validated schema — `git -C <repo_root> status --short` is the authority on
   what changed, never the run's own prose.
+- **`--wait` is bounded by the caller's tool timeout, the Codex run is not.**
+  Observed at ~10 minutes: the forwarder gives up, the Codex job keeps running
+  detached, and its final report is never flushed to the forwarder's stdout —
+  so a run that fully succeeded returns nothing, or returns a note saying it
+  timed out. Any step 3 or step 6 run on a diff worth more than a few files
+  will cross that line. See "When a `--wait` run outlives its forwarder" below.
+
+### When a `--wait` run outlives its forwarder
+
+Nothing is lost, but the parent has to go get it. The companion script is the
+only thing that knows the job:
+
+```bash
+COMPANION="$(ls -d ~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs | tail -1)"
+node "$COMPANION" status                 # find the job id and its phase
+node "$COMPANION" result <job-id>        # the final report, once it is done
+```
+
+- **Wait on the job, not on a guessed duration.** Poll it from a *background*
+  Bash call (`until ! node "$COMPANION" status | grep -q "<job-id> | ... |
+  running"; do sleep 20; done`) so the parent stays responsive and gets a
+  completion notification. Never a foreground sleep loop.
+- **`status` prints a `Progress:` tail and names a `Log:` path.** When `result`
+  has nothing because the job hung rather than finished, `tail -c 3000` on that
+  log is where the run's actual findings are — it records each assistant
+  message and each command's exit code. That is a job log, not a subagent
+  JSONL transcript, so it is safe to read; the `.output` file a subagent
+  notification names is not.
+- **A job idle for many minutes with no new log line is hung, not thinking.**
+  Cancel it (`node "$COMPANION" cancel <job-id>`), salvage what the log holds,
+  and say plainly in the PR that the pass was partial — an incomplete review
+  reported as a clean one is the failure this whole step exists to prevent.
+- **Prefer `--background` from the start** for any step 3 or step 6 request on
+  a non-trivial diff, and keep the parent's own wait to the polling loop above.
+  A `--wait` that survives is a small run; a `--wait` that dies costs a
+  recovery round on top of the run it already paid for.
 
 **The openai-codex plugin is a Claude-Code-only plugin and is not bridged to
 Codex.** On a Codex host `codex:rescue`/`codex:setup` do not resolve at all,
@@ -69,7 +106,7 @@ that as the expected Codex-host path, not as a broken install.
   request>")` against the checkout. Being a **separate run** from the
   implementation is the requirement; explicitly asking for read-only behavior
   in the request is what keeps it from writing anything, since `codex:rescue`
-  defaults to write-capable. The adversarial pass (heavy diffs only) runs
+  defaults to write-capable. The adversarial pass (opt-in) runs
   right after Review, not concurrently with it. Not ready, or on a Codex
   host, falls back to the legacy ladder (one independent reviewer where
   delegation is available = `DELEGATED`, otherwise `UNAVAILABLE`).

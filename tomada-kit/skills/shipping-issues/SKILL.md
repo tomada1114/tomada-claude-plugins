@@ -82,7 +82,12 @@ installed and authenticated. On a Codex CLI host the openai-codex plugin does
 not resolve at all — that is the expected Codex-host path, not a broken
 install; go straight to the inline fallback for steps 3/6/7.
 
-`verdict: BLOCKED` stops the run. A dirty tree is a warning — ask first.
+`verdict: BLOCKED` stops the run. A dirty tree is a warning — ask first, and
+ask *before* the step 3 baseline rather than after: an untracked build or
+package-manager cache in the repo root can fail the baseline on its own (seen
+in practice: a `.pnpm-store/` holding a unix socket, which a test helper that
+copies untracked files hit with a bare `ENOTSUP`). Read a red baseline against
+what is in the tree before treating it as the repository's defect.
 Codex readiness decides steps 3/6/7's route once, here — fallback ladders:
 [platform-notes.md](references/platform-notes.md). Open the run record:
 `{SKILL_DIR}/scripts/run_record.py --event run-start --field mode=<single|all>`.
@@ -148,6 +153,14 @@ in every request. `git -C {repo_root} status --short` is the authority on what
 changed, never the run's own prose. No usable Codex (`codex:setup` reports
 not ready) → fallback ladders: [platform-notes.md](references/platform-notes.md).
 
+**`--wait` dies before a long run does.** The forwarder's tool timeout (~10
+minutes) is not the Codex job's timeout: the job keeps running detached and its
+report is never flushed, so a run that fully succeeded can return nothing at
+all. Issue steps 3 and 6 with `--background` on any diff bigger than a few
+files, and recover a stranded run through the companion script rather than
+re-running it —
+[platform-notes.md#when-a---wait-run-outlives-its-forwarder](references/platform-notes.md#when-a---wait-run-outlives-its-forwarder).
+
 ### 3. Implement
 
 One issue = one branch = one PR, in the main checkout:
@@ -202,13 +215,48 @@ merging.
 
 Fill/run:
 [delegation-templates.md#review-step-6](references/delegation-templates.md#review-step-6),
-against the checkout, after the PR and before CI. Heavy diff (schema, storage
-layer, public contract, new/bumped dependency, cross-module rewire) → add the
-adversarial pass from the same reference, run right after Review.
+against the checkout, after the PR and before CI. Issue it as written — it is
+a plain review, and telling the reviewer to expect the diff to be wrong buys
+noise, not rigor.
 
-Apply findings, commit (`review: <what was fixed>`), push, re-run
-verification so CI judges the reviewed code. Fix the cause, never the check —
-then record (`--event review --field pr=<n> --field status=<...> --field
+The adversarial pass from the same reference is **opt-in**, not a property of
+the diff: run it when the user asks for one, or when the change can lose or
+corrode data already in production (a migration, a storage-layer write, a
+released public contract real consumers are on). A large or cross-module diff
+is not by itself a reason — the Review pass already reads for scope and
+correctness. When it does run, it runs right after Review, never instead of
+it, and never concurrently.
+
+**The review never applies its own findings.** It comes back to the parent as
+prose, and the parent decides, one finding at a time, which are real — a
+reviewer that patches what it thinks it found merges its own misreadings, and
+the parent never sees the ones it would have rejected. Keep the template's
+read-only sentence; it is what enforces this.
+
+So the loop is three steps, and the middle one is not delegated:
+
+1. **Review (Codex, read-only).** Findings return as prose with severity and
+   confidence.
+2. **Triage (the parent, in this context).** Accept, reject, or defer each
+   finding. Rejecting one is a normal outcome — say why in the PR. A finding
+   that is real but outside issue #{n}'s scope goes to step 9 as a follow-up,
+   not into this diff. Deciding this costs a couple of targeted reads, not a
+   run.
+3. **Fix (Codex).**
+   [delegation-templates.md#review-fix-step-6](references/delegation-templates.md#review-fix-step-6),
+   carrying only the accepted findings. Skip this run entirely when triage
+   accepts nothing — the common case on a clean diff, and the reason the fix
+   run is conditional rather than automatic.
+
+**A review that did not finish is not a review that passed.** When the run is
+cut short — the forwarder timed out, the job hung, the report never
+arrived — salvage what its log holds, say in the PR that the pass was partial
+and what it did and did not cover, and let the merge rest on the parent's own
+read of the diff plus a green gate. Reporting an incomplete review as a clean
+one is the exact failure this step exists to prevent.
+
+Then push and re-run verification so CI judges the reviewed code. Fix the
+cause, never the check — then record (`--event review --field pr=<n> --field status=<...> --field
 intent_match=<yes|no> --field unresolved=<count>`).
 
 ### 7. CI to green

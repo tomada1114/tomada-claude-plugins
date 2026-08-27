@@ -5,7 +5,8 @@
 - [Priority research and labeling](#priority-research-and-labeling-sonnet)
 - [Implementation](#implementation-step-3)
 - [Review](#review-step-6)
-- [Adversarial focus (step 6, heavy diffs only)](#adversarial-focus-step-6-heavy-diffs-only)
+- [Review fix](#review-fix-step-6)
+- [Adversarial focus (step 6, opt-in)](#adversarial-focus-step-6-opt-in)
 - [CI repair](#ci-repair-step-7-only-on-fail)
 
 Two kinds of handoff live here. **Priority research** is this skill's own
@@ -221,19 +222,70 @@ No extra return fields. What the parent does with them:
   request, or re-run it when most of the change is absent.
 - A `TESTS:` verdict saying the tests pin the implementation rather than the
   behavior is treated as a finding.
-- **One round is the ceiling.** Apply the findings yourself (this is prose, not
-  a patch — re-derive the fix in the code), commit (`review: <what was
-  fixed>`), push, and re-run the verification command so CI judges the
-  reviewed code. What is still open after that round goes on the parent's
-  `UNRESOLVED` list, or to step 9 as a follow-up when it is outside issue
-  #{n}'s scope — it does not block the merge.
+- **Triage every finding in the parent before anything is fixed.** The review
+  returns prose, never a patch, and the parent decides which findings are
+  real. This is the whole reason the review is read-only: a reviewer that
+  applies its own findings lands its misreadings too, and the parent never
+  sees what it would have rejected.
+- **One round is the ceiling.** The accepted findings go to one Review fix run
+  (below). What triage rejected is noted in the PR with the reason; what is
+  real but outside issue #{n}'s scope goes to step 9 as a follow-up; what is
+  left undecided goes on the parent's `UNRESOLVED` list. None of those three
+  block the merge.
 - Record which rung ran (`--event review --field status=<codex|codex+adversarial|DELEGATED|UNAVAILABLE>`).
 
-## Adversarial focus (step 6, heavy diffs only)
+## Review fix (step 6)
 
-Issued **in addition to** the Review pass above, never instead of it, when the
-diff touches a schema, storage layer, or public contract; adds or bumps a
-dependency; or rewires behavior across several modules. Both are read-only
+Run only when triage accepted at least one finding — a clean review skips this
+run entirely. Carry **only the accepted findings**: a rejected one handed back
+here gets fixed anyway, which is the failure this split exists to prevent.
+
+```bash
+Skill(codex:rescue, args="--wait <filled request below>")
+```
+
+```
+Work only inside {repo_root}, on branch {branch} — already checked out. Apply
+the fixes below to PR #{pr}, which implements issue #{n} in {owner}/{repo} and
+merges once CI is green. Do NOT touch the GitHub API, do NOT delete anything,
+and do NOT push a new branch.
+
+These findings came from a review of this diff and have already been triaged
+and accepted. Fix exactly these, and nothing else — a finding not on this list
+was considered and rejected, so re-fixing it would undo a decision:
+
+{the accepted findings, one per line, verbatim, each with its file:line}
+
+For each one, fix the cause rather than the symptom, and never the check
+itself: no weakened assertion, no lowered threshold, no skipped or deleted
+test, no suppression comment. If a finding turns out to be wrong on closer
+reading, do NOT fix it — say so under DISPUTED and move on.
+
+Read {repo_root}/CLAUDE.md and {repo_root}/AGENTS.md first; the fixes follow
+the project's own conventions.
+
+Then run {verify_command} and commit as `review: <what was fixed>`. Do not
+push.
+
+Return exactly:
+FIXED: <one per line as `file:line — what you changed`, or "none">
+DISPUTED: <findings you did not fix, with why, or "none">
+VERIFY: <exact command run> -> <pass/fail + the failing output if any>
+COMMITS: <sha + subject of each commit, or "none">
+UNRESOLVED: <anything still open, or "none">
+```
+
+`DISPUTED` is the run's escape hatch and is read, not ignored: a finding the
+fix run argues against is one the review and the triage both got wrong, and it
+belongs in the PR body rather than silently dropped.
+
+## Adversarial focus (step 6, opt-in)
+
+Issued **in addition to** the Review pass above, never instead of it, and only
+when the user asked for one or the change can lose or corrode data that
+already exists — a migration, a storage-layer write, a released public
+contract real consumers are on. Diff size and module count are not the
+trigger; the Review pass already covers those. Both are read-only
 reads of the same checkout, but this skill runs one `codex:rescue` call at a
 time — issue this one after Review returns, never concurrently with it:
 

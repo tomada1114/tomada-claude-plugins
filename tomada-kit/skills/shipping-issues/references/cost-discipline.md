@@ -18,10 +18,13 @@ Never re-read bodies to reconstruct a priority a label already carries; if a
 label looks wrong, fix the label.
 
 Run count scales with issue count, not with thoroughness: one triage spawn
-(optional), one implementation run per issue, one review run per PR, one repair
-run per failing CI attempt. The adversarial pass is the only conditional extra
-and only for a heavy diff — a schema, storage layer, or public contract; a new
-or bumped dependency; behavior rewired across modules. Filing a follow-up
+(optional), one implementation run per issue, one review run per PR, one review
+fix run per PR whose triage accepted a finding, one repair run per failing CI
+attempt. Two of those are conditional rather than automatic: the review fix run
+is skipped outright when triage accepts nothing, and the adversarial pass is
+opt-in — the user asked for one, or the change can lose or corrode data that
+already exists. Triage itself is never a run: the parent does it in its own
+context, on prose the review already returned. Filing a follow-up
 (step 9) never adds a run — whatever found it already returned the lead under
 `FOLLOW-UPS`, and confirming it costs a couple of targeted reads in the main
 context, which is also what makes the tier trustworthy.
