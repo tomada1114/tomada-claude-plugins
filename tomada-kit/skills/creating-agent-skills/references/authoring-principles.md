@@ -92,7 +92,7 @@ Scripts follow the conventions in `scripts-guide.md`'s Conventions section
 `scripts/tests/test_<name>.py`, `--json` for anything an agent parses, exit
 codes 0/1/2, one responsibility per script, stdlib first with other
 dependencies declared in SKILL.md, test coverage ≥ 90 %, and generated files
-(`__pycache__/`, `.pytest_cache/`, `.coverage*`) in `.gitignore`.
+(`__pycache__/`, `.coverage*`) in `.gitignore`.
 `scripts/check_scripts.py` enforces the checkable parts.
 
 ## Three-level loading and the size budget

@@ -50,8 +50,9 @@ SKILL_STATE_NAME = "shipping-issues"
 REPO_RE = re.compile(r"^[^/\s]+/[^/\s]+$")
 
 EVENTS = (
-    "run-start", "selection", "labels", "pr-created", "review", "ci",
-    "merged", "followup", "cleanup", "blocked", "note",
+    "run-start", "selection", "labels", "design", "parallel-group",
+    "pr-created", "review", "ci", "merged", "followup", "cleanup",
+    "blocked", "note",
 )
 
 

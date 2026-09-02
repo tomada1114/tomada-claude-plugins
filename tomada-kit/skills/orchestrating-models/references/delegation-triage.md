@@ -114,7 +114,7 @@ Opus がメインのとき、上へ投げる選択肢もある。ただし**ま�
 
 **メインが Opus のとき** — 高い→安いの順にモデルを落とすのは最後の手段。
 
-1. **effort を下げる。** Opus は low/medium でも品質が落ちにくい。最も効率のよいレバー。Workflow の `agent()` は `model` と `effort` の両方を取る(Agent ツールは `model` のみ)。
+1. **effort を下げる。** Opus は medium なら落ち幅が小さい（Anthropic の実測で SWE-bench Pro 約 2 ポイント減・コスト半分。low は約 8 ポイント減なので下げるのは medium まで。出典: https://platform.claude.com/docs/en/about-claude/models/optimizing-for-cost-and-intelligence ）。最も効率のよいレバー。Workflow の `agent()` は `model` と `effort` の両方を取る(Agent ツールは `model` のみ)。
 2. **機械的な部分を切り出して Sonnet へ。** タスク全体ではなく、確定している部分だけを切る。
 3. **スコープを絞る。** 何をやらないかをユーザーと決める。
 

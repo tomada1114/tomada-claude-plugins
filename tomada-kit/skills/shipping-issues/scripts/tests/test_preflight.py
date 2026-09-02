@@ -100,6 +100,42 @@ class PreflightTest(unittest.TestCase):
         self.assertIn("verdict: BLOCKED\n", proc.stdout)
         self.assertEqual(calls, [])
 
+    def test_no_worktree_in_main_checkout(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            make_repo(repo, origin=True)
+            proc, calls = run_script([], repo)
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("in_worktree: no\n", proc.stdout)
+        self.assertNotIn("existing_worktrees:", proc.stdout)
+        self.assertIn("verdict: READY\n", proc.stdout)
+
+    def test_linked_worktree_reports_count_and_in_worktree(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td).resolve()
+            repo = td / "repo"
+            repo.mkdir()
+            make_repo(repo, origin=True)
+            wtroot = td / "wtroot"
+            wtroot.mkdir()
+            wt = wtroot / "1"
+            git(repo, "worktree", "add", "-q", str(wt), "-b", "feat/1")
+
+            proc, calls = run_script([], repo)
+            proc_wt, calls_wt = run_script([], wt)
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("in_worktree: no\n", proc.stdout)
+        self.assertIn("existing_worktrees: 1\n", proc.stdout)
+        self.assertIn(str(wt), proc.stdout)
+        self.assertIn("verdict: READY\n", proc.stdout)
+
+        self.assertEqual(proc_wt.returncode, 0, proc_wt.stderr)
+        self.assertIn("in_worktree: yes\n", proc_wt.stdout)
+        self.assertIn("existing_worktrees: 1\n", proc_wt.stdout)
+        self.assertIn("verdict: READY\n", proc_wt.stdout)
+
     def test_dirty_tree_warns_but_is_ready(self):
         with tempfile.TemporaryDirectory() as td:
             repo = Path(td)

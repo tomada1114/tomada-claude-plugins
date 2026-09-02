@@ -30,6 +30,25 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 fi
 emit git_repo "ok"
 emit repo_root "$(git rev-parse --show-toplevel)"
+git_common_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
+emit git_common_dir "$git_common_dir"
+
+# --- worktree state ----------------------------------------------------------
+# Neither of these is a blocker or a warning on its own — they only inform the
+# caller whether parallel-worktree mode is already in play.
+git_dir=$(git rev-parse --path-format=absolute --git-dir)
+if [[ "$git_dir" != "$git_common_dir" ]]; then
+  emit in_worktree "yes"
+else
+  emit in_worktree "no"
+fi
+
+worktree_list="$(git worktree list 2>/dev/null)"
+worktree_count=$(printf '%s\n' "$worktree_list" | sed -n '2,$p' | grep -c . || true)
+if [[ "$worktree_count" -gt 0 ]]; then
+  emit existing_worktrees "$worktree_count"
+  printf '%s\n' "$worktree_list" | sed -n '2,$p' | sed 's/^/  /'
+fi
 
 if ! git remote get-url origin >/dev/null 2>&1; then
   emit origin "MISSING"

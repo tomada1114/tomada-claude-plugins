@@ -21,7 +21,7 @@ Checks:
           execute bit.
     S006  a script hardcodes a personal skills path (home dir + .claude/skills).
           Suppress a legitimate use with `scripts-ignore: S006` on that line.
-    S007  scripts/__pycache__, .pytest_cache, or .coverage are not covered
+    S007  scripts/__pycache__ or .coverage are not covered
           by .gitignore (only checked inside a git work tree).
 
 Output:
@@ -261,7 +261,6 @@ def check_gitignore(skill: Path) -> list[validate_skill.Finding]:
     # queried path it can tell is a directory, and these paths need not exist yet.
     candidates = [
         (skill / "scripts" / "__pycache__", True),
-        (skill / ".pytest_cache", True),
         (skill / ".coverage", False),
     ]
     unignored = []

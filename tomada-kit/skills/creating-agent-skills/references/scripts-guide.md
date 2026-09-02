@@ -90,7 +90,7 @@ Two rules keep this from rotting: changing `_shared/` means running every consum
 
 ### Generated files
 
-`__pycache__/`, `.pytest_cache/`, `.coverage`, `.coverage.*`, `htmlcov/` must be ignored by the enclosing repository's `.gitignore`; `check_scripts.py`'s `S007` verifies it.
+`__pycache__/`, `.coverage`, `.coverage.*`, `htmlcov/` must be ignored by the enclosing repository's `.gitignore`; `check_scripts.py`'s `S007` verifies it.
 
 ---
 
@@ -237,7 +237,7 @@ Standard library first, others declared in SKILL.md, optional ones degrade with 
 Read `check_scripts.py`'s output and say what the uncovered lines are (error paths? CLI glue?) rather than repeating the number.
 
 ### SC7: Generated files are ignored
-`.gitignore` covers `__pycache__/`, `.pytest_cache/`, `.coverage`, `.coverage.*`, `htmlcov/`.
+`.gitignore` covers `__pycache__/`, `.coverage`, `.coverage.*`, `htmlcov/`.
 
 ### SC8: Invocation is explicit
 Scripts are invoked through `${CLAUDE_SKILL_DIR}`; SKILL.md says whether to run or read each one.

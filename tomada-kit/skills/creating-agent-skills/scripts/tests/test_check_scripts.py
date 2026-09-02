@@ -277,7 +277,7 @@ class TestS007(unittest.TestCase):
         self._git("config", "user.email", "t@example.com")
         self._git("config", "user.name", "t")
         (self.root / ".gitignore").write_text(
-            "scripts/__pycache__/\n.pytest_cache/\n.coverage\n", encoding="utf-8"
+            "scripts/__pycache__/\n.coverage\n", encoding="utf-8"
         )
         findings = cs.check_gitignore(self.root)
         self.assertFalse(findings)

@@ -48,6 +48,9 @@ Do not write `blocked: design` (or `--set-design`) on anything — that decision
 belongs to the run that takes the issue on deliberately, not to this pass.
 Report a design-not-settled issue under "Design not settled" below instead.
 
+Run mode: {mode}   (`all` = several issues will ship this run and may be
+implemented in parallel; `single` = only the top one ships)
+
 Return exactly these sections, nothing else:
 
 ## Labels
@@ -63,6 +66,16 @@ Return exactly these sections, nothing else:
 
 ## Order after that
 - #N <tier> — one-line reason it comes next — likely files — S/M/L
+
+## Parallel-safe groups
+- [#A, #B] — <why they are safe together: the disjoint file sets you actually
+  checked, not an assumption from the titles>
+- serialize: #C — <what forces it alone: shared infra, a lockfile, a migration,
+  an append-target file, or an overlap with #A/#B>
+(Omit this section entirely unless {mode} is `all`. Apply the "Parallel vs
+sequential" rules in dependency-triage.md; a group you cannot justify from
+paths you grepped is not a group — list its issues under `serialize:` instead.
+Never propose a group larger than 3.)
 
 ## Blocked
 - #N — blocked by #M (explicit | inferred: <which rule from dependency-triage.md>)
