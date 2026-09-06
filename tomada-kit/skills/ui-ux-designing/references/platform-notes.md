@@ -1,15 +1,23 @@
 <!-- platform-annex -->
-# Platform notes（このスキル自身の Codex での制約・best-effort 劣化）
+# Platform notes
 
-## ツール対応
+SKILL.md が使う機能と、ホストごとの実現手段の対応表。使えない機能があるホストでは、右側の代替に落として同じ手順を続ける。
 
-- 選択肢提示による確認（Phase 1・3・4）→ Claude Code: `AskUserQuestion` / Codex: 通常対話で同じ選択肢を提示して確認
-- Phase 2 の競合/人気アプリ調査 → Claude Code: `WebSearch` / Codex: 同等の web 検索ツールがあれば使用
-- 質問パターンの平文化 → `references/question-patterns.md` の「平文で提示する場合の例」を参照（JSON データを番号付き選択肢の文章に変換して提示する）
+- **選択肢を提示して確認する**（Phase 1・3・4）
+  Claude Code: `AskUserQuestion` に `questions-core.md` / `questions-app-type.md` の JSON をそのまま渡す。
+  Codex: 通常の対話で番号付きの選択肢として提示する。変換の書き方は `questions-core.md` の `## 平文で提示する場合` にある例に従う。
+  どちらでも SKILL.md の「質問設計の原則」（選択肢2〜4個、トレードオフ、`（推奨）`は1つ、1ラウンド3〜4問）は変えない。
 
-## Codex での制約（best-effort 劣化）
+- **web検索**（Phase 2 の競合調査）
+  Claude Code: `WebSearch`。
+  Codex: 同等の web 検索ツールがあれば使用する。
+  どちらも使えない場合: 参考アプリ名・URL・スクリーンショットをユーザーに提供してもらい、それを材料に同じ観点で比較する。
 
-- `AskUserQuestion`（Phase 1・3・4 の各確認）→ Codex では通常対話で同じ選択肢を提示して確認する。「質問設計の原則」（選択肢2〜4個・トレードオフ説明・`（推奨）`明示・3-4個ずつバッチ化）はそのまま適用する。
-- `WebSearch`（Phase 2）→ Codex では同等の web 検索ツールがあれば使用し、無ければユーザー提供の参考情報（アプリ名・URL・スクリーンショット）で調査する（調査観点・3アプリ以上の原則は維持）。
+- **サブエージェントへの委譲**（Phase 2）
+  Claude Code: `Task` で `model: sonnet` のサブエージェント1体に `agents/research-competitors.md` のプロンプトを渡す。
+  Codex: 同じプロンプトを本体セッションでそのまま実行する。読む資料・観点・出力形式は変えない。
 
-参照（`references/`・`templates/`）はすべてスキル相対パスなので、Claude Code でも Codex（`~/.codex/skills/` の symlink 経由）でも同一に解決する。
+- **スクリプト実行**（Phase 6 のコントラスト実測）
+  両ホスト共通: スキルディレクトリから `python3 scripts/check_contrast.py` を実行する。
+
+参照先はすべてスキル相対パスで書いてあるので、Claude Code でも Codex（`~/.codex/skills/` の symlink 経由）でも同じ位置に解決する。
