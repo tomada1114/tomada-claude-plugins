@@ -101,14 +101,6 @@ Exact procedure and label/milestone bootstrap commands: [reference.md](reference
 3. **Phase breakdown** grouped by implementation phase (foundation → parallel streams → integration → polish).
 4. **Worktree plan** listing suggested worktrees.
 
-## Never
-
-- Write vague requirements without specific values, or use placeholders (`XX`, `[value]`).
-- Omit the **Not In Scope** section.
-- Create acceptance criteria that don't map to requirement IDs.
-- Express a dependency outside the `Depends on #N` / `Blocks #N` phrasing, or leave one unmarked.
-- Mark tickets as parallel when their file sets overlap.
-
 ## Resources
 
 - [templates/issue-template.md](templates/issue-template.md) — **SSOT** for the full issue body skeleton and its foundation/integration variants.

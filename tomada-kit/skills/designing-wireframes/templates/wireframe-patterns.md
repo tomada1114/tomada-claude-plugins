@@ -317,7 +317,8 @@ Primary actions should be placed in the "green zone" (bottom of screen) for easy
 │  ┌─────────────────────────────┐│
 │  │ ✓ Saved successfully        ││ ← Toast
 │  └─────────────────────────────┘│
-│  [Tab 1]  │     [Tab 2]        │
+├──────────┬──────────────────────┤
+│ [Tab 1]  │      [Tab 2]         │
 └──────────┴──────────────────────┘
 ```
 

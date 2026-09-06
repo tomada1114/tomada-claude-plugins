@@ -1,6 +1,6 @@
 # GitHub Issue Template
 
-`gh issue create --body-file` に渡す Issue 本文の SSOT。ゴールは「誰が(どのエージェントが)実装しても要件は絶対に満たせる」— すべての要件をソース文書由来の実値で書き、曖昧語とプレースホルダーを残さない。
+`gh issue create --body-file` に渡す Issue 本文の SSOT(原則は SKILL.md を参照)。
 
 セクション構成は下のスケルトンが正。ドメイン固有の要件群(UI 仕様、API 仕様、DB スキーマ仕様など)が必要な場合は、Functional Requirements の下に同形式の表を追加して拡張する — 別テンプレートは作らない。
 

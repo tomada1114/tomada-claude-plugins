@@ -9,7 +9,7 @@ metadata:
 
 Clarify ambiguous requirements through structured questioning and produce detailed, implementation-ready specifications.
 
-**After this skill**: Use `designing-wireframes` for UI/UX visualization, then `planning-tickets` for GitHub Issues. (Both are dual-platform skills — referenced by name, they resolve on whichever platform is running this skill. See [references/platform-notes.md](references/platform-notes.md) for how each platform resolves the reference.)
+**After this skill**: Use `designing-wireframes` for UI/UX visualization, then `planning-tickets` for GitHub Issues. See [references/platform-notes.md](references/platform-notes.md).
 
 ## Phase 0: Gather Input (only if no document provided)
 
@@ -33,54 +33,16 @@ If the user hasn't provided a requirements document, gather the basics first —
 
 ## Phase 2: Question Rounds
 
-Clarify ambiguities through batched questions — present 2-4 options with tradeoffs and a recommendation, wait for the reply (max 4 options-based questions per round). Ask only what's unclear — skip any category where the document is already specific.
+Clarify ambiguities through batched questions — using the same options-with-recommendation format as Phase 0 (max 4 questions per round). Ask only what's unclear — skip any category where the document is already specific.
 
 ### Question Design Principles
 
-1. **Provide concrete options** — don't ask open-ended questions
-2. **Include trade-offs** — explain what each option means
-3. **Use descriptive headers** — short, scannable labels (max 12 chars)
-4. **Batch related questions** — group by topic area
+1. **Use descriptive headers** — short, scannable labels (max 12 chars)
+2. **Batch related questions** — group by topic area
 
 ### Recommended Question Order
 
-Ask in this order, skipping sections that don't apply to the platform:
-
-**Round 1 — Core UI/UX** (mobile & web)
-- Navigation structure (tab bar / sidebar / header nav)
-- Primary action placement
-- List/content display format
-
-**Round 2 — Mobile UX** (mobile only)
-- Primary action button placement → Bottom (Thumb-Zone) / Center / Within content
-- Loading display → Simple spinner / Skeleton Screen / Shimmer
-- Haptic Feedback → Implement / Don't implement
-- Animation style → Platform standard / Custom
-
-**Round 3 — Error Handling & Validation** (all platforms)
-- Delete/destructive action UX → Immediate / Toast with Undo / Confirmation dialog
-- Error display format → Toast / Alert / Inline message
-- Form validation timing → Inline real-time / On blur / On submit
-- Retry logic → Auto-retry / Manual retry button / No retry
-
-**Round 4 — Accessibility** (mobile & web)
-- WCAG compliance level → AA / Basic support / Not in MVP
-- Screen reader support → Full / Basic labels only / Not in MVP
-
-**Round 5 — Visual Design** (mobile & web)
-- Dark mode → Light only (MVP) / Auto-follow system / Manual toggle
-- Empty states → Simple text / Icon + text / With CTA
-- Color scheme → Platform standard / Custom brand colors
-
-**Round 6 — Business Logic** (all platforms)
-- Free vs Pro feature gates and limits
-- Default values for settings
-- Edge case calculations (overflow, boundaries)
-
-**Round 7 — API/Data** (API/backend & web apps with data)
-- Authentication method
-- Pagination strategy
-- Error response format and HTTP status conventions
+Ask in this order, skipping rounds that don't apply: Core UI/UX, Mobile UX, Error Handling & Validation, Accessibility, Visual Design, Business Logic, API/Data. Question bank: [references/question-bank.md](references/question-bank.md)
 
 ### After Questions: Update the Document
 
@@ -108,11 +70,6 @@ Produce or update the requirements document with detailed specs, edge-case handl
 ```
 
 Save the document as `requirements.md` in the project root, or update the existing file if one already exists.
-
-## Best Practices
-
-- Track completed phases as a checklist.
-- Suggest `designing-wireframes` after completion if UI screens need to be designed.
 
 ## Platform notes
 

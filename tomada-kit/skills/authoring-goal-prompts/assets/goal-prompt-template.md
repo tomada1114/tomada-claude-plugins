@@ -8,10 +8,7 @@ optional sections. The bracketed notes are guidance — remove them from the fin
 The final prompt is plain prose with labeled sections; it does not need to be Markdown-fenced inside
 itself. Use `UPPERCASE` labels so the structure is scannable.
 
-**Hard length limit:** the text you hand to `/goal` must be **≤ 4000 characters** — `/goal` rejects a
-longer condition. Measure the final prompt with `wc -m` (character count, not `wc -c` bytes) before
-emitting. When bundled, only `goal.md` is passed to `/goal`, so siblings don't count — push bulk out
-of `goal.md` until it fits, never trim the load-bearing sections to squeeze under.
+Hard length limit: ≤ 4000 characters (`/goal` rejects a longer condition). Measure with `wc -m`; move the excess into siblings.
 
 ---
 

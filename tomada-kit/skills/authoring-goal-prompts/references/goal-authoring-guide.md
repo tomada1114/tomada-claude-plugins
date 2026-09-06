@@ -14,7 +14,6 @@ modes and worked examples that make a goal robust.
 - [The externalization rule](#the-externalization-rule)
 - [Checklist bundles: evidence-anchored, skip-aware](#checklist-bundles-evidence-anchored-skip-aware)
 - [Proxy verification for artifacts you can't run](#proxy-verification-for-artifacts-you-cant-run)
-- [Section reference](#section-reference)
 - [Worked examples](#worked-examples)
 - [Good vs bad conditions](#good-vs-bad-conditions)
 
@@ -128,8 +127,8 @@ Keep the `/goal` prompt short. Two independent triggers push material into a bun
 1. **Knowledge transfer (primary).** The goal session is a fresh, often weaker-model session; it
    sees none of your discovery or design reasoning. Design decisions, code patterns worth showing,
    research findings, and pre-answered ambiguities go into support files so the executor never
-   re-derives them — see [support-file-guide.md](support-file-guide.md) for the standard menu
-   (`design.md`, `examples.md`, `research.md`, `checklist.yaml`, `decisions.md`) and quality rules.
+   re-derives them — see [support-file-guide.md](support-file-guide.md) for the quality rules of each
+   support file (`design.md`, `examples.md`, `research.md`, `checklist.yaml`, `decisions.md`).
 2. **Size (mechanical).** The prompt physically must fit the `/goal` cap.
 
 **The hard cap is 4000 characters** — `/goal` rejects a longer condition. This is mechanical, not a
@@ -139,20 +138,9 @@ passed to `/goal`, so siblings (`inventory.md`, `research.md`, …) don't count 
 you're near or over 4000, the fix is always to move bulk into siblings until `goal.md` fits, never to
 trim load-bearing sections (GOAL / DONE WHEN / VERIFY / CONSTRAINTS / STOP RULES) to squeeze under.
 
-- **Chat-only (default):** the whole prompt fits comfortably (rule of thumb ≤ ~40–60 lines) and
-  needs no external docs. Emit one fenced block.
-- **Bundle** to `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/<slug>/`
-  when either trigger fires: knowledge only this
-  session holds (a design, patterns, findings, pre-answered decisions), or reusable bulk (a
-  migration inventory, a design spec with many acceptance criteria, a generated checklist). Write
-  `goal.md` (still concise) plus siblings from the standard menu in
-  [support-file-guide.md](support-file-guide.md). In `goal.md`'s `CONTEXT`, point to the siblings by
-  **absolute path** and instruct the session to read them first, and put the divergence rule
-  (repo beats stale support-file facts; impossible design → fallback or stop, never improvise) in
-  `CONSTRAINTS`. This mirrors progressive disclosure: the goal stays small; the bulk loads on
-  demand. `<slug>` is a deterministic kebab-case summary (~4–6 words); the dir lives outside any repo
-  tree (under `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/`), so it never needs
-  gitignoring, and overwriting it on re-run is intended (idempotent).
+Chat-only vs bundle is decided in [../SKILL.md](../SKILL.md) Phase 2, which also fixes where a
+bundle lives and how its `<slug>` is formed. The effect is progressive disclosure: `goal.md` stays
+small and points at siblings by absolute path, and the bulk loads on demand.
 
 A self-maintained **checklist artifact** is the cleanest way to make "queue empty" measurable for
 backlog/migration goals: have the session maintain `checklist.md` and make `DONE WHEN` = "every item
@@ -205,13 +193,6 @@ Then require the **residual risk to be reported, not hidden**: what could still 
 real platform goes in the final report/PR body ("workflows validated with zizmor + YAML parse;
 not executed — verify on first CI run"). The evaluator can check that the proxy commands ran;
 the human knows exactly what remains unproven.
-
-## Section reference
-
-Core (almost always): `GOAL`, `DONE WHEN`, `VERIFY`, `CONSTRAINTS` (scope + integrity), `STOP RULES`.
-Optional (only if they add signal): `CONTEXT`, `BASELINE`, `PRIORITY`, `PLAN`, `OUTPUT`.
-See [../assets/goal-prompt-template.md](../assets/goal-prompt-template.md) for the fill-in scaffold,
-and [../assets/support-file-templates.md](../assets/support-file-templates.md) for the sibling scaffolds.
 
 ## Worked examples
 
@@ -271,5 +252,3 @@ rejected alternatives) + `examples.md` (verbatim repo patterns, wrong-way block)
 | Five-clause AND in one sentence | Small evaluator misjudges | One printed sentinel emitted only when all hold |
 | "DONE WHEN: all checklist boxes ticked" | Checklist is self-graded → tickable without the work | Boxes ticked AND final verification commands' fresh output pasted |
 | Goal ends at `git push` / `gh pr create`, no fallback | Environmental failure → thrash until the ceiling | Degraded terminal sentinel that keeps local commits and reports the blocker |
-| "Follow the existing patterns" (bare pointer) | Executor must find, read, and interpret — three divergence points | `examples.md` with the verbatim snippet + source path |
-| "Choose a sensible architecture for X" | Delegates design to a weaker model under anti-thrash pressure | Decide now; ship `design.md` with decisions, rationale, rejected alternatives |

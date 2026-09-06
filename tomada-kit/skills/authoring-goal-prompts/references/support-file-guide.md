@@ -1,9 +1,7 @@
 # Support-file guide — packaging the lead engineer's head for the executor
 
-The goal session is a fresh, often **weaker/cheaper model** (e.g. Sonnet executing what an Opus
-session designed) with **zero shared context**: it has not seen your discovery, the user's answers,
-or your design reasoning. Support files are how the lead's intent survives the handoff. This guide
-covers when to create each file and how to write it so the executor never has to guess.
+Support files are how the lead's intent survives the handoff to a fresh, weaker/cheaper executor.
+This guide covers when to create each one and how to write it so the executor never has to guess.
 
 ## Contents
 
@@ -37,15 +35,7 @@ wrong decision. Ten lines that pin an interface beat three pages of narrative.
 
 `goal.md` always exists in a bundle: it carries the contract (GOAL / DONE WHEN / VERIFY /
 CONSTRAINTS / STOP RULES) and *points* to the siblings; the siblings carry the knowledge. Create
-only the siblings that earn their place:
-
-| File | Carries | Create when |
-|---|---|---|
-| `design.md` | target design: interfaces/schemas as code blocks, decisions + rationale + rejected alternatives | you made any design choice the executor could plausibly make differently |
-| `examples.md` | patterns to imitate as fenced code blocks — verbatim repo snippets, Before/After pairs | "follow the style of X" is not enough; you want to show, not point |
-| `research.md` | distilled findings: current behavior, root causes, repro commands, verified-vs-inferred | you learned non-obvious facts the executor would burn turns rediscovering |
-| `checklist.yaml` (`.md` for short queues) | the work queue, one acceptance criterion per item, machine-checkable statuses | multi-item work — migrations, audits, content production, coding or not |
-| `decisions.md` | pre-answered questions + fallback rules ("if X, do Y") | any run long enough to hit an ambiguity you can predict |
+only the siblings that earn their place — the menu of files is in [../SKILL.md](../SKILL.md) Phase 2.
 
 Merge rather than pad: if design + research together are ~30 lines, one `design.md` with a
 "Findings" section is fine. Split when a file stops being skimmable. The menu is canonical, not a
@@ -134,13 +124,8 @@ items:
     notes: ""
 ```
 
-Rules (these mirror the checklist section of
-[goal-authoring-guide.md](goal-authoring-guide.md) — same anti-cheat logic):
+Rules: [the checklist section of goal-authoring-guide.md](goal-authoring-guide.md#checklist-bundles-evidence-anchored-skip-aware).
 
-- **One acceptance criterion per item** — the exact command and expected result. The session must
-  paste that command's fresh output *before* flipping `status: done`.
-- **`meta.verify_all` is mandatory**: `DONE WHEN` = all items done-or-skip AND the whole-run check's
-  fresh output — statuses alone are self-graded.
 - **Non-coding tasks use the same shape**, with measurable acceptance: `"wc -m of draft.md is
   3000–4000 and every H2 from meta.outline appears"` — never "the section reads well".
 - A short queue (≤ ~8 items, no ordering/skip subtleties) may stay a Markdown checklist; the same
