@@ -15,6 +15,7 @@ Run `/plugin` to browse interactively.
 
 | Skill | Description |
 |---|---|
+| **auditing-prompt-docs** | Audit and fix prompt-bearing documents — SKILL.md, CLAUDE.md, AGENTS.md, agent and command definitions… |
 | **authoring-goal-prompts** | Author a self-contained prompt for Claude Code's /goal command, run unattended in a separate session — a… |
 | **creating-agent-skills** | Create or improve Agent Skills (the shared SKILL.md format read by Claude Code and OpenAI Codex CLI —… |
 | **designing-wireframes** | Create ASCII wireframes, user flow diagrams, and cross-cutting specifications for UI/UX visualization… |
