@@ -12,9 +12,20 @@
 Every sub-agent this skill spawns is a fully self-contained prompt: it cannot
 ask a question back, so a hole in it returns as a decision made alone rather
 than as a question. Leave nothing merge-gating unguessed. The parent — this
-session — owns everything that talks to the GitHub API (issue/PR data,
-opening the PR, `link_check.sh`, `ci_watch.sh`, `land_pr.sh`) and every
-merge-gating judgment; a sub-agent only touches code inside the checkout.
+session — owns every GitHub **write** (opening the PR, `link_check.sh`,
+`ci_watch.sh`, `land_pr.sh`, labels, comments) and every merge-gating
+judgment; a sub-agent only touches code inside the checkout.
+
+**Reading its own issue is the one GitHub call a sub-agent makes.** Pasting a
+full issue body into the prompt means the parent must first pull it into *this*
+context — the exact cost `cost-discipline.md` exists to avoid, paid once per
+issue and again on every resume run. So the implementation and repair templates
+hand over the issue *number* and let the agent run `gh issue view <n>
+--comments` itself, under an explicit prohibition on every write. Give it a
+two-or-three-sentence paraphrase alongside, marked as subordinate to the body,
+so a misread is visible rather than silent. The design agent (step 8b) already
+worked this way. What never moves to a sub-agent is a write, or a
+merge-gating judgment.
 
 `{workdir}` below is the one thing every template must get right: the repo's
 main checkout in serial mode, that issue's worktree
@@ -64,7 +75,23 @@ Work only inside {workdir} — not any sibling checkout or worktree of the same
 repository. {workdir_note}
 
 <task>
-{the full issue body, plus the comments that change the spec, pasted}
+{Issue #{n}: "{title}" (labels: {labels}{, UNBLOCKS/BLOCKED-BY if any}).
+
+Read the full issue body and every comment yourself, read-only, with:
+  gh issue view {n} --repo {owner}/{repo} --comments
+That read is the ONLY GitHub command you are permitted to run.
+
+Then a short paraphrase of what the issue asks — two or three sentences — so
+the sub-agent can tell a bad read from a good one, ending with: "the body is
+authoritative over this summary."}
+
+{And, whenever the repository has moved under the issue since it was written —
+a dependency of it merged in this same run, a file it cites was rewritten:
+"IMPORTANT — the issue body describes the OLD state. On current `main`: <what
+changed>. Read the current files before designing anything, and if the body's
+premise no longer holds, say so under UNRESOLVED and implement what the issue
+is actually trying to achieve rather than its literal description of a file
+that has since changed."}
 </task>
 
 <context>
@@ -100,10 +127,16 @@ Do:
    MEASURE.
 5. Commit in coherent increments, and push as soon as the first coherent
    commit exists — a run stopped mid-way keeps only what was pushed.
-6. Two hard prohibitions, both irreversible from here: do NOT touch the
-   GitHub API at all (the parent opens the PR and watches CI), and do NOT
-   delete anything — no `rm`, no branch deletion, no worktree removal.
-7. {Parallel mode only:} If you produce a gitignored artifact worth keeping —
+6. Two hard prohibitions, both irreversible from here: do NOT perform any
+   GitHub **write** — no `gh pr`, no `gh issue edit/comment/close`, no label
+   change, no `gh api` with a non-GET method (the parent opens the PR and
+   watches CI) — and do NOT delete anything: no `rm`, no branch deletion, no
+   worktree removal.
+7. Run every verification in the **foreground**. Do not start a long command
+   in the background and then poll it — a run that returns while waiting on
+   its own background job returns without its report, and its work has to be
+   recovered by hand.
+8. {Parallel mode only:} If you produce a gitignored artifact worth keeping —
    a fixture, a benchmark result, a generated file the change does not commit
    — copy it into {repo_root} before you return and name it under
    SCOPE-NOTES. Your working directory is a worktree and is deleted at the
@@ -132,6 +165,28 @@ If a step did not run, say so instead of filling the field.
 `FOLLOW-UPS` is how a real defect the run must not fix here still survives:
 step 8 files it as its own issue. `SCOPE-NOTES` and `UNRESOLVED` feed the same
 step and the step 10 report.
+
+**Name the verification CI cannot run.** CI runs one environment: a clean
+checkout with no developer's variables exported. So a change whose behavior
+turns on whether an environment variable is *set* — a credential, a feature
+flag, a recording mode — has a whole half CI never exercises, and a green pipe
+is not evidence about it. Whenever the diff makes anything conditional on the
+environment, write the both-ways check into the prompt as an explicit command
+pair with a throwaway value, and require both in `VERIFY`:
+
+```
+AND, because CI cannot catch this, run these explicitly and report both:
+  {VAR}=dummy-not-a-real-value {verify_command}
+  {VAR}=dummy-not-a-real-value {build_command}
+Both must succeed. That value is a throwaway string, not a credential; do not
+put a real one anywhere, and do not read any `.env` file to find one.
+```
+
+Seen in practice: a gate keyed off a provider credential's mere presence, which
+refused to start the app, broke the build, and stopped a whole test file from
+loading on any machine that exported that variable for an unrelated reason —
+with CI green throughout, because CI does not set it. Nothing but running it
+both ways would have found that before merge.
 
 Scope is **branch to pushed commits**; the PR, the review, CI, and the merge
 belong to the parent. Push discipline is the run's insurance: it pushes as
@@ -183,9 +238,12 @@ Do:
    one in front of the code.
 3. Do not fix anything that is not in the list. Real defects you notice go to
    FOLLOW-UPS, not into this diff.
-4. Run the verification command, commit, and push.
-5. Do NOT touch the GitHub API, and do NOT delete anything — no `rm`, no
-   branch deletion, no worktree removal.
+4. Run the verification command in the **foreground** — never in the
+   background where you then have to poll it — then commit and push. Push
+   before you return.
+5. Do NOT perform any GitHub write — no `gh pr`, no `gh issue`, no label
+   change — and do NOT delete anything: no `rm`, no branch deletion, no
+   worktree removal.
 
 Return exactly:
 APPLIED: <one line per finding fixed, `F<n> -> <what changed>`, or "none">

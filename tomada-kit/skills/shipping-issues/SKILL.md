@@ -282,6 +282,17 @@ anything → don't retry blindly: read `git status`/`git log` **in that issue's
 own working directory** for what landed, resume naming what's left, or record
 `--event blocked`.
 
+**A sub-agent that returns without its report has still done work.** A run can
+come back with nothing but "waiting on the background verification" — it
+started a long command in the background and returned while polling it. Its
+edits, and sometimes its commit, are on disk. Never re-spawn it: read that
+worktree's `git status`, `git log <base>..HEAD`, and `git rev-list --count
+origin/<branch>..HEAD`, then finish the last steps yourself — verify the diff,
+run the gate, commit and push. This is the cheapest recovery in the run, and
+re-spawning would redo work already done or, worse, duplicate it. The
+templates tell agents to verify in the foreground for exactly this reason;
+this is what to do when one does it anyway.
+
 **Judge the result in this context, against the issue and step 2b's
 decision.** Start from `git -C <workdir> diff --stat <base>...HEAD` — where
 `<workdir>` is the main checkout in serial mode and that issue's worktree in
@@ -314,6 +325,14 @@ runs; escalate only for the narrow cases in
 [cost-discipline.md#code-review-effort](references/cost-discipline.md#code-review-effort).
 Never `ultra` — it runs in the cloud, is billed, and cannot be launched from
 this session.
+
+**One escalation is not optional**: `low` skips test and fixture hunks, so a
+diff living entirely in a file under `tests/` that *is* a gate — a workflow
+lint, a boundary assertion, a tree walk deciding what "green" means — comes back
+`(none)` having read nothing. That is a false clean, not a pass. Check what the
+review actually read before believing an empty findings list, and re-run at
+`medium`:
+[cost-discipline.md#the-escalation-that-is-not-optional-a-diff-low-cannot-see](references/cost-discipline.md#the-escalation-that-is-not-optional-a-diff-low-cannot-see).
 
 **`--fix` is serial-mode only.** It applies findings to *this session's*
 working tree — the main checkout. In serial mode that is the branch under

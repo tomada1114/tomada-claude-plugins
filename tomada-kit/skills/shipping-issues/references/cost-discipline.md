@@ -51,6 +51,34 @@ exactly the shape it handles well. Never `ultra`: it runs in the cloud, is
 billed per use, and the prompt that defines it says explicitly that a model
 cannot launch it itself.
 
+### The escalation that is not optional: a diff `low` cannot see
+
+`low` **skips test and fixture hunks**. That is right for an ordinary test — it
+follows the behavior the code already fixed. It is wrong whenever the file under
+`tests/` *is* the gate rather than a consumer of one, and it fails silently: a
+diff confined to such a file comes back `(none)` in a few seconds, which reads
+exactly like a clean review and is not one.
+
+Before accepting any `low` verdict, ask what the review actually read:
+
+- **Every hunk in the diff is in a test or fixture file → `low` reviewed
+  nothing.** Escalate to `medium`. Judge the file by its *role*, not its path: a
+  file under `tests/` that lints workflow YAML, asserts zone or import
+  boundaries, walks the tree for secrets or placeholders, or otherwise decides
+  what "green" means is a gate, and a hole in it is a hole in every future
+  change.
+- **A clean verdict that names what it skipped is not a clean verdict.** A
+  result like "the entire diff is confined to X, which this review level skips"
+  is the review telling you it abstained. Read the sentence, not the empty
+  findings list.
+- A run that escalated for this reason says so in the step 10 report, with the
+  reason — otherwise it looks like drift away from the standing `low` default.
+
+Observed cost of getting this wrong: a gate change reviewed at `low` returned no
+findings; re-run at `medium` it returned four, all reproduced against the
+branch, one of them a security rule that silently accepted three of the four
+YAML spellings it existed to reject.
+
 ## Run budget
 
 Run count scales with issue count, not with thoroughness: one triage spawn

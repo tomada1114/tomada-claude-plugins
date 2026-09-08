@@ -74,9 +74,12 @@ Provision the group's **first** worktree and read its `verdict:` line:
 - `verdict: READY_WITH_WARNINGS` with a red baseline → compare against the
   main checkout. **Red in both** is the repository's own broken state, which
   step 3 already knows how to report; parallel mode is still fine. **Green in
-  the main checkout, red in the worktree** is the interesting case: something
-  the verification needs is not reconstructible from tracked files plus a
-  lockfile. Not viable.
+  the main checkout, red in the worktree** usually means something the
+  verification needs is not reconstructible from tracked files plus a lockfile
+  — not viable — but read the failure before concluding that, because one
+  common cause is the worktree *layout* rather than a missing resource. See
+  [the gitlink case](#the-gitlink-case-a-red-baseline-that-is-not-a-verdict)
+  below: fully explained, deterministic, and safe to run parallel through.
 - `deps: MANUAL(...)` → the script found a dependency manifest it will not
   guess a command for. Either supply the install command yourself and re-run,
   or treat the repo as not viable.
@@ -90,6 +93,46 @@ working around inside a run: a hand-built virtualenv or toolchain outside the
 lockfile; a local database with data in it that fixtures assume; a service the
 tests reach through a path relative to the developer's real checkout; a build
 cache the suite treats as required rather than as an optimization.
+
+### The gitlink case: a red baseline that is not a verdict
+
+**In a linked worktree, `.git` is a file, not a directory** — a gitlink holding
+`gitdir: …/.git/worktrees/<n>`. Any suite that walks the whole tree and skips
+version-control internals *by entry type* therefore reads straight into the one
+path its own skip list names. In a repository whose tests inventory placeholder
+strings, scan for secrets, or assert what the tree contains, that shows up as a
+red baseline in every worktree and green in the main checkout — the shape the
+gate calls "not viable".
+
+It is not the same thing, and treating it as such costs the run its parallelism
+for a cause that is fully understood. Tell them apart by reading the failure:
+
+- **Same single assertion in every worktree, and its message names `.git` or a
+  path that only exists in a worktree** → layout, not a missing resource.
+  Parallel mode is fine.
+- **Anything else** → the gate's ordinary reading applies. Not viable.
+
+When it is the layout, say so and carry the diagnosis forward rather than
+letting three sub-agents each rediscover it:
+
+- Name the exact failing assertion in every step 3 and step 4 prompt for that
+  batch, with the cause, and say it is **not theirs to fix and not to be
+  silenced** — no skip-list entry added to quiet it, which would be weakening a
+  gate. Require each agent to say in `VERIFY` whether that failure was the
+  *only* remaining red, which keeps a red baseline from hiding a real one.
+- Check whether it collides with a pre-commit hook. A repo running related
+  tests on commit will refuse every commit the batch tries to make, and the
+  escapes (`--no-verify`, disabling hooks) are exactly what a project's own
+  rules forbid. When that happens the failure is not merely cosmetic and the
+  issue whose scope covers it should fix it properly — which is the outcome
+  this run had: the walk's skip was matched by *name* whatever the entry type,
+  the baseline went green, and it closed a real hole, since in an ordinary
+  checkout that same type gate is what stands between the walk and
+  `.git/config`'s possibly credentialed remote URL.
+
+Record the call and its reason under `--event parallel-group --field reason=`,
+and say in the step 10 report that the baseline was red for this reason — a
+run that merged on a knowingly red baseline has to show its work.
 
 ## What a fresh worktree is missing
 
