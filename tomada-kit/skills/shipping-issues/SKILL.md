@@ -1,6 +1,6 @@
 ---
 name: shipping-issues
-description: "Rank open GitHub Issues by their `priority: P0`-`P3` labels — backfilling a missing label from how much an issue unblocks and how far its impact spreads — then implement the top one, review and fix it with `/code-review` before the PR, open a PR that auto-closes the issue (Closes #N), watch CI until it is green, merge to main automatically on green with no approval pause, confirm the issue closed, and return the checkout to the default branch. With no argument it ships the highest-priority issue and then whatever that run itself produced — the follow-ups it filed, the designs it unblocked; pass \"all\" to work through every issue in dependency order — independent ones implemented in parallel, each in its own worktree, with PR, CI and merge still serialized. Findings that fit the same change are fixed in the open diff rather than filed, and every `blocked: design` issue it files or finds gets a background `opus` sub-agent that decides the approach, records it on the issue, and clears the block. Implementation and CI repair go to a `sonnet` sub-agent; the calling session judges each result and drives PR, CI watch, and merge. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, or work through the open issues."
+description: "Rank open GitHub Issues by their `priority: P0`-`P3` labels — backfilling a missing label from how much an issue unblocks and how far its impact spreads — then implement the top one, review and fix it with `/code-review` before the PR, open a PR that auto-closes the issue (Closes #N), watch CI until it is green, merge to main automatically on green with no approval pause, confirm the issue closed, and return the checkout to the default branch. With no argument it ships the highest-priority issue and then whatever that run itself produced — the follow-ups it filed, the designs it unblocked; pass \"all\" to work through every issue in dependency order — independent ones implemented in parallel, each in its own worktree, with PR, CI and merge still serialized. Findings that fit the same change are fixed in the open diff rather than filed, and every `blocked: design` issue it files or finds gets a background `opus` sub-agent that decides the approach, records it on the issue, and clears the block. Implementation and CI repair go to a `sonnet` sub-agent — `opus` when the issue is foundational (architecture, an interface or schema, a skill or gate the rest of the backlog copies); the calling session judges each result and drives PR, CI watch, and merge. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, or work through the open issues."
 argument-hint: "[all | <issue number> | (empty = one issue)]"
 metadata:
   platforms: claude-code
@@ -264,9 +264,18 @@ and finding it here costs one command instead of a wasted implementation run.
 Read the exit code and the log's tail, never the full output. What the smoke
 run turns up goes to step 8.
 
-Fill and spawn a **`sonnet`** sub-agent per issue with
-[delegation-templates.md#implementation-step-3](references/delegation-templates.md#implementation-step-3)
-— in parallel mode, issue every sub-agent in the batch **in one message** so
+Fill and spawn a sub-agent per issue with
+[delegation-templates.md#implementation-step-3](references/delegation-templates.md#implementation-step-3).
+**`sonnet` by default; `opus` when the issue is foundational** — architecture
+or a skeleton, an interface/port/schema, or a skill, instruction file, or gate
+whose shape the rest of the backlog copies. The test is blast radius, not
+difficulty:
+[cost-discipline.md#the-foundation-exception-opus-for-what-the-backlog-builds-on](references/cost-discipline.md#the-foundation-exception-opus-for-what-the-backlog-builds-on).
+A change small enough that the handoff costs more than the work — a few known
+lines, nothing to explore, verified by a command this session reads anyway —
+is implemented here instead of spawned at all:
+[cost-discipline.md#the-floor-too-small-to-delegate](references/cost-discipline.md#the-floor-too-small-to-delegate).
+In parallel mode, issue every sub-agent in the batch **in one message** so
 they actually run concurrently, and fill each one's work directory with its
 own worktree path, never the main checkout. A run that stops before pushing
 anything → don't retry blindly: read `git status`/`git log` **in that issue's
@@ -281,7 +290,8 @@ branch — plus the sub-agent's
 own `CHANGED` / `SCOPE-NOTES` / `UNRESOLVED` — open the hunks only in the
 files the spec actually touches, not the whole diff by default. If the
 implementation is missing part of the spec or quietly widened it, send a new
-`sonnet` run naming only what's left; don't re-run the whole task. Up to
+run — on the same model as the first — naming only what's left; don't re-run
+the whole task. Up to
 **2** resume/patch runs on top of the first — a third miss means the issue
 itself is underspecified: record `--event blocked` and report
 `NEEDS-CLARIFICATION` in step 10 instead of spawning again. Use the

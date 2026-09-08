@@ -46,7 +46,12 @@ sub-agent with it.
 
 ## Implementation (step 3)
 
-Spawn a **`sonnet`** sub-agent, one issue at a time, with:
+Spawn a sub-agent, one issue at a time, with the prompt below. **`sonnet` is
+the default; `opus` when the issue is foundational** — architecture or a
+skeleton, an interface/port/schema, or a skill, instruction file, or gate whose
+shape the rest of the backlog copies. The test is blast radius, not difficulty:
+[cost-discipline.md#the-foundation-exception-opus-for-what-the-backlog-builds-on](cost-discipline.md#the-foundation-exception-opus-for-what-the-backlog-builds-on).
+A resume/patch run stays on the model its first run used.
 
 ```
 Implement GitHub issue #{n} in {owner}/{repo}. Once you return, your branch is

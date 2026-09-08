@@ -10,6 +10,8 @@ to delegate a step, before changing a run count, or before picking a
 - [Code review effort](#code-review-effort)
 - [Run budget](#run-budget)
 - [Model and effort assignment](#model-and-effort-assignment)
+  - [The foundation exception: `opus` for what the backlog builds on](#the-foundation-exception-opus-for-what-the-backlog-builds-on)
+  - [The floor: too small to delegate](#the-floor-too-small-to-delegate)
 - [What parallel mode costs](#what-parallel-mode-costs)
 
 The main context holds the selection and the verdicts, nothing else. Issue
@@ -82,7 +84,8 @@ bounded:
 ## Model and effort assignment
 
 Implementation and priority research run on `sonnet` — fully specified work
-with a clear pass/fail. CI repair starts on `sonnet` and escalates to `opus`
+with a clear pass/fail — with one standing exception below. CI repair starts
+on `sonnet` and escalates to `opus`
 once the same failure survives two attempts in a row — persistent failure is
 a sign the spec (or the fix) needs more judgment, not more mechanical retries.
 The `/code-review` fallback runs on `opus`, since review and bug-finding is
@@ -93,6 +96,42 @@ recorded on an issue outlives the run that made it. It is also the only
 sub-agent here that writes to GitHub (one comment, one label) and the only one
 that writes no code at all.
 
+### The foundation exception: `opus` for what the backlog builds on
+
+Some issues are not "fully specified work with a clear pass/fail" even when
+their body is excellent, because what they produce is a **shape other issues
+copy** rather than a behavior a test pins down. Spawn the step 3 implementation
+on **`opus`** when the issue is any of:
+
+- **Architecture or a skeleton** — the directory layout, the app/router
+  skeleton, the composition root, a zone or module boundary.
+- **An interface, port, or schema** — a public contract, an adapter boundary,
+  an error taxonomy, a data shape. The first implementer fixes the vocabulary
+  every later one inherits.
+- **A skill, instruction file, or gate design** — a `SKILL.md`, `AGENTS.md`,
+  `CLAUDE.md`, a lint rule that encodes a convention, a CI job that defines
+  what "green" means. These are prompts and policies: they are read by every
+  future run, and a mediocre one degrades work long after this run ends.
+
+The test is not difficulty, it is **blast radius**: would a wrong call here be
+cheap to correct in its own follow-up, or would it be copied by every issue
+after it? Only the second earns `opus`.
+
+Signals visible before spawning, straight off `issue_digest.py`: an
+`unblocks×N` of 2 or more, a `foundation`/`schema`/`interface` signal, or a
+Done-means written as a structure to establish rather than a behavior to
+observe. Any one of those is a reason to look; the blast-radius test decides.
+
+Everything else stays on `sonnet`, which is most of a backlog: bug fixes,
+removals, mechanical rewrites, config edits, documentation that follows a shape
+already settled, and any issue whose Done-means is a command that passes. A
+removal-only issue is `sonnet` even when it is `P0` and unblocks the whole
+chain — deleting what a decision already condemned carries no design in it.
+
+The same escalation applies to a resume/patch run: it inherits the model the
+first run used, because a foundation the first run got half-right is exactly
+where the remaining judgment sits.
+
 The Agent tool used for these spawns takes a `model` but not a per-spawn
 `effort` — a sub-agent's reasoning effort follows this session's own
 configuration, there is no separate dial to set here.
@@ -101,6 +140,34 @@ Implementation stays delegated even when the main model is Opus — a
 deliberate exception to the Opus-main "do it yourself" default, bought for
 context isolation: the diff and the repo exploration are never needed in the
 main context again once this session has judged the result.
+
+### The floor: too small to delegate
+
+That exception buys context isolation, and an issue with almost no context to
+isolate does not repay it. Below a certain size the handoff costs more than the
+work: writing a self-contained prompt, waiting, reading the report, then
+re-deriving enough of the diff to judge it — for a change this session could
+have made and verified in a couple of commands.
+
+Implement it directly when **all** of these hold:
+
+- the whole change is a handful of lines in one or two files, and this session
+  already knows which lines from the issue body or a finding it just read;
+- there is no exploration to do — nothing to search for, no unfamiliar module
+  to learn;
+- the verification is a command whose output this session reads anyway
+  (`pnpm audit`, one test file, the gate);
+- it is not foundational by the test above. A three-line change to an interface
+  or a gate is still foundational — size is not the same question as blast
+  radius, and this floor never overrides that section.
+
+A dependency pin closing a named advisory, a one-line config fix a review
+turned up, a stale reference in an instruction file: these are the shape. Say
+in the step 10 report that the run implemented it directly, so the choice is
+visible rather than looking like a skipped step.
+
+Everything above that floor — anything with a file to find, a module to read,
+or a test to design — stays delegated, whatever the main model is.
 
 ## What parallel mode costs
 
