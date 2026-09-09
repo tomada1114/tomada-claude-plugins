@@ -4,7 +4,7 @@ The persistent log every step appends to, read when setting up `<runstate>` or
 auditing what a stopped run already landed.
 
 ```bash
-python3 {SKILL_DIR}/scripts/run_record.py --repo <owner>/<repo> --event <kind> \
+python3 ${CLAUDE_SKILL_DIR}/scripts/run_record.py --repo <owner>/<repo> --event <kind> \
     [--field k=v ...] [--body-file <path>]
 ```
 
@@ -14,9 +14,8 @@ where **`<runstate>`** is
 — never rewritten or deleted, so a stopped run keeps what already landed.
 
 Every other file this run generates lives there too, and **never inside a
-repo checkout** — the main one or a worktree: filled prompts at
-`<runstate>/prompts/<issue>-<step>.md`, issue bodies for follow-ups beside
-them, verify baselines at `<runstate>/verify/<n>-baseline.log`, CI logs at
+repo checkout** — the main one or a worktree: issue bodies for follow-ups,
+verify baselines at `<runstate>/verify/<n>-baseline.log`, CI logs at
 `<runstate>/ci/<pr>.log`, and in parallel mode the worktrees themselves at
 `<runstate>/worktrees/<n>/`. An untracked file left in a checkout makes that
 working tree read as dirty, and a commit convention that stages everything

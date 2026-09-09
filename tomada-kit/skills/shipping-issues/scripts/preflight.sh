@@ -68,8 +68,16 @@ usage() {
   echo "Usage: preflight.sh [--with-github] [--profile-cache <path>] [--set-worktree-viable <yes|no>]" >&2
 }
 
+# print_help — the script's own usage, derived straight from this header
+# comment so the text lives in exactly one place (kept separate from usage()
+# above, which is the short one-liner already used on stderr for arg errors).
+print_help() {
+  awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "${BASH_SOURCE[0]}"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    -h|--help) print_help; exit 0 ;;
     --with-github) WITH_GITHUB=1; shift ;;
     --profile-cache)
       [[ $# -ge 2 ]] || { echo "--profile-cache needs a value" >&2; exit 2; }

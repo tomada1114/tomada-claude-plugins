@@ -28,6 +28,18 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# print_help — the script's own usage, derived straight from this header
+# comment so the text lives in exactly one place. Must run BEFORE the
+# positional PR argument below is consumed, or `land_pr.sh --help` sets
+# PR="--help" and forwards it straight to `gh` instead of showing this.
+print_help() {
+  awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "${BASH_SOURCE[0]}"
+}
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  print_help
+  exit 0
+fi
+
 PR="${1:-}"
 ISSUE=""
 METHOD=""

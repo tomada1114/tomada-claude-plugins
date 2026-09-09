@@ -123,6 +123,13 @@ usage() {
   echo "   or: worktree_setup.sh --spec <issue>:<branch> [--spec ...] --base <base-ref> --root <worktrees-root> [--verify \"<command>\"] [--log-dir <dir>] [--verify-timeout <seconds>] [--dry-run]" >&2
 }
 
+# print_help — the script's own usage, derived straight from this header
+# comment so the text lives in exactly one place (kept separate from usage()
+# above, which is the short one-liner already used on stderr for arg errors).
+print_help() {
+  awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "${BASH_SOURCE[0]}"
+}
+
 # --- args --------------------------------------------------------------
 ISSUE="" BRANCH="" BASE="" ROOT="" VERIFY="" LOG="" DRY=0
 LOG_DIR="" VERIFY_TIMEOUT="900"
@@ -130,6 +137,7 @@ SPECS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    -h|--help) print_help; exit 0 ;;
     --issue)  [[ $# -ge 2 ]] || { echo "--issue needs a value" >&2; exit 2; }; ISSUE="$2"; shift 2 ;;
     --branch) [[ $# -ge 2 ]] || { echo "--branch needs a value" >&2; exit 2; }; BRANCH="$2"; shift 2 ;;
     --base)   [[ $# -ge 2 ]] || { echo "--base needs a value" >&2; exit 2; }; BASE="$2"; shift 2 ;;

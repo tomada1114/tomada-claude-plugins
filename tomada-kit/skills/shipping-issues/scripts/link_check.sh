@@ -8,10 +8,13 @@
 # A PR that merely says "see #N", or one targeting a non-default base, leaves
 # the issue open. This script checks both and can repair case 1.
 #
-# Usage: link_check.sh <pr-number> [--issue N] [--fix]
+# Usage: link_check.sh <pr-number> [--issue N] [--fix] [--dry-run]
 #
 #   --issue N   require that issue #N specifically is in the closing set
 #   --fix       if it is not, append "Closes #N" to the PR body and re-check
+#   --dry-run   with --fix, print what would be appended instead of calling
+#               `gh pr edit` — makes no change to the PR, exits with the
+#               status code the real (non-dry) run would have used
 #
 # Prints:
 #   verdict: LINKED | NOT_LINKED | WRONG_BASE | ERROR
@@ -22,14 +25,28 @@
 
 set -uo pipefail
 
+# print_help — the script's own usage, derived straight from this header
+# comment so the text lives in exactly one place. Must run BEFORE the
+# positional PR argument below is consumed, or `link_check.sh --help` sets
+# PR="--help" and forwards it straight to `gh` instead of showing this.
+print_help() {
+  awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "${BASH_SOURCE[0]}"
+}
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  print_help
+  exit 0
+fi
+
 PR="${1:-}"
 ISSUE=""
 FIX=0
+DRY=0
 shift || true
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --issue) [[ $# -ge 2 ]] || { echo "--issue needs a value" >&2; exit 3; }; ISSUE="$2"; ISSUE="${ISSUE#\#}"; shift 2 ;;
     --fix) FIX=1; shift ;;
+    --dry-run) DRY=1; shift ;;
     *) echo "Unknown argument: $1" >&2; exit 3 ;;
   esac
 done
@@ -57,23 +74,30 @@ closes="$(closing_numbers)"
 
 # --- repair a missing closing keyword --------------------------------------
 if [[ -n "$ISSUE" && $FIX -eq 1 ]] && ! printf ',%s,' "$closes" | grep -q ",$ISSUE,"; then
-  tmp="$(mktemp "${TMPDIR:-/tmp}/link_check_body.XXXXXX")" || { echo "verdict: ERROR"; echo "detail: mktemp failed"; exit 3; }
-  if ! gh pr view "$PR" --json body -q .body > "$tmp" 2>/dev/null; then
-    echo "verdict: ERROR"
-    echo "detail: could not read PR #$PR body — refusing to rewrite it"
-    rm -f "$tmp"
-    exit 3
-  fi
-  printf '\n\nCloses #%s\n' "$ISSUE" >> "$tmp"
-  if gh pr edit "$PR" --body-file "$tmp" >/dev/null 2>&1; then
-    echo "fix: appended 'Closes #$ISSUE' to the PR body"
-    # GitHub recomputes the link asynchronously; one short retry is enough.
-    sleep 3
-    closes="$(closing_numbers)"
+  if [[ $DRY -eq 1 ]]; then
+    echo "fix: would append 'Closes #$ISSUE' to PR #$PR body (dry run — no change made)"
+    # Simulate a successful fix for the verdict/exit-code below, since that is
+    # the outcome a dry run is meant to preview. No gh pr edit call is made.
+    closes="${closes:+$closes,}$ISSUE"
   else
-    echo "fix: FAILED (could not edit PR body)"
+    tmp="$(mktemp "${TMPDIR:-/tmp}/link_check_body.XXXXXX")" || { echo "verdict: ERROR"; echo "detail: mktemp failed"; exit 3; }
+    if ! gh pr view "$PR" --json body -q .body > "$tmp" 2>/dev/null; then
+      echo "verdict: ERROR"
+      echo "detail: could not read PR #$PR body — refusing to rewrite it"
+      rm -f "$tmp"
+      exit 3
+    fi
+    printf '\n\nCloses #%s\n' "$ISSUE" >> "$tmp"
+    if gh pr edit "$PR" --body-file "$tmp" >/dev/null 2>&1; then
+      echo "fix: appended 'Closes #$ISSUE' to the PR body"
+      # GitHub recomputes the link asynchronously; one short retry is enough.
+      sleep 3
+      closes="$(closing_numbers)"
+    else
+      echo "fix: FAILED (could not edit PR body)"
+    fi
+    rm -f "$tmp"
   fi
-  rm -f "$tmp"
 fi
 
 echo "base: $base_ref (default: $default_branch)"

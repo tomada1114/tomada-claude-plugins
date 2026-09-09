@@ -157,7 +157,7 @@ Either way, the same four things happen in the same order:
    happen.
 3. Record it in the run record (`--event design --field issue=<n> --field
    mode=<inline|background> --field verdict=<DECIDED|DEFERRED>`).
-4. Clear the block: `python3 {SKILL_DIR}/scripts/apply_priority_labels.py
+4. Clear the block: `python3 ${CLAUDE_SKILL_DIR}/scripts/apply_priority_labels.py
    --clear-design <n>` — after the comment posted, never before.
 
 **Neither path invents a product or UX call** the repo and the issue thread do

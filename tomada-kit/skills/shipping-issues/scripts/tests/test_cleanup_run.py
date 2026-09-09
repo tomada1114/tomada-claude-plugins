@@ -74,6 +74,21 @@ OPEN_LIST = (
 
 
 class CleanupRunTest(unittest.TestCase):
+    def test_help_flag_prints_own_usage_and_never_calls_gh(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            make_repo(repo)
+            for flag in ("-h", "--help"):
+                with self.subTest(flag=flag):
+                    proc, calls = run_script([flag], repo, {})
+
+                    self.assertEqual(proc.returncode, 0)
+                    self.assertIn(
+                        "End-of-run cleanup for shipping-issues.", proc.stdout
+                    )
+                    self.assertIn("Usage: cleanup_run.sh", proc.stdout)
+                    self.assertEqual(calls, [])
+
     def test_unknown_flag_is_usage_error(self):
         with tempfile.TemporaryDirectory() as td:
             repo = Path(td)

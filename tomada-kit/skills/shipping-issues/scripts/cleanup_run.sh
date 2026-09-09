@@ -18,10 +18,17 @@
 # Usage: cleanup_run.sh [--dry-run] [--remote] [--worktree-root <path>] [--merged-only] [--force]
 set -euo pipefail
 
+# print_help — the script's own usage, derived straight from this header
+# comment so the text lives in exactly one place.
+print_help() {
+  awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "${BASH_SOURCE[0]}"
+}
+
 remote=0 dry=0 merged_only=0 force=0
 worktree_root=""
 while [ $# -gt 0 ]; do
   case "$1" in
+    -h|--help) print_help; exit 0 ;;
     --remote) remote=1; shift ;;
     --dry-run) dry=1; shift ;;
     --merged-only) merged_only=1; shift ;;

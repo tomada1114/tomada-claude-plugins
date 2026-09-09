@@ -73,6 +73,21 @@ def run_script(args, cwd, *, extra_path: str | None = None):
 
 
 class WorktreeSetupTest(unittest.TestCase):
+    def test_help_flag_prints_own_usage(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            make_repo(repo)
+            for flag in ("-h", "--help"):
+                with self.subTest(flag=flag):
+                    proc = run_script([flag], repo)
+
+                    self.assertEqual(proc.returncode, 0)
+                    self.assertIn(
+                        "worktree_setup.sh — Turn a bare `git worktree`",
+                        proc.stdout,
+                    )
+                    self.assertIn("Exit codes:", proc.stdout)
+
     def test_creates_worktree_on_requested_branch_from_base(self):
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)

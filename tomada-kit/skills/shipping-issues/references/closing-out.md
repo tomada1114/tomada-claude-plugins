@@ -6,12 +6,12 @@ and safety rules the SKILL.md body already states inline.
 ## Table of Contents
 
 - [Cleanup scope](#cleanup-scope)
-- [Report shape](#report-shape)
+- [What the report must not omit](#what-the-report-must-not-omit)
 
 ## Cleanup scope
 
 ```bash
-{SKILL_DIR}/scripts/cleanup_run.sh [--remote] [--dry-run] \
+${CLAUDE_SKILL_DIR}/scripts/cleanup_run.sh [--remote] [--dry-run] \
     [--worktree-root <runstate>/worktrees] [--merged-only] [--force]
 ```
 
@@ -59,53 +59,42 @@ both spelled out in
 Record the cleanup outcome (`--event cleanup ...`) and report anything it left
 `SKIPPED`.
 
-## Report shape
+## What the report must not omit
 
-Open with the selection rationale in one line — why this issue was first, by
-tier — and, when step 2 wrote labels, one line for that (`labeled 9 issues: 2
-P0, 3 P1, …`, straight from the script's summary). Then
-per issue: `#N <title> → PR #M → MERGED, issue CLOSED | AUTO-ARMED | FAILED(<why>)
-| SKIPPED(<why>)`, plus `REVIEW: DELEGATED` or `REVIEW: UNRESOLVED(<n>)`
-whenever step 4 did not run clean on the `/code-review` path — a run that
-shipped unreviewed, or reviewed by the fallback rather than `/code-review`
-itself, must not read like one that passed the default review. A parallel-mode
-branch reviewed by `/code-review` and repaired by the fix sub-agent did pass
-the default review and needs no marker; what does need one is a finding that
-sub-agent returned under `REJECTED` and this session did not resolve — that is
-`REVIEW: UNRESOLVED(<n>)` like any other. Never re-read
-your own diff and report that as a review. Flag any issue left open behind a
-merged PR explicitly; that is the failure mode this skill exists to prevent.
+**There is no prescribed report format.** Shape, order and headings are yours —
+write the report the run actually needs. What is fixed is the list below: each
+line is a fact whose absence changes what the reader believes happened, so
+omitting one is a defect, not a stylistic choice.
 
-Then, when step 8 filed anything, one line per follow-up: `filed #N <title>
-[tier] — found while shipping #M`. A follow-up this run went on to ship (step
-8c) gets its ordinary per-issue outcome line above as well — the filing line
-says where it came from, the outcome line says it landed. Also state what the
-run fixed *inline* rather than filing, in one line — a widened diff that
-nobody mentions is indistinguishable from scope creep on review. And state the
-findings you checked and did *not* file, with what prevented them — a verified
-non-issue is a result, and silence reads as "nothing was noticed". Operator
-actions the run surfaced (resolved by running a command or changing a setting,
-not by a PR) get their own lines here — the backlog will never show them, so
-the report is their only record.
-
-Then the designs, when step 8b spawned anything: one line each, `design #N:
-DECIDED — <approach in a clause>, block cleared` or `design #N: DEFERRED —
-<the open question>`. The `DEFERRED` lines are the part of the report the user
-actually has to act on, so they go last among these and are phrased as the
-question, not as a status. A design still in flight when the run ended is its
-own line: it will land on the issue after this report, which is fine, and
-saying so is what keeps the label state readable.
-
-When the run used parallel worktrees, one line for that too — which issues
-shared a batch and why, or, when the plan fell back to serial, that it ran serially and
-which gate it failed. A run that silently ran serially when the user expected
-parallelism reads as a slow run rather than as a repository that could not
-support it.
-
-Then list what was left undone — blocked issues, ones needing clarification,
-ones that hit the retry ceiling, and ones still held for `blocked: design`
-(`needs-design:` from the plan, minus whatever step 8b just
-cleared) — with the specific reason each. An issue whose design this run
-decided but whose implementation it did not reach belongs here too, marked as
-ready rather than blocked: it is the next run's first candidate, and that is a
-different thing from being stuck.
+- **Any issue left open behind a merged PR.** This is the failure mode the skill
+  exists to prevent; it can never be implied, only stated.
+- **Any issue that shipped without a clean `/code-review` pass** — reviewed by
+  the fallback agent, or carrying a `REJECTED` finding this session did not
+  resolve. A run that shipped unreviewed must not read like one that passed.
+  Never present re-reading your own diff as a review. (A branch `/code-review`
+  reviewed and a fix sub-agent repaired *did* pass the default review and needs
+  no flag.)
+- **Acceptance criteria that shipped `not-met`, and why that was accepted.** If
+  none did, say the criteria were met. If the issue carried none, say that —
+  rather than implying it passed a check it never had.
+- **Every `DEFERRED` design's open question**, phrased as the question. These
+  are the only part of the report the user has to act on.
+- **Follow-ups filed**, what was fixed *inline* instead of filed (an unexplained
+  widened diff is indistinguishable from scope creep), and findings checked and
+  deliberately *not* filed with what prevented each — a verified non-issue is a
+  result, and silence reads as "nothing was noticed".
+- **Operator actions** the run surfaced — things resolved by running a command
+  or changing a setting rather than by a PR. The backlog will never show them,
+  so the report is their only record.
+- **A serial fallback when parallel was expected**, and which gate failed.
+  Otherwise a repository that could not support worktrees reads as a slow run.
+- **The verification command actually used**, when the plan's suggestion was
+  overridden.
+- **Issues whose ship contract had to be guessed at** — the `PARTIAL` grouping's
+  undeclared issues and anything `issue_digest.py --audit` flagged. This is what
+  stops the next run paying the same judgement cost.
+- **What was left undone, with the specific reason each** — blocked, needing
+  clarification, hit the retry ceiling, still held for `blocked: design`, or a
+  design agent still queued or in flight. An issue whose design this run decided
+  but whose implementation it did not reach is **ready**, not blocked: it is the
+  next run's first candidate, and that is a different thing from being stuck.

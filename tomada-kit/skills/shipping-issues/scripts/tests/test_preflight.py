@@ -76,6 +76,22 @@ def run_script_gh(args, repo, *, responses=None, exits=None):
 
 
 class PreflightTest(unittest.TestCase):
+    def test_help_flag_prints_own_usage_and_never_calls_gh(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            make_repo(repo)
+            for flag in ("-h", "--help"):
+                with self.subTest(flag=flag):
+                    proc, calls = run_script([flag], repo)
+
+                    self.assertEqual(proc.returncode, 0)
+                    self.assertIn(
+                        "preflight.sh — Verify the local repo is in a state",
+                        proc.stdout,
+                    )
+                    self.assertIn("Exit codes:", proc.stdout)
+                    self.assertEqual(calls, [])
+
     def test_ready_repo_reports_ready_verdict(self):
         with tempfile.TemporaryDirectory() as td:
             repo = Path(td)

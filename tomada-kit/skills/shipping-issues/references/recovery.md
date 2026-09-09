@@ -73,13 +73,13 @@ The review itself reads `<base>...<branch>` from the shared object store and is
 safe from anywhere; only the writing half is not. So in parallel mode: review
 each branch without `--fix`, triage the whole batch, then spawn one `sonnet` fix
 run per branch with accepted findings, scoped to that branch's worktree, using
-[delegation-templates.md#review-fix-parallel-mode](delegation-templates.md#review-fix-parallel-mode).
+[agents/review-fix.md](agents/review-fix.md).
 
 ## `/code-review` cannot be launched
 
 Host won't let this session run the slash command → one independent,
 **read-only** `opus` sub-agent against the branch, using
-[delegation-templates.md#review-fallback](delegation-templates.md#review-fallback),
+[agents/review-fallback.md](agents/review-fallback.md),
 triaged the same way. Never re-read your own diff and call that a review.
 
 ## CI reports the previous commit
@@ -93,7 +93,7 @@ actually appear among the branch's CI runs before starting `ci_watch.sh`.
 
 Fill and spawn a **`sonnet`** sub-agent — `opus` once the same failure has
 survived two attempts in a row — with
-[delegation-templates.md#ci-repair-step-6](delegation-templates.md#ci-repair-step-6-only-on-fail),
+[agents/ci-repair.md](agents/ci-repair.md),
 its work directory set to whichever checkout holds the branch: the main checkout
 in serial mode, that issue's worktree in parallel mode. Up to **3 attempts**.
 `PUSHED: no` ends the loop.
@@ -146,6 +146,17 @@ A red baseline is **the repository's problem, not the issue's**, and finding it
 before an implementation run costs one command instead of a wasted spawn. Read
 the exit code and the log's tail, never the full output.
 
+`worktree_setup.sh` reports and does not decide: it tears nothing down and draws
+no verdict about the repo. Judging the four `baseline:` outcomes is the calling
+session's, and this is the whole list:
+
+| `baseline:` | What it means | What to do |
+|---|---|---|
+| `PASS` | Nothing to judge. | Provision the rest of the batch. |
+| `FAIL` in the worktree, main checkout green | Usually not worktree-viable in this run — but not always. | Read the log's tail first: an absolute path in a config, a service the tests expect running, a fixture that exists only in the main checkout all fail this way and are fixable. Not fixable → the fallback below. |
+| `FAIL` in the main checkout too | The repository is broken, and it is not this issue's problem. | A step 8 finding. The run may still be shippable on top of it — decide, and say which in the report. |
+| `TIMEOUT` | The verify command never finished, so **nothing was proved either way**. | Almost always the wrong command was confirmed at step 1 — a watcher, a dev server. Pick the right one and re-run the baseline. Never treat it as a red baseline. |
+
 Before concluding the repository is broken, read the red baseline against what
 is actually in the tree: an untracked build or package-manager cache in the repo
 root can fail the baseline on its own. Seen in practice — a `.pnpm-store/`
@@ -153,15 +164,12 @@ holding a unix socket, which a test helper that copies untracked files hit with
 a bare `ENOTSUP`. This is why the dirty-tree question is asked at plan time,
 before the baseline, rather than after it.
 
-Red in a fresh worktree while the main checkout is green means this repo is not
-worktree-viable in this run — but read the log's tail before concluding it, and
-see [step 3](../SKILL.md#3-implement) for the cases that look identical and are
-fixable. Once concluded, remove that worktree (`git worktree remove --force
-<path> && git worktree prune`) and record the verdict so later runs skip the
-probe:
+Once "not worktree-viable" is concluded, remove that worktree (`git worktree
+remove --force <path> && git worktree prune`) and record the verdict so later
+runs skip the probe:
 
 ```bash
-{SKILL_DIR}/scripts/preflight.sh --profile-cache <runstate>/repo-profile.json \
+${CLAUDE_SKILL_DIR}/scripts/preflight.sh --profile-cache <runstate>/repo-profile.json \
     --set-worktree-viable no
 ```
 
