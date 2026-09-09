@@ -26,13 +26,32 @@ computed from raw issue bodies even when `--body-chars 0` keeps that prose out
 of the caller's context. Confirm suggested tiers against
 references/priority-rubric.md before acting on them.
 
+An issue can also state these facts outright instead of leaving them to be
+inferred, in a `<!-- ship: ... -->` block (see parse_ship_contract): the tier,
+what it waits on, what it blocks, and which paths it touches. A declared tier
+is settled, not suggested; declared paths are what make the parallel-grouping
+decision a set intersection rather than a guess.
+
 Usage:
     issue_digest.py [--label L]... [--assignee A] [--milestone M]
                     [--issue N]... [--limit N] [--body-chars N]
-                    [--rank-only] [--select N] [--no-rank] [--json]
+                    [--rank-only] [--select N] [--with-rank]
+                    [--detail N]... [--detail-top K] [--no-rank]
+                    [--audit] [--cache-ttl S] [--refresh] [--json]
 
 Output (default: markdown). `--json` emits the same data as a JSON object for
 programmatic consumers.
+
+`--select` composes: `--with-rank` appends the ranking table and
+`--detail`/`--detail-top` append issue bodies, so a run's whole startup question
+is one call. `--issue` narrows what is ranked; `--detail` does not.
+
+The `gh` fetch can be cached under the repo's run-state directory, keyed on the
+arguments that change what `gh` returns — but `--cache-ttl` defaults to 0, so it
+is off unless a caller asks for it. `plan.py` asks for 300 seconds because a
+startup's calls are seconds apart; anything reading the backlog after this run
+has changed it should not. That is the safe default: a stale digest can re-select
+an issue this run already merged, and nothing downstream would notice.
 
 Exit codes:
     0 = digest printed (may contain zero issues)
@@ -43,11 +62,15 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+import time
+from pathlib import Path
 from typing import Any
 
 # Dependency phrasings seen in real issue bodies, EN + JA.
@@ -58,6 +81,71 @@ DEP_PATTERNS = [
     (r"(?:前提|依存|ブロッカー|先行)\s*:?\s*#(\d+)", "depends_on"),
     (r"#(\d+)\s*(?:をブロック|の前提)", "blocks"),
 ]
+
+# --- ship contract ---------------------------------------------------------
+# A machine-readable block the issue author (or file_followup.py) leaves in the
+# body, so the facts this skill would otherwise re-derive from prose on every
+# run are simply read instead:
+#
+#   <!-- ship: tier=P1 area=test-infra blocked-by=#12 blocks=#98
+#        touches=tests/,vitest.config.ts design=settled -->
+#
+# Every field is optional and unknown fields are ignored, so the block can grow
+# without breaking older readers. Two of them carry their weight immediately:
+#
+#   * `tier` is a *confirmed* tier, not a suggestion — someone chose it when
+#     filing — so it prints as `P1`, not `~P1`, and a backlog whose issues all
+#     carry one needs no research pass even before the labels are written.
+#   * `touches` is what turns the parallel-grouping decision from a guess about
+#     which issues might collide into a set intersection.
+SHIP_CONTRACT_RE = re.compile(r"<!--\s*ship\s*:(.*?)-->", re.DOTALL | re.IGNORECASE)
+# Fields are `key=value`, whitespace-separated, values never contain spaces.
+CONTRACT_FIELD_RE = re.compile(r"([A-Za-z][\w-]*)\s*=\s*(\S+)")
+CONTRACT_KNOWN_FIELDS = ("tier", "area", "blocked-by", "blocks", "touches", "design")
+# A contract is "complete enough to plan from" when it settles the three things
+# the startup would otherwise have to derive: the tier, what it waits on, and
+# what it touches. `blocked-by=none` and `touches=*` are how an author says
+# "nothing" and "unknown/everything" explicitly rather than by omission.
+CONTRACT_REQUIRED_FIELDS = ("tier", "blocked-by", "touches")
+
+
+def parse_ship_contract(body: str) -> dict[str, Any] | None:
+    """The `<!-- ship: ... -->` block's fields, or None if the body has none.
+
+    The last block wins: an issue edited to correct its contract usually gains a
+    second block rather than losing the first.
+    """
+    blocks = SHIP_CONTRACT_RE.findall(body or "")
+    if not blocks:
+        return None
+    raw: dict[str, str] = {}
+    for block in blocks:
+        for key, value in CONTRACT_FIELD_RE.findall(block):
+            raw[key.strip().lower()] = value.strip()
+
+    def numbers(key: str) -> list[int]:
+        value = raw.get(key, "")
+        if value.lower() in ("", "none", "-"):
+            return []
+        return sorted({int(n) for n in re.findall(r"\d+", value)})
+
+    tier = raw.get("tier", "").upper()
+    design = raw.get("design", "").lower()
+    touches_raw = raw.get("touches", "")
+    return {
+        "fields": sorted(raw),
+        "unknown_fields": sorted(k for k in raw if k not in CONTRACT_KNOWN_FIELDS),
+        "missing_fields": [k for k in CONTRACT_REQUIRED_FIELDS if k not in raw],
+        "tier": tier if tier in TIER_ORDER else None,
+        "area": raw.get("area"),
+        "depends_on": numbers("blocked-by"),
+        "blocks": numbers("blocks"),
+        # `*` means "assume it collides with everything" — an honest unknown is
+        # worth more here than an omission, which reads as "touches nothing".
+        "touches": [t for t in touches_raw.split(",") if t] if touches_raw else [],
+        "design": design if design in ("settled", "open") else None,
+    }
+
 
 CLOSING_RE = re.compile(
     r"(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s*#(\d+)", re.IGNORECASE
@@ -225,6 +313,89 @@ def run_gh(args: list[str]) -> Any:
     return json.loads(out or "[]")
 
 
+def repo_slug() -> str | None:
+    """`owner/repo` from the origin remote, or None when it cannot be read.
+
+    Derived locally from git rather than from `gh repo view`: this is only used
+    to name a cache directory, and paying a network round-trip to decide where
+    to cache would undo the point.
+    """
+    try:
+        url = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True, text=True, check=True, timeout=10,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
+    m = re.search(r"[:/]([^/:]+)/([^/]+?)(?:\.git)?/?$", url)
+    return f"{m.group(1)}/{m.group(2)}" if m else None
+
+
+def runstate_dir() -> Path | None:
+    """This repo's run-state directory — the same path SKILL.md calls `<runstate>`."""
+    slug = repo_slug()
+    if not slug:
+        return None
+    base = os.environ.get("AGENT_SKILL_STATE_DIR") or str(Path.home() / ".local/state/agent-skills")
+    owner, name = slug.split("/", 1)
+    return Path(base) / "shipping-issues" / f"{owner}__{name}"
+
+
+def _cache_key(issue_args: list[str]) -> str:
+    """What makes two fetches interchangeable.
+
+    Only the arguments that change what `gh` returns belong here. `--issue`,
+    `--body-chars` and every output flag filter or format data already fetched,
+    so a run that asks for one issue's detail reuses the whole-backlog fetch a
+    `--select` took seconds earlier — which is the entire point of the cache.
+    """
+    return hashlib.sha256("\x00".join(issue_args).encode()).hexdigest()[:16]
+
+
+def fetch_issues_and_prs(
+    issue_args: list[str], ttl: int, refresh: bool
+) -> tuple[list[Any], list[Any], str]:
+    """(issues, prs, cache_status) — from the run-state cache when it is warm.
+
+    A run's startup asks the same question several times in a row (rank, then
+    select, then read the picked issues' bodies), and each `gh` pair costs two
+    round-trips over data that cannot have changed in between. The cache is
+    short-lived on purpose: anything that *does* change the backlog — a merge,
+    a label write, a filed follow-up — is this session's own action, and the
+    steps that follow one pass --refresh.
+    """
+    state = runstate_dir()
+    path = state / "digest-cache.json" if state else None
+    key = _cache_key(issue_args)
+    disabled = ttl <= 0 or os.environ.get("SHIPPING_ISSUES_NO_CACHE") == "1"
+
+    if path and not refresh and not disabled:
+        try:
+            blob = json.loads(path.read_text(encoding="utf-8"))
+            if blob.get("key") == key and time.time() - blob["fetched_at"] <= ttl:
+                return blob["issues"], blob["prs"], "HIT"
+        except (OSError, ValueError, KeyError, TypeError):
+            pass  # a missing, unreadable or malformed cache is a miss, not an error
+
+    issues = run_gh(issue_args)
+    prs = run_gh([
+        "pr", "list", "--state", "open", "--limit", "100",
+        "--json", "number,title,body,headRefName,isDraft,url",
+    ])
+    status = "MISS"
+    if path and not disabled:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(
+                {"key": key, "fetched_at": time.time(), "issues": issues, "prs": prs},
+                ensure_ascii=False,
+            ), encoding="utf-8")
+            status = "WRITTEN"
+        except OSError:
+            pass  # an unwritable state dir costs a re-fetch next time, nothing more
+    return issues, prs, status
+
+
 def squeeze(text: str | None, limit: int) -> str:
     """Collapse whitespace, drop HTML comments and images, then truncate.
 
@@ -361,13 +532,17 @@ def score_issue(rec: dict[str, Any], raw_body: str) -> tuple[int, list[str], set
 
 
 def tier_cell(rec: dict[str, Any]) -> str:
-    """`P1` for a written label, `~P1` for one this script is only suggesting.
+    """`P1` for a tier a human settled, `~P1` for one this script is guessing.
+
+    "Settled" is either the written label or the filing contract's `tier=` — both
+    were chosen by a person, so neither needs a research pass to be trusted.
 
     `P2(~P0)` means the written label is *lower* than the signals now justify —
     usually a label written before the issue started blocking something. The
     label still ranks; the marker is the prompt to re-label it.
     """
-    tier, sugg = rec["priority_tier"], rec["suggested_tier"]
+    tier = rec["priority_tier"] or rec.get("contract_tier")
+    sugg = rec["suggested_tier"]
     if not tier:
         return f"~{sugg}"
     if TIER_ORDER.index(sugg) < TIER_ORDER.index(tier):
@@ -409,6 +584,28 @@ def main() -> int:
                    help="treat design-not-settled issues (blocked: design and "
                         "equivalents) as selectable — use only when deciding "
                         "the design is itself part of this run")
+    p.add_argument("--with-rank", action="store_true",
+                   help="print the ranking table alongside --select instead of "
+                        "instead of it (one call where two were needed)")
+    p.add_argument("--detail", action="append", type=int, default=[], metavar="N",
+                   help="print full detail for these issues WITHOUT restricting "
+                        "the ranking to them (unlike --issue)")
+    p.add_argument("--detail-top", type=int, default=0, metavar="K",
+                   help="print full detail for the top K READY issues — replaces "
+                        "hand-listing the numbers a --select just printed")
+    p.add_argument("--audit", action="store_true",
+                   help="report which issues carry a usable ship: contract and "
+                        "what the rest are missing, then exit")
+    p.add_argument("--cache-ttl", type=int, default=0, metavar="SECONDS",
+                   help="reuse a run-state cache of the gh fetch this many "
+                        "seconds. OFF by default: a cache that is on unless "
+                        "someone remembers --refresh can serve a backlog from "
+                        "before this run's own merge. plan.py opts in for the "
+                        "startup, where the calls are seconds apart. Env "
+                        "SHIPPING_ISSUES_NO_CACHE=1 forces it off.")
+    p.add_argument("--refresh", action="store_true",
+                   help="ignore the cache for this call and re-fetch — required "
+                        "after anything this run did changes the backlog")
     p.add_argument("--json", action="store_true", dest="as_json")
     args = p.parse_args()
 
@@ -427,11 +624,9 @@ def main() -> int:
     if args.milestone:
         issue_args += ["--milestone", args.milestone]
 
-    issues = run_gh(issue_args)
-    prs = run_gh([
-        "pr", "list", "--state", "open", "--limit", "100",
-        "--json", "number,title,body,headRefName,isDraft,url",
-    ])
+    issues, prs, cache_status = fetch_issues_and_prs(
+        issue_args, args.cache_ttl, args.refresh
+    )
 
     # Map issue number -> open PR that claims to close it.
     claimed: dict[int, dict[str, Any]] = {}
@@ -451,10 +646,26 @@ def main() -> int:
     # subset: an issue excluded by --issue/--label can still be what makes the
     # selected one high-leverage.
     all_deps: dict[int, dict[str, list[int]]] = {}
+    contracts: dict[int, dict[str, Any] | None] = {}
     for it in issues:
-        all_deps[it["number"]] = extract_deps(
-            it.get("body") or "", it.get("title", ""), it["number"]
-        )
+        num = it["number"]
+        body = it.get("body") or ""
+        deps = extract_deps(body, it.get("title", ""), num)
+        contract = parse_ship_contract(body)
+        contracts[num] = contract
+        if contract:
+            # An explicit contract edge is a stated fact; the regex scrape is an
+            # inference from prose. Union rather than override — an author who
+            # writes both a `blocked-by=` field and "depends on #12" in the body
+            # means the same thing, and dropping either would lose an edge the
+            # other caught.
+            for kind in ("depends_on", "blocks"):
+                merged = set(deps[kind]) | set(contract[kind])
+                deps[kind] = sorted(n for n in merged if n != num)
+            # Anything now a declared edge stops counting as a bare mention.
+            declared = set(deps["depends_on"]) | set(deps["blocks"])
+            deps["mentions"] = [n for n in deps["mentions"] if n not in declared]
+        all_deps[num] = deps
     open_numbers = set(all_deps)
 
     # Reverse edges: who is waiting on whom.
@@ -508,14 +719,30 @@ def main() -> int:
                         "draft": pr["isDraft"]} if pr else None,
             "body": squeeze(body, args.body_chars),
         }
+        contract = contracts.get(num)
+        rec["contract"] = contract
+        rec["contract_tier"] = contract["tier"] if contract else None
+        rec["area"] = contract["area"] if contract else None
+        rec["touches"] = contract["touches"] if contract else []
+        # `design=open` in the contract is the label's equal — an author who
+        # writes it has said the approach is not settled, and the run should
+        # hold the issue for step 8b whether or not the label was ever applied.
+        # `design=settled` does NOT clear a label: the label is what this skill
+        # writes and clears, and a stale contract must not override it.
+        if contract and contract["design"] == "open" and not design_labels:
+            design_labels = rec["design_labels"] = ["ship:design=open"]
         rec["priority_score"], rec["score_reasons"], hits = score_issue(rec, body)
         rec["priority_tier"] = canonical_tier(labels)
         rec["suggested_tier"], rec["suggested_reason"] = suggest_tier(
             rec, hits, rec["priority_score"]
         )
-        # What the ordering actually uses: the label when there is one, the
+        # Two kinds of tier a human settled — the written label and the filing
+        # contract — and one this script guessed. Only the first two rank
+        # without a research pass.
+        rec["confirmed_tier"] = rec["priority_tier"] or rec["contract_tier"]
+        # What the ordering actually uses: a settled tier when there is one, the
         # suggestion otherwise, so a half-labeled backlog still ranks sanely.
-        rec["effective_tier"] = rec["priority_tier"] or rec["suggested_tier"]
+        rec["effective_tier"] = rec["confirmed_tier"] or rec["suggested_tier"]
         # An explicit --issue N is itself the override: naming an issue means
         # taking it on deliberately, same as --include-design.
         rec["readiness"] = readiness(rec, allow_design=args.include_design or bool(wanted))
@@ -526,7 +753,7 @@ def main() -> int:
         key=lambda r: (
             r["readiness"] != "READY",
             TIER_ORDER.index(r["effective_tier"]),
-            r["priority_tier"] is None,  # a written label outranks a guess
+            r["confirmed_tier"] is None,  # a settled tier outranks a guess
             -r["priority_score"],
             r["number"],
         ),
@@ -534,21 +761,48 @@ def main() -> int:
 
     labeled = [r for r in records if r["priority_tier"]]
     unlabeled = [r for r in records if not r["priority_tier"]]
+    contract_ranked = [r for r in records if not r["priority_tier"] and r["contract_tier"]]
+    unranked = [r for r in records if not r["confirmed_tier"]]
+    with_contract = [r for r in records if r["contract"]]
+    full_contract = [r for r in with_contract if not r["contract"]["missing_fields"]]
     needs_design = [r for r in records if r["design_labels"]]
     payload = {
         "open_issue_count": len(records),
         "open_pr_count": len(prs),
+        "cache": cache_status,
         "label_coverage": {
             "labeled": len(labeled),
+            "contract_ranked": len(contract_ranked),
             "total": len(records),
-            "complete": not unlabeled,
+            # COMPLETE means "every issue has a tier a human settled", which is
+            # the condition that makes the research pass unnecessary — the label
+            # is still what gets written back, so `unlabeled` stays reported.
+            "complete": not unranked,
             "unlabeled": [r["number"] for r in unlabeled],
+            "unranked": [r["number"] for r in unranked],
+        },
+        "contract_coverage": {
+            "full": len(full_contract),
+            "partial": len(with_contract) - len(full_contract),
+            "total": len(records),
+            "missing": [r["number"] for r in records if not r["contract"]],
+            "incomplete": {
+                str(r["number"]): r["contract"]["missing_fields"]
+                for r in with_contract if r["contract"]["missing_fields"]
+            },
         },
         "needs_design": [r["number"] for r in needs_design],
         "ranking": [
-            {"number": r["number"], "score": r["priority_score"],
-             "tier": r["priority_tier"], "suggested_tier": r["suggested_tier"],
-             "readiness": r["readiness"], "reasons": r["score_reasons"]}
+            {"number": r["number"], "title": r["title"],
+             "score": r["priority_score"],
+             "tier": r["priority_tier"], "contract_tier": r["contract_tier"],
+             "confirmed_tier": r["confirmed_tier"],
+             "suggested_tier": r["suggested_tier"],
+             "effective_tier": r["effective_tier"],
+             "readiness": r["readiness"], "reasons": r["score_reasons"],
+             "touches": r["touches"], "area": r["area"],
+             "depends_on_open": r["depends_on_open"],
+             "unblocks_open": r["unblocks_open"]}
             for r in ranked
         ],
         "issues": sorted(records, key=lambda r: r["number"]),
@@ -560,21 +814,111 @@ def main() -> int:
         return 0
 
     cov = payload["label_coverage"]
+    ccov = payload["contract_coverage"]
+    # `contract: N` only earns a slot on the line when some issue actually has
+    # one — a repo that has not adopted the block should not read a running
+    # complaint about it on every call.
+    contract_part = (
+        f" · contract: {cov['contract_ranked']}/{cov['total']}"
+        if cov["contract_ranked"] else ""
+    )
     if not records:
         coverage_line = "labels: 0/0 — no open issue matches the filter"
     elif cov["complete"]:
+        tail = (
+            "rank by label; no research pass needed" if not cov["unlabeled"]
+            else "every tier is settled; "
+                 f"{len(cov['unlabeled'])} still need the label written "
+                 "(apply_priority_labels.py --backfill)"
+        )
         coverage_line = (
-            f"labels: {cov['labeled']}/{cov['total']} COMPLETE — "
-            "rank by label; no research pass needed"
+            f"labels: {cov['labeled']}/{cov['total']}{contract_part} COMPLETE — {tail}"
         )
     else:
-        shown = ",".join(f"#{n}" for n in cov["unlabeled"][:15])
-        more = "…" if len(cov["unlabeled"]) > 15 else ""
+        shown = ",".join(f"#{n}" for n in cov["unranked"][:15])
+        more = "…" if len(cov["unranked"]) > 15 else ""
         coverage_line = (
-            f"labels: {cov['labeled']}/{cov['total']} — unlabeled: {shown}{more} "
+            f"labels: {cov['labeled']}/{cov['total']}{contract_part} — no tier: "
+            f"{shown}{more} "
             "(~Pn = suggested; write them with apply_priority_labels.py --backfill)"
         )
 
+    if args.audit:
+        print(f"contract: {ccov['full']}/{ccov['total']} complete · "
+              f"{ccov['partial']} partial · {len(ccov['missing'])} missing")
+        if ccov["missing"]:
+            print("missing: " + ",".join(f"#{n}" for n in ccov["missing"]))
+        for num, fields in sorted(ccov["incomplete"].items(), key=lambda kv: int(kv[0])):
+            print(f"partial: #{num} — no {','.join(fields)}")
+        unknown = {r["number"]: r["contract"]["unknown_fields"]
+                   for r in records if r["contract"] and r["contract"]["unknown_fields"]}
+        for num, fields in sorted(unknown.items()):
+            print(f"unknown-fields: #{num} — {','.join(fields)}")
+        print(coverage_line)
+        return 0
+
+
+    def print_rank_table() -> None:
+        print("## Priority ranking (label tier first, score breaks ties)\n")
+        print("| issue | priority | score | readiness | signals |")
+        print("|---|---|---|---|---|")
+        for r in ranked:
+            title = r["title"].replace("|", "\\|")
+            if len(title) > 60:
+                title = title[:59] + "…"
+            reasons = " · ".join(r["score_reasons"]) or "—"
+            print(f"| #{r['number']} {title} | {tier_cell(r)} | {r['priority_score']} | "
+                  f"{r['readiness']} | {reasons} |")
+        print()
+
+    def print_details(rows: list[dict[str, Any]]) -> None:
+        for r in rows:
+            flags = []
+            if r["not_ready_labels"]:
+                flags.append(f"NOT-READY-LABEL:{','.join(r['not_ready_labels'])}")
+            if r["design_labels"]:
+                flags.append(f"NEEDS-DESIGN:{','.join(r['design_labels'])}")
+            if r["open_pr"]:
+                flags.append(
+                    f"HAS-OPEN-PR:#{r['open_pr']['number']}"
+                    + ("(draft)" if r["open_pr"]["draft"] else "")
+                )
+            if r["depends_on_open"]:
+                flags.append("BLOCKED-BY:" + ",".join(f"#{n}" for n in r["depends_on_open"]))
+            if r["unblocks_open"]:
+                flags.append("UNBLOCKS:" + ",".join(f"#{n}" for n in r["unblocks_open"]))
+            head = f"## #{r['number']} {r['title']}"
+            if flags:
+                head += "  ⟨" + " | ".join(flags) + "⟩"
+            print(head)
+            meta = [f"priority={tier_cell(r)}", f"score={r['priority_score']}",
+                    f"labels={r['labels'] or '-'}", f"updated={r['updated_at']}"]
+            if r["assignees"]:
+                meta.append(f"assignees={r['assignees']}")
+            if r["milestone"]:
+                meta.append(f"milestone={r['milestone']}")
+            if r["area"]:
+                meta.append(f"area={r['area']}")
+            if r["touches"]:
+                meta.append("touches=" + ",".join(r["touches"]))
+            if r["referenced_by_open"]:
+                meta.append("referenced-by=" + ",".join(f"#{n}" for n in r["referenced_by_open"]))
+            if r["mentions"]:
+                meta.append("mentions=" + ",".join(f"#{n}" for n in r["mentions"]))
+            print("- " + " · ".join(meta))
+            print(f"- {r['url']}")
+            if r["body"]:
+                print(f"\n{r['body']}\n")
+            elif args.body_chars <= 0:
+                print()
+            else:
+                print("\n_(empty body)_\n")
+
+    # --select is the cheap path, and it composes: --with-rank appends the
+    # ranking table and --detail/--detail-top append issue bodies, so the one
+    # question a run's startup actually asks — "what is the pick, what is behind
+    # it, and what do the top few say?" — is one call and one gh fetch instead of
+    # three. Unlike --issue, neither narrows the ranking they were chosen from.
     if args.select is not None:
         print(coverage_line)
         picks = [r for r in ranked if r["readiness"] == "READY"][: args.select]
@@ -601,6 +945,21 @@ def main() -> int:
             print("held: " + ", ".join(
                 f"#{r['number']}[{tier_cell(r)}] {r['readiness']}" for r in held[:10])
                 + more)
+        if args.with_rank:
+            print()
+            print_rank_table()
+        detail_numbers = list(dict.fromkeys(
+            [r["number"] for r in ranked
+             if r["readiness"] == "READY"][: args.detail_top] + args.detail
+        ))
+        if detail_numbers:
+            by_number = {r["number"]: r for r in records}
+            rows = [by_number[n] for n in detail_numbers if n in by_number]
+            missing = [n for n in detail_numbers if n not in by_number]
+            print()
+            print_details(rows)
+            if missing:
+                print("not-in-digest: " + ",".join(f"#{n}" for n in missing))
         return 0
 
     print(f"# Open issues ({len(records)}) · open PRs ({len(prs)})\n")
@@ -610,58 +969,14 @@ def main() -> int:
     print(coverage_line + "\n")
 
     if not args.no_rank:
-        print("## Priority ranking (label tier first, score breaks ties)\n")
-        print("| issue | priority | score | readiness | signals |")
-        print("|---|---|---|---|---|")
-        for r in ranked:
-            title = r["title"].replace("|", "\\|")
-            if len(title) > 60:
-                title = title[:59] + "…"
-            reasons = " · ".join(r["score_reasons"]) or "—"
-            print(f"| #{r['number']} {title} | {tier_cell(r)} | {r['priority_score']} | "
-                  f"{r['readiness']} | {reasons} |")
-        print()
+        print_rank_table()
         if args.rank_only:
             return 0
 
-    for r in payload["issues"]:
-        flags = []
-        if r["not_ready_labels"]:
-            flags.append(f"NOT-READY-LABEL:{','.join(r['not_ready_labels'])}")
-        if r["design_labels"]:
-            flags.append(f"NEEDS-DESIGN:{','.join(r['design_labels'])}")
-        if r["open_pr"]:
-            flags.append(
-                f"HAS-OPEN-PR:#{r['open_pr']['number']}"
-                + ("(draft)" if r["open_pr"]["draft"] else "")
-            )
-        if r["depends_on_open"]:
-            flags.append("BLOCKED-BY:" + ",".join(f"#{n}" for n in r["depends_on_open"]))
-        if r["unblocks_open"]:
-            flags.append("UNBLOCKS:" + ",".join(f"#{n}" for n in r["unblocks_open"]))
-        head = f"## #{r['number']} {r['title']}"
-        if flags:
-            head += "  ⟨" + " | ".join(flags) + "⟩"
-        print(head)
-        meta = [f"priority={tier_cell(r)}", f"score={r['priority_score']}",
-                f"labels={r['labels'] or '-'}", f"updated={r['updated_at']}"]
-        if r["assignees"]:
-            meta.append(f"assignees={r['assignees']}")
-        if r["milestone"]:
-            meta.append(f"milestone={r['milestone']}")
-        if r["referenced_by_open"]:
-            meta.append("referenced-by=" + ",".join(f"#{n}" for n in r["referenced_by_open"]))
-        if r["mentions"]:
-            meta.append("mentions=" + ",".join(f"#{n}" for n in r["mentions"]))
-        print("- " + " · ".join(meta))
-        print(f"- {r['url']}")
-        if r["body"]:
-            print(f"\n{r['body']}\n")
-        elif args.body_chars <= 0:
-            print()
-        else:
-            print("\n_(empty body)_\n")
+    print_details(payload["issues"])
     return 0
+
+
 
 
 if __name__ == "__main__":

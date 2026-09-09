@@ -5,6 +5,12 @@ fix it in the diff already open, file it and ship it in the same run, file it
 and leave it, or not file it at all. Read it at the filing step, before writing
 any issue body.
 
+Whatever gets filed, `file_followup.py` writes a ship contract into it — pass
+`--area` and `--touches` so it says something true. `--touches` is what lets a
+later run put this issue in a parallel batch without judging it; `*` is the
+honest answer when the paths genuinely are not known yet, and an omitted value
+is not, because it reads as "touches nothing".
+
 ## Table of Contents
 
 - [Fix inline, file and ship, or file and leave](#fix-inline-file-and-ship-or-file-and-leave)

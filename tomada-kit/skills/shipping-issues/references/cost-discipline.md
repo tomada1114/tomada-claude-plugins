@@ -8,6 +8,7 @@ to delegate a step, before changing a run count, or before picking a
 ## Table of Contents
 
 - [Code review effort](#code-review-effort)
+- [What the startup costs](#what-the-startup-costs)
 - [Run budget](#run-budget)
 - [Model and effort assignment](#model-and-effort-assignment)
   - [The foundation exception: `opus` for what the backlog builds on](#the-foundation-exception-opus-for-what-the-backlog-builds-on)
@@ -78,6 +79,28 @@ Observed cost of getting this wrong: a gate change reviewed at `low` returned no
 findings; re-run at `medium` it returned four, all reproduced against the
 branch, one of them a security rule that silently accepted three of the four
 YAML spellings it existed to reject.
+
+## What the startup costs
+
+Steps 0 through 2c are one `plan.py` call and one `gh` fetch pair — preflight,
+ranking, selection, repo profile and grouping in a single block. Two things keep
+it there, and both are easy to undo by accident:
+
+- **The digest cache.** Every `issue_digest.py` call inside the same few minutes
+  reads the fetch the plan already paid for; `--issue`, `--detail` and
+  `--body-chars` all filter data already in hand rather than re-fetching it.
+  What breaks this is asking the same question in three calls — a `--select`,
+  then a `--rank-only`, then a list of `--issue` numbers — which is what
+  `--with-rank` and `--detail-top` exist to collapse. Pass `--refresh` only
+  after this run changed the backlog; passing it habitually turns the cache off.
+- **The reference files.** `dependency-triage.md` and `worktree-parallelism.md`
+  are ~380 lines between them and are *not* hot-path reading any more. The plan
+  answers what they used to be read for; open them when it says `PARTIAL`, when
+  a gate fails, or before cleanup — not on every run.
+
+The one thing worth spending on at startup is `issue_digest.py --detail-top K`
+when the picked issues' bodies genuinely have to be read. That is still one
+call, and it is bounded by K.
 
 ## Run budget
 
@@ -214,9 +237,13 @@ longest stretch of a run, and nothing in this context grows to pay for it —
 each sub-agent's exploration and diff still stay inside its own run.
 
 The break-even is group size. One issue in a group means paying the setup for
-no overlap at all, which is why step 2c refuses to parallelize a group smaller
-than 2. The cap at 3 comes from somewhere else entirely — rebase churn as the
-default branch moves under the batch — not from cost.
+no overlap at all, which is why the plan refuses to parallelize a group smaller
+than 2. The default cap of 3 comes from somewhere else entirely — rebase churn
+as the default branch moves under the batch — not from cost, which is why
+`plan.py --max-parallel` can raise it when the user asks for more and why
+nothing else should. Every issue past 3 in a batch is another branch that has to
+be brought forward after each merge in the batch, and that churn grows with the
+square of the group, not with it.
 
 A repo that fails the viability gate costs one worktree's setup to discover,
 once per run. The answer is a property of the repository, not of any issue:

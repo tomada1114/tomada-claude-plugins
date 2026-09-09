@@ -9,7 +9,12 @@
 - [Single mode: which issue](#single-mode-which-issue)
 - [Deciding a held design](#deciding-a-held-design)
 
-Read after `issue_digest.py` output is in hand, before deciding what to ship.
+**`plan.py` already answers most of this.** Its `grouping:` line is
+`MECHANICAL` when every issue in the batch declared its `touches=` — that
+grouping is authoritative and this file has nothing to add to it. Read here when
+the plan says `PARTIAL` (some issue declared nothing, so the batch is a
+proposal), when an ordering looks wrong, or when a design has to be decided
+inline. Reading it on every run is a cost the plan exists to remove.
 The script annotates mechanical signals; this file covers the judgment the
 script cannot make. Which of the ready issues is *worth* shipping first is a
 separate question — see `priority-rubric.md`.
@@ -86,7 +91,7 @@ its level even when it looks small.
 
 ## Parallel vs sequential (`all` mode)
 
-Read at [step 2c](../SKILL.md#2c-group-for-parallelism--all-mode-only), after
+Read at [step 2c](../SKILL.md#2c-confirm-the-proposed-batch), after
 the ordering above is settled. This decides which issues may be *implemented*
 at the same time; the PR, CI watch and merge stay serialized regardless.
 
@@ -134,7 +139,7 @@ now. State the pick with its evidence lines before implementing.
 
 Two paths lead here, and they differ only in who decides and when:
 
-- **inline — [step 2b](../SKILL.md#2b-decide-the-design-before-implementing)**,
+- **inline — [step 2b](../SKILL.md#2b-decide-a-design-that-gates-the-pick)**,
   when the design blocks the very issue this run is about to implement (an
   explicit issue number or `--include-design`, never the default backlog scan).
   This session decides it, on the critical path, before step 3.

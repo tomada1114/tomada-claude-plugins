@@ -34,7 +34,8 @@ verdict=<DECIDED|DEFERRED>`. A `DEFERRED` line is the more valuable of the two
 to read back: it is a question waiting on a human, and the label still says
 blocked.
 
-`parallel-group` records step 2c's decision once per batch —
+`parallel-group` records the plan's grouping decision once per batch (plan.py
+--record writes it) —
 `--field issues=<n,m,...> --field mode=<parallel|serial> --field reason=<why>`.
 A serial fallback is recorded the same way as a parallel batch: the reason a
 run did *not* parallelize is the part worth being able to read back.

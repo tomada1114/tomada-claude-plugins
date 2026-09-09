@@ -15,6 +15,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -318,6 +319,246 @@ class WorktreeSetupTest(unittest.TestCase):
             resolved_repo = repo.resolve()
 
         self.assertIn(f"repo_root: {resolved_repo}\n", proc.stdout)
+
+    # --- batch mode (--spec) -------------------------------------------------
+
+    def test_batch_provisions_two_worktrees_with_per_issue_blocks_and_summary(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            repo = td / "repo"
+            repo.mkdir()
+            make_repo(repo)
+            root = td / "worktrees"
+
+            proc = run_script(
+                [
+                    "--spec", "201:feat/201",
+                    "--spec", "202:feat/202",
+                    "--base", "main", "--root", str(root),
+                ],
+                repo,
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("=== issue 201 ===\n", proc.stdout)
+        self.assertIn("=== issue 202 ===\n", proc.stdout)
+        self.assertIn("batch: 2/2 ready\n", proc.stdout)
+        self.assertNotIn("blocked:", proc.stdout)
+        # per-issue verdict lines appear before the final batch verdict line
+        self.assertEqual(proc.stdout.count("verdict: READY\n"), 3)  # 2 per-issue + 1 summary
+        self.assertTrue(proc.stdout.rstrip("\n").endswith("verdict: READY"))
+
+    def test_batch_reports_blocked_spec_in_summary(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            repo = td / "repo"
+            repo.mkdir()
+            make_repo(repo)
+            root = td / "worktrees"
+            # Pre-create an unregistered path at the target location so the
+            # second spec's worktree creation is blocked, same as the
+            # single-issue "not a registered worktree" test above.
+            (root / "302").mkdir(parents=True)
+
+            proc = run_script(
+                [
+                    "--spec", "301:feat/301",
+                    "--spec", "302:feat/302",
+                    "--base", "main", "--root", str(root),
+                ],
+                repo,
+            )
+
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("batch: 1/2 ready\n", proc.stdout)
+        self.assertIn("blocked: 302\n", proc.stdout)
+        self.assertIn("verdict: BLOCKED\n", proc.stdout)
+
+    def test_spec_and_issue_are_mutually_exclusive(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            repo = td / "repo"
+            repo.mkdir()
+            make_repo(repo)
+            root = td / "worktrees"
+
+            proc = run_script(
+                [
+                    "--spec", "1:feat/1", "--issue", "2", "--branch", "feat/2",
+                    "--base", "main", "--root", str(root),
+                ],
+                repo,
+            )
+
+        self.assertEqual(proc.returncode, 2)
+
+    def test_log_with_spec_is_a_usage_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            repo = td / "repo"
+            repo.mkdir()
+            make_repo(repo)
+            root = td / "worktrees"
+
+            proc = run_script(
+                [
+                    "--spec", "1:feat/1", "--base", "main", "--root", str(root),
+                    "--log", str(td / "x.log"),
+                ],
+                repo,
+            )
+
+        self.assertEqual(proc.returncode, 2)
+
+    def test_spec_with_no_colon_is_a_usage_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            repo = td / "repo"
+            repo.mkdir()
+            make_repo(repo)
+            root = td / "worktrees"
+
+            proc = run_script(
+                ["--spec", "not-a-spec", "--base", "main", "--root", str(root)],
+                repo,
+            )
+
+        self.assertEqual(proc.returncode, 2)
+
+    def test_spec_with_non_digit_issue_is_a_usage_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            repo = td / "repo"
+            repo.mkdir()
+            make_repo(repo)
+            root = td / "worktrees"
+
+            proc = run_script(
+                ["--spec", "abc:feat/abc", "--base", "main", "--root", str(root)],
+                repo,
+            )
+
+        self.assertEqual(proc.returncode, 2)
+
+    def test_log_dir_places_per_issue_baseline_logs(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            repo = td / "repo"
+            repo.mkdir()
+            make_repo(repo)
+            root = td / "worktrees"
+            log_dir = td / "logs"
+
+            proc = run_script(
+                [
+                    "--spec", "401:feat/401", "--spec", "402:feat/402",
+                    "--base", "main", "--root", str(root),
+                    "--verify", "exit 0",
+                    "--log-dir", str(log_dir),
+                ],
+                repo,
+            )
+
+            self.assertTrue((log_dir / "401-baseline.log").exists())
+            self.assertTrue((log_dir / "402-baseline.log").exists())
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+
+    def test_a_red_baseline_is_reported_not_acted_on(self):
+        # The script deliberately does NOT decide what a red baseline means or
+        # tear anything down: it reports, the caller decides. Every spec is
+        # still provisioned, and the worktrees are all still there afterwards.
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            repo = td / "repo"
+            repo.mkdir()
+            make_repo(repo)
+            root = td / "worktrees"
+
+            proc = run_script(
+                [
+                    "--spec", "501:feat/501", "--spec", "502:feat/502",
+                    "--base", "main", "--root", str(root),
+                    "--verify", "exit 1",
+                    "--log-dir", str(td / "verify"),
+                ],
+                repo,
+            )
+            both_present = (root / "501").exists() and (root / "502").exists()
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("=== issue 501 ===\n", proc.stdout)
+        self.assertIn("=== issue 502 ===\n", proc.stdout)
+        self.assertIn("baseline: FAIL(exit=1)\n", proc.stdout)
+        self.assertIn("verdict: READY_WITH_WARNINGS\n", proc.stdout)
+        self.assertNotIn("viability:", proc.stdout)
+        self.assertTrue(both_present)
+
+    def test_a_hanging_verify_command_is_bounded(self):
+        # Nothing about a timeout is a judgement call, so it lives here: a repo
+        # whose gate starts a watcher would otherwise hang the script forever
+        # with no output at all, since verify output is redirected to the log.
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            repo = td / "repo"
+            repo.mkdir()
+            make_repo(repo)
+            root = td / "worktrees"
+
+            proc = run_script(
+                [
+                    "--issue", "601", "--branch", "feat/601",
+                    "--base", "main", "--root", str(root),
+                    "--verify", "sleep 30",
+                    "--verify-timeout", "1",
+                    "--log", str(td / "verify" / "601.log"),
+                ],
+                repo,
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("baseline: TIMEOUT(1s)\n", proc.stdout)
+        self.assertIn("verdict: READY_WITH_WARNINGS\n", proc.stdout)
+
+    def test_the_timeout_kills_the_whole_process_tree(self):
+        # A gate that forks workers must not leave them running: killing only
+        # the `bash -c` wrapper would strand whatever they hold open.
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            repo = td / "repo"
+            repo.mkdir()
+            make_repo(repo)
+            marker = td / "still-alive"
+
+            proc = run_script(
+                [
+                    "--issue", "602", "--branch", "feat/602",
+                    "--base", "main", "--root", str(td / "worktrees"),
+                    "--verify", f"( sleep 4; touch {marker} ) & wait",
+                    "--verify-timeout", "1",
+                    "--log", str(td / "verify" / "602.log"),
+                ],
+                repo,
+            )
+            time.sleep(6)
+            child_survived = marker.exists()
+
+        self.assertIn("baseline: TIMEOUT(1s)\n", proc.stdout)
+        self.assertFalse(child_survived,
+                         "the forked child outlived the timeout")
+
+    def test_bad_verify_timeout_is_a_usage_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            repo = td / "repo"
+            repo.mkdir()
+            make_repo(repo)
+            proc = run_script(
+                ["--issue", "1", "--branch", "b", "--base", "main",
+                 "--root", str(td / "wt"), "--verify-timeout", "0"],
+                repo,
+            )
+        self.assertEqual(proc.returncode, 2)
 
 
 if __name__ == "__main__":

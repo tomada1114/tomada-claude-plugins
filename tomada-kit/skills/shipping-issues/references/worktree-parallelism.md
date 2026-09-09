@@ -1,9 +1,12 @@
 # Worktree parallelism
 
-Read at [step 2c](../SKILL.md#2c-group-for-parallelism--all-mode-only), before
-deciding a batch runs in parallel, and again at step 9 before cleanup. Covers
-what a worktree run needs that the main checkout already has, what it costs,
-and the failure modes that look like something else.
+**Not part of the hot path.** `plan.py` decides serial-vs-parallel and
+`worktree_setup.sh` provisions and reports without this file being read. Come
+here when a worktree's baseline comes back red and you have to decide what that
+means, when a worktree run fails in a way that looks like the issue's fault, or
+at step 9 before cleanup. It covers
+what a worktree run needs that the main checkout already has, what it costs, and
+the failure modes that look like something else.
 
 Which *issues* may run together is a dependency question and lives in
 [dependency-triage.md#parallel-vs-sequential-all-mode](dependency-triage.md#parallel-vs-sequential-all-mode).

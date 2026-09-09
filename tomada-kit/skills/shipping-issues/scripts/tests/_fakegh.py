@@ -72,6 +72,7 @@ class FakeGh:
         self._stderrs = stderrs or {}
         self._tmpdir: tempfile.TemporaryDirectory | None = None
         self.env: dict[str, str] = {}
+        self.state_dir: Path | None = None
 
     def __enter__(self) -> "FakeGh":
         self._tmpdir = tempfile.TemporaryDirectory()
@@ -96,6 +97,16 @@ class FakeGh:
         self.env["PATH"] = f"{bin_dir}{os.pathsep}{self.env.get('PATH', '')}"
         self.env["FAKE_GH_CONFIG"] = str(config_path)
         self.env["FAKE_GH_CALLS"] = str(calls_path)
+        # Two isolations every test wants, and neither is safe to leave to the
+        # individual test to remember:
+        #   * the run-state dir is redirected into this temp dir, so nothing a
+        #     test does can write into the user's real ~/.local/state;
+        #   * the digest cache is off, so a test's fake `gh` responses are never
+        #     shadowed by data a previous test (or a real run) cached. A test
+        #     that is specifically about the cache pops the key back out.
+        self.env["AGENT_SKILL_STATE_DIR"] = str(Path(self._tmpdir.name) / "state")
+        self.env["SHIPPING_ISSUES_NO_CACHE"] = "1"
+        self.state_dir = Path(self.env["AGENT_SKILL_STATE_DIR"])
         self._calls_path = calls_path
         return self
 

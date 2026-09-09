@@ -7,7 +7,8 @@ model has to re-read issue prose to re-derive priority on the next run.
 
 Two ways to write them, both cheap for the caller:
 
-  --backfill        every open issue without a tier gets the digest's suggested
+  --backfill        every open issue without a tier label gets one: the tier
+                    its ship contract declares, or the digest's suggested
                     one. Pure heuristic, no model involved, one summary line out.
   --set N=P0 ...    explicit assignments, for the handful the research pass in
                     references/priority-rubric.md judged differently. Run by the
@@ -249,7 +250,16 @@ def main() -> int:
     plan: list[tuple[int, str, str]] = []  # number, tier, why
     if args.backfill:
         for rec in payload["issues"]:
-            if not rec["priority_tier"]:
+            if rec["priority_tier"]:
+                continue
+            # A tier the author declared in the issue's ship contract is a
+            # settled decision, and writing the heuristic guess over it would
+            # replace a human's answer with a score — the one thing a backfill
+            # must never do. The label still gets written, so the tier ends up
+            # where every later run reads it; it is just the author's tier.
+            if rec.get("contract_tier"):
+                plan.append((rec["number"], rec["contract_tier"], "ship contract"))
+            else:
                 plan.append((rec["number"], rec["suggested_tier"], rec["suggested_reason"]))
     for number, tier in parse_sets(args.set).items():
         plan = [row for row in plan if row[0] != number]

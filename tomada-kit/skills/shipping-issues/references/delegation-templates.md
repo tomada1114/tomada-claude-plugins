@@ -41,14 +41,14 @@ runs one PR at a time in the parent.
 
 Spawned only when more than ~3 open issues still lack a `priority:` label, or
 when the top rows of a labeled backlog are close enough that the pick needs
-evidence. On a fully labeled backlog, `issue_digest.py --select` is the answer
+evidence. On a fully labeled backlog, the plan's `select:` line is the answer
 and no spawn is warranted.
 
 The worker writes the labels itself — that is the point of the handoff. What
 comes back is the pick with its evidence, the order behind it, and the
 blocked/unclear lists; the issue prose and the raw digest table never cross
 back. In `all` mode it also returns proposed parallel-safe groups — a
-proposal, not a decision: [step 2c](../SKILL.md#2c-group-for-parallelism--all-mode-only)
+proposal, not a decision: [step 2c](../SKILL.md#2c-confirm-the-proposed-batch)
 still has to clear the repository's own viability gate before any of it runs.
 
 Prompt body: `references/agents/priority-research.md`. Fill its `{brace}`
@@ -131,7 +131,11 @@ Do:
    GitHub **write** — no `gh pr`, no `gh issue edit/comment/close`, no label
    change, no `gh api` with a non-GET method (the parent opens the PR and
    watches CI) — and do NOT delete anything: no `rm`, no branch deletion, no
-   worktree removal.
+   worktree removal. That includes a scratch fixture or throwaway repository
+   you created yourself under a temp directory: leave it exactly where it is
+   and name it in your report. `rm` triggers an approval prompt that stalls
+   the run, and a disposable temp directory costs nothing to keep. Revert a
+   probe inside the checkout with `git checkout --` or move it out with `mv`.
 7. Run every verification in the **foreground**. Do not start a long command
    in the background and then poll it — a run that returns while waiting on
    its own background job returns without its report, and its work has to be
@@ -149,6 +153,10 @@ CHANGED: <file list>
 VERIFY: <exact command run> -> <pass/fail + the failing output if any>
 MEASURE: <performance task: command + before + after + why it counts as
           improved. Otherwise "n/a">
+ACCEPTANCE: <the issue's Acceptance Criteria checklist, one line per item, as
+             `met | not-met | not-applicable — <the command or output that
+             shows it>`. "The issue has no acceptance criteria" is a valid
+             answer; a criterion you cannot demonstrate is not-met, never met>
 SCOPE-NOTES: <anything in the task you did not implement, and why>
 FOLLOW-UPS: <defects you saw that are NOT this task, one per line as
              `file:line — what is wrong — what prevents it today`, or "none">
@@ -165,6 +173,14 @@ If a step did not run, say so instead of filling the field.
 `FOLLOW-UPS` is how a real defect the run must not fix here still survives:
 step 8 files it as its own issue. `SCOPE-NOTES` and `UNRESOLVED` feed the same
 step and the step 10 report.
+
+`ACCEPTANCE` is the one field green CI cannot substitute for. CI proves the
+repository still works; it does not prove the issue was answered — a change can
+pass every check and still miss a criterion the issue spelled out. An issue
+written with a checklist has already done the hard part of saying what "done"
+means, and reading that checklist back against real command output is what turns
+a merge into a completed issue rather than a closed one. Any `not-met` line is a
+step 3 result to send back, not a step 10 footnote.
 
 **Name the verification CI cannot run.** CI runs one environment: a clean
 checkout with no developer's variables exported. So a change whose behavior
@@ -243,7 +259,11 @@ Do:
    before you return.
 5. Do NOT perform any GitHub write — no `gh pr`, no `gh issue`, no label
    change — and do NOT delete anything: no `rm`, no branch deletion, no
-   worktree removal.
+   worktree removal. That includes a scratch fixture or throwaway repository
+   you created yourself under a temp directory: leave it exactly where it is
+   and name it in your report. `rm` triggers an approval prompt that stalls
+   the run, and a disposable temp directory costs nothing to keep. Revert a
+   probe inside the checkout with `git checkout --` or move it out with `mv`.
 
 Return exactly:
 APPLIED: <one line per finding fixed, `F<n> -> <what changed>`, or "none">

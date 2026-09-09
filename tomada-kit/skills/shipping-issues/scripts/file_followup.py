@@ -20,6 +20,8 @@ to be the working directory. Pass `--repo` when in any doubt.
 
 Usage:
     file_followup.py --title T --body-file F --tier P2 [--label L ...]
+                     [--area SLUG] [--touches PATHS] [--blocked-by N,N]
+                     [--blocks N,N] [--needs-design] [--found-while N]
                      [--needs-design] [--found-while N] [--repo OWNER/NAME]
                      [--dry-run] [--json]
 
@@ -41,9 +43,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from issue_digest import (DESIGN_LABEL, TIER_ALIASES, TIER_LABELS, TIER_ORDER,
@@ -113,6 +117,34 @@ def resolve_tier_label(tier: str, existing: list[str], dry_run: bool) -> str:
     return name
 
 
+def ship_contract(args: Any) -> str:
+    """The `<!-- ship: ... -->` block for a newly filed issue.
+
+    Written on every issue this skill files, because the alternative is a later
+    run re-deriving these facts from the prose — which is exactly the cost the
+    block exists to remove. `blocked-by` and `touches` are always emitted, even
+    as `none` and `*`: an omitted field is indistinguishable from an unconsidered
+    one, and `issue_digest.py --audit` has to be able to tell those apart.
+
+    Kept in sync with issue_digest.parse_ship_contract; both sides treat unknown
+    fields as ignorable, so adding one here does not break an older reader.
+    """
+    def numbers(value: str | None) -> str:
+        nums = re.findall(r"\d+", value or "")
+        return ",".join(f"#{n}" for n in nums) if nums else "none"
+
+    fields = [f"tier={args.tier}"]
+    if args.area:
+        fields.append(f"area={args.area}")
+    fields.append(f"blocked-by={numbers(args.blocked_by)}")
+    if args.blocks:
+        fields.append(f"blocks={numbers(args.blocks)}")
+    touches = ",".join(t.strip() for t in (args.touches or "*").split(",") if t.strip())
+    fields.append(f"touches={touches or '*'}")
+    fields.append("design=" + ("open" if args.needs_design else "settled"))
+    return "<!-- ship: " + " ".join(fields) + " -->"
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -128,6 +160,19 @@ def main() -> int:
                    help="mark the new issue design-not-settled (blocked: "
                         "design or this repo's equivalent) — excludes it "
                         "from automatic selection until the design is decided")
+    p.add_argument("--area", metavar="SLUG",
+                   help="the part of the codebase this belongs to; goes into "
+                        "the issue's ship contract")
+    p.add_argument("--touches", metavar="PATHS",
+                   help="comma-separated paths the fix will land in, or '*' if "
+                        "genuinely unknown. This is what lets a later run group "
+                        "this issue for parallel work without judging it — an "
+                        "omitted value reads as 'touches nothing', which is why "
+                        "'*' exists to say the honest thing instead")
+    p.add_argument("--blocked-by", metavar="NUMBERS",
+                   help="comma-separated issue numbers this waits on")
+    p.add_argument("--blocks", metavar="NUMBERS",
+                   help="comma-separated issue numbers waiting on this")
     p.add_argument("--found-while", type=int, metavar="N",
                    help="issue number this was found while shipping; appends a "
                         "provenance line to the body")
@@ -162,6 +207,8 @@ def main() -> int:
         return 3
     if args.found_while:
         body += f"\n\n---\n\n*#{args.found_while} の作業中に発見 / found while shipping #{args.found_while}.*\n"
+    contract = ship_contract(args)
+    body += "\n" + contract + "\n"
 
     existing = repo_labels()
     tier_label = resolve_tier_label(args.tier, existing, args.dry_run)
@@ -183,9 +230,14 @@ def main() -> int:
 
     if args.dry_run:
         out = {"dry_run": True, "repo": REPO, "title": args.title,
-               "labels": labels, "skipped_labels": missing, "body_chars": len(body)}
+               "labels": labels, "skipped_labels": missing,
+               "contract": contract, "body_chars": len(body)}
+        # The contract is shown, not just counted: a dry run exists to be read
+        # before the write, and the contract is the half of the body a caller is
+        # most likely to have got wrong.
         print(json.dumps(out, ensure_ascii=False) if args.json
               else f"would file in {REPO}: {args.title}\n  labels: {', '.join(labels)}"
+                   + f"\n  contract: {contract}"
                    + (f"\n  skipped (not in repo): {', '.join(missing)}" if missing else ""))
         return 0
 

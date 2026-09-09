@@ -22,13 +22,13 @@ from _fakegh import FakeGh  # noqa: E402
 import apply_priority_labels as apl  # noqa: E402
 
 
-def issue(number, labels, updated="2026-01-01T00:00:00Z"):
+def issue(number, labels, updated="2026-01-01T00:00:00Z", title=None, body=""):
     # `labels` mirrors issue_digest.py's *output* shape (plain name strings);
     # the raw `gh issue list --json labels` shape it consumes wraps each in
     # {"name": ...}, so that wrapping happens here.
-    return {"number": number, "title": f"issue {number}",
+    return {"number": number, "title": title or f"issue {number}",
             "labels": [{"name": n} for n in labels],
-            "assignees": [], "milestone": None, "body": "", "createdAt": updated,
+            "assignees": [], "milestone": None, "body": body, "createdAt": updated,
             "updatedAt": updated, "url": f"https://x/{number}"}
 
 
@@ -418,6 +418,52 @@ class GhErrorBranchesTest(unittest.TestCase):
             with self.assertRaises(SystemExit) as cm:
                 apl.gh(["label", "create", "x"])
             self.assertEqual(cm.exception.code, 2)
+
+
+class BackfillHonoursTheContractTest(unittest.TestCase):
+    """A declared tier is a decision; the heuristic must never overwrite it."""
+
+    def _run(self, issues, argv):
+        responses = {
+            ("issue", "list"): json.dumps(issues),
+            ("pr", "list"): "[]",
+            ("label", "list"): json.dumps(
+                [{"name": n} for n in ("priority: P0", "priority: P1",
+                                       "priority: P2", "priority: P3")]),
+        }
+        with FakeGh(responses) as fake:
+            out, err = io.StringIO(), io.StringIO()
+            with patch.dict("os.environ", fake.env, clear=False), \
+                    patch.object(sys, "argv", ["apply_priority_labels.py", *argv]), \
+                    redirect_stdout(out), redirect_stderr(err):
+                try:
+                    rc = apl.main()
+                except SystemExit as exc:
+                    rc = exc.code
+        return rc, out.getvalue(), err.getvalue()
+
+    def test_declared_tier_is_written_not_the_score(self):
+        issues = [issue(1, [], title="a small doc tweak",
+                     body="<!-- ship: tier=P0 -->")]
+        rc, out, err = self._run(issues, ["--backfill", "--dry-run", "--json"])
+        self.assertEqual(rc, 0, err)
+        rows = json.loads(out)["changed"]
+        self.assertEqual(rows[0]["tier"], "P0")
+        self.assertEqual(rows[0]["why"], "ship contract")
+
+    def test_no_contract_still_falls_back_to_the_suggestion(self):
+        rc, out, err = self._run([issue(1, [], title="a small doc tweak")],
+                                 ["--backfill", "--dry-run", "--json"])
+        rows = json.loads(out)["changed"]
+        self.assertNotEqual(rows[0]["why"], "ship contract")
+
+    def test_explicit_set_still_overrides_the_contract(self):
+        issues = [issue(1, [], body="<!-- ship: tier=P0 -->")]
+        rc, out, err = self._run(issues,
+                                 ["--backfill", "--set", "1=P3", "--dry-run", "--json"])
+        rows = json.loads(out)["changed"]
+        self.assertEqual(rows[0]["tier"], "P3")
+        self.assertEqual(rows[0]["why"], "explicit")
 
 
 if __name__ == "__main__":

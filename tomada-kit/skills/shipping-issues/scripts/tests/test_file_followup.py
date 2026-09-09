@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from _fakegh import FakeGh  # noqa: E402
 import file_followup as ff  # noqa: E402
+import issue_digest as idg  # noqa: E402
 
 
 class ResolveTierLabelTest(unittest.TestCase):
@@ -250,3 +251,62 @@ class MainEndToEndTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ShipContractTest(unittest.TestCase):
+    """Every issue this skill files states its own facts, so the next run reads
+    them instead of re-deriving them."""
+
+    class _Args:
+        def __init__(self, **kw):
+            self.tier = "P2"
+            self.area = None
+            self.touches = None
+            self.blocked_by = None
+            self.blocks = None
+            self.needs_design = False
+            self.__dict__.update(kw)
+
+    def test_defaults_state_the_unknowns_explicitly(self):
+        block = ff.ship_contract(self._Args())
+        self.assertEqual(block,
+                         "<!-- ship: tier=P2 blocked-by=none touches=* design=settled -->")
+
+    def test_every_field_round_trips_through_the_digest_parser(self):
+        block = ff.ship_contract(self._Args(
+            tier="P1", area="test-infra", touches="tests/,vitest.config.ts",
+            blocked_by="12,#13", blocks="98"))
+        parsed = idg.parse_ship_contract(block)
+        self.assertEqual(parsed["tier"], "P1")
+        self.assertEqual(parsed["area"], "test-infra")
+        self.assertEqual(parsed["touches"], ["tests/", "vitest.config.ts"])
+        self.assertEqual(parsed["depends_on"], [12, 13])
+        self.assertEqual(parsed["blocks"], [98])
+        self.assertEqual(parsed["design"], "settled")
+        self.assertEqual(parsed["missing_fields"], [])
+
+    def test_needs_design_marks_the_design_open(self):
+        parsed = idg.parse_ship_contract(ff.ship_contract(self._Args(needs_design=True)))
+        self.assertEqual(parsed["design"], "open")
+
+    def test_empty_touches_falls_back_to_star_not_to_nothing(self):
+        parsed = idg.parse_ship_contract(ff.ship_contract(self._Args(touches=" , ")))
+        self.assertEqual(parsed["touches"], ["*"])
+
+    def test_the_block_lands_in_the_created_body(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            body_file = Path(tmp) / "body.md"
+            body_file.write_text("The finding.", encoding="utf-8")
+            with FakeGh({("label", "list"): json.dumps([{"name": "priority: P2"}])}) as fake:
+                out, err = io.StringIO(), io.StringIO()
+                with patch.dict("os.environ", fake.env, clear=False), \
+                        patch.object(sys, "argv", [
+                            "file_followup.py", "--title", "t",
+                            "--body-file", str(body_file), "--tier", "P2",
+                            "--touches", "src/api/", "--area", "api",
+                            "--dry-run"]), \
+                        redirect_stdout(out), redirect_stderr(err):
+                    rc = ff.main()
+        self.assertEqual(rc, 0, err.getvalue())
+        self.assertIn("touches=src/api/", out.getvalue())
+        self.assertIn("area=api", out.getvalue())

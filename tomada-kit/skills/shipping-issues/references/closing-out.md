@@ -15,11 +15,30 @@ and safety rules the SKILL.md body already states inline.
     [--worktree-root <runstate>/worktrees] [--merged-only] [--force]
 ```
 
-All deletion goes through `cleanup_run.sh`, in one batch after the last merge.
-Never run `rm`, `git worktree remove`, or `git branch -D` ad hoc in the main
-context or in a sub-agent — raw `rm` is flagged as dangerous and stalls the
-run on a permission prompt, and the single entry point is what lets deletion
-be gated on merge status. The script touches only: worktrees under an
+All deletion goes through `cleanup_run.sh`, in **one batch after the last
+merge** — not once per batch. Never run `rm`, `git worktree remove`, or
+`git branch -D` ad hoc in the main context or in a sub-agent — raw `rm` is
+flagged as dangerous and stalls the run on a permission prompt, and the single
+entry point is what lets deletion be gated on merge status.
+
+**That covers temporary files too, not just the repository.** A throwaway
+fixture, a scratch clone, a probe directory under the session scratchpad or
+`/tmp` is left exactly where it is: it costs nothing, it is disposable by
+construction, and `rm -rf`-ing it buys a permission prompt that interrupts the
+run for no gain. Revert a probe *inside* a checkout with `git checkout --` or
+by moving it out with `mv`, never with `rm`. Say in the step 10 report where
+any leftover scratch directories are, and let the user delete them if they
+care. Every sub-agent prompt that has a sub-agent create a fixture must carry
+this prohibition explicitly — three separate agents in one observed run
+reached for `rm` on their own scratch directories despite the instruction
+being implied rather than stated.
+
+Deleting worktrees mid-run to stay under the concurrency cap is the one
+tempting exception, and it is not worth it: each intermediate call is another
+approval, and the disk a few worktrees hold is cheap next to interrupting a
+long unattended run. Carry them to the end and clean once. If disk genuinely
+is the constraint, that is a reason to shrink the batch, not to add cleanup
+calls. The script touches only: worktrees under an
 explicitly given `--worktree-root`; harness `worktree-agent-*` branches (a
 leftover branch-naming convention from the Claude Code harness — a different
 thing from this skill's own worktrees, which are never branch-named that way);
@@ -78,14 +97,14 @@ own line: it will land on the issue after this report, which is fine, and
 saying so is what keeps the label state readable.
 
 When the run used parallel worktrees, one line for that too — which issues
-shared a batch and why, or, when step 2c fell back, that it ran serially and
+shared a batch and why, or, when the plan fell back to serial, that it ran serially and
 which gate it failed. A run that silently ran serially when the user expected
 parallelism reads as a slow run rather than as a repository that could not
 support it.
 
 Then list what was left undone — blocked issues, ones needing clarification,
 ones that hit the retry ceiling, and ones still held for `blocked: design`
-(`needs-design:` from `issue_digest.py --select`, minus whatever step 8b just
+(`needs-design:` from the plan, minus whatever step 8b just
 cleared) — with the specific reason each. An issue whose design this run
 decided but whose implementation it did not reach belongs here too, marked as
 ready rather than blocked: it is the next run's first candidate, and that is a

@@ -10,6 +10,7 @@ import datetime as _dt
 import io
 import json
 import sys
+import tempfile
 import unittest
 from contextlib import redirect_stdout, redirect_stderr
 from pathlib import Path
@@ -322,13 +323,21 @@ class ResolveDesignLabelTest(unittest.TestCase):
         self.assertTrue(needs_create)
 
 
-class MainEndToEndTest(unittest.TestCase):
+class DigestRunner:
     """Runs main() in-process (not via subprocess) against a fake `gh` on
     PATH, so coverage sees the code these tests exercise. Only the external
     `gh` process itself is out of process — issue_digest.py's own code runs
-    in this interpreter."""
+    in this interpreter.
 
-    def _run(self, args, issues, prs=None, path_override=None):
+    A mixin rather than a base TestCase: several classes below need `_run`, and
+    inheriting it from a TestCase would re-run that class's own tests inside
+    each of them."""
+
+    def _run(self, args, issues, prs=None, path_override=None,
+             state_dir=None, cache=False):
+        """Run main() once. `cache=True` re-enables the digest cache (FakeGh
+        disables it by default) and `state_dir` pins where it lives, so a test
+        can drive two calls through one cache and count the gh invocations."""
         responses = {
             ("issue", "list"): json.dumps(issues),
             ("pr", "list"): json.dumps(prs or []),
@@ -337,6 +346,11 @@ class MainEndToEndTest(unittest.TestCase):
             env = dict(fake.env)
             if path_override is not None:
                 env["PATH"] = path_override
+            if cache:
+                env.pop("SHIPPING_ISSUES_NO_CACHE", None)
+            if state_dir is not None:
+                env["AGENT_SKILL_STATE_DIR"] = str(state_dir)
+            self.last_calls = fake
             out, err = io.StringIO(), io.StringIO()
             with patch.dict("os.environ", env, clear=False), \
                     patch.object(sys, "argv", ["issue_digest.py", *args]), \
@@ -345,8 +359,11 @@ class MainEndToEndTest(unittest.TestCase):
                     rc = idg.main()
                 except SystemExit as exc:
                     rc = exc.code
+            self.gh_calls = fake.calls
         return rc, out.getvalue(), err.getvalue()
 
+
+class MainEndToEndTest(DigestRunner, unittest.TestCase):
     def test_select_reports_top_ready_issue(self):
         issues = [
             gh_issue(1, title="unlabeled small thing"),
@@ -494,3 +511,261 @@ class MainEndToEndTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+CONTRACT = ("<!-- ship: tier=P1 area=test-infra blocked-by=none "
+            "blocks=#98 touches=tests/,vitest.config.ts design=settled -->")
+
+
+class ShipContractTest(unittest.TestCase):
+    """The `<!-- ship: ... -->` block: the half of the ranking decision that is
+    supposed to be read rather than re-derived."""
+
+    def test_parses_every_known_field(self):
+        c = idg.parse_ship_contract(f"Some prose.\n\n{CONTRACT}\n\nMore prose.")
+        self.assertEqual(c["tier"], "P1")
+        self.assertEqual(c["area"], "test-infra")
+        self.assertEqual(c["depends_on"], [])
+        self.assertEqual(c["blocks"], [98])
+        self.assertEqual(c["touches"], ["tests/", "vitest.config.ts"])
+        self.assertEqual(c["design"], "settled")
+        self.assertEqual(c["missing_fields"], [])
+        self.assertEqual(c["unknown_fields"], [])
+
+    def test_absent_block_is_none(self):
+        self.assertIsNone(idg.parse_ship_contract("no contract here #12"))
+        self.assertIsNone(idg.parse_ship_contract(""))
+        self.assertIsNone(idg.parse_ship_contract(None))
+
+    def test_later_block_wins_field_by_field(self):
+        body = ("<!-- ship: tier=P3 touches=a/ -->\n"
+                "<!-- ship: tier=P0 blocked-by=#7 -->")
+        c = idg.parse_ship_contract(body)
+        self.assertEqual(c["tier"], "P0")
+        self.assertEqual(c["depends_on"], [7])
+        # A field only the first block set survives — the blocks are merged,
+        # not swapped, so correcting one field does not silently drop the rest.
+        self.assertEqual(c["touches"], ["a/"])
+
+    def test_missing_required_fields_are_reported(self):
+        c = idg.parse_ship_contract("<!-- ship: area=api -->")
+        self.assertEqual(c["missing_fields"], ["tier", "blocked-by", "touches"])
+
+    def test_unknown_fields_are_kept_but_flagged(self):
+        c = idg.parse_ship_contract("<!-- ship: tier=P1 owner=someone -->")
+        self.assertEqual(c["tier"], "P1")
+        self.assertEqual(c["unknown_fields"], ["owner"])
+
+    def test_garbage_tier_and_design_are_dropped_not_trusted(self):
+        c = idg.parse_ship_contract("<!-- ship: tier=URGENT design=maybe -->")
+        self.assertIsNone(c["tier"])
+        self.assertIsNone(c["design"])
+
+    def test_numbers_parse_with_or_without_hash(self):
+        c = idg.parse_ship_contract("<!-- ship: blocked-by=12,#13 -->")
+        self.assertEqual(c["depends_on"], [12, 13])
+
+
+class ContractIntegrationTest(DigestRunner, unittest.TestCase):
+    """The contract as it changes ranking, readiness and grouping input."""
+
+    def test_contract_tier_ranks_without_a_label(self):
+        issues = [
+            gh_issue(1, title="guessed", body="small tweak"),
+            gh_issue(2, title="declared", body="<!-- ship: tier=P0 -->"),
+        ]
+        rc, out, err = self._run(["--select"], issues)
+        self.assertEqual(rc, 0, err)
+        self.assertIn("select: #2", out)
+        # Settled, so it prints plain — not as the `~P0` a score guess gets.
+        self.assertIn("[P0]", out)
+        self.assertNotIn("[~P0]", out)
+
+    def test_written_label_outranks_a_stale_contract_tier(self):
+        issues = [gh_issue(1, labels=["priority: P3"], body="<!-- ship: tier=P0 -->")]
+        rc, out, err = self._run(["--select", "--json"], issues)
+        row = json.loads(out)["ranking"][0]
+        self.assertEqual(row["tier"], "P3")
+        self.assertEqual(row["contract_tier"], "P0")
+        self.assertEqual(row["confirmed_tier"], "P3")
+
+    def test_coverage_reads_complete_when_contracts_cover_the_gap(self):
+        issues = [
+            gh_issue(1, labels=["priority: P1"]),
+            gh_issue(2, body="<!-- ship: tier=P2 -->"),
+        ]
+        rc, out, err = self._run(["--select"], issues)
+        self.assertIn("COMPLETE", out)
+        self.assertIn("contract: 1/2", out)
+        # The label is still owed even though the tier is settled.
+        self.assertIn("still need the label written", out)
+
+    def test_contract_edges_block_and_unblock(self):
+        issues = [
+            gh_issue(1, labels=["priority: P0"], body="<!-- ship: blocked-by=#2 -->"),
+            gh_issue(2, labels=["priority: P3"]),
+        ]
+        rc, out, err = self._run(["--select"], issues)
+        self.assertIn("select: #2", out)
+        self.assertIn("#1[P0] BLOCKED-BY:#2", out)
+
+    def test_design_open_holds_the_issue_without_a_label(self):
+        issues = [gh_issue(1, labels=["priority: P0"], body="<!-- ship: design=open -->")]
+        rc, out, err = self._run(["--select"], issues)
+        self.assertIn("select: none", out)
+        self.assertIn("needs-design: #1", out)
+
+    def test_touches_and_area_reach_the_json_ranking(self):
+        issues = [gh_issue(1, body="<!-- ship: tier=P1 area=api touches=src/api/ -->")]
+        rc, out, err = self._run(["--select", "--json"], issues)
+        row = json.loads(out)["ranking"][0]
+        self.assertEqual(row["touches"], ["src/api/"])
+        self.assertEqual(row["area"], "api")
+
+    def test_audit_names_what_each_issue_is_missing(self):
+        issues = [
+            gh_issue(1, body=CONTRACT),
+            gh_issue(2, body="<!-- ship: tier=P1 -->"),
+            gh_issue(3, body="nothing"),
+        ]
+        rc, out, err = self._run(["--audit"], issues)
+        self.assertEqual(rc, 0, err)
+        self.assertIn("contract: 1/3 complete · 1 partial · 1 missing", out)
+        self.assertIn("missing: #3", out)
+        self.assertIn("partial: #2 — no blocked-by,touches", out)
+
+
+class ComposableOutputTest(DigestRunner, unittest.TestCase):
+    """--select composing with --with-rank/--detail is what collapses a
+    startup's three digest calls into one."""
+
+    def test_with_rank_appends_the_table_to_select(self):
+        issues = [gh_issue(1, labels=["priority: P0"]), gh_issue(2, labels=["priority: P2"])]
+        rc, out, err = self._run(["--select", "--with-rank"], issues)
+        self.assertEqual(rc, 0, err)
+        self.assertIn("select: #1", out)
+        self.assertIn("## Priority ranking", out)
+        self.assertLess(out.index("select: #1"), out.index("## Priority ranking"))
+
+    def test_detail_top_prints_bodies_without_narrowing_the_rank(self):
+        issues = [
+            gh_issue(1, labels=["priority: P0"], body="the P0 body"),
+            gh_issue(2, labels=["priority: P1"], body="the P1 body"),
+            gh_issue(3, labels=["priority: P2"], body="the P2 body"),
+        ]
+        rc, out, err = self._run(["--select", "3", "--detail-top", "2"], issues)
+        self.assertEqual(rc, 0, err)
+        self.assertIn("the P0 body", out)
+        self.assertIn("the P1 body", out)
+        self.assertNotIn("the P2 body", out)
+        # All three still ranked — unlike --issue, --detail-top does not filter.
+        self.assertIn("next  : #3", out)
+
+    def test_detail_takes_explicit_numbers_too(self):
+        issues = [
+            gh_issue(1, labels=["priority: P0"], body="first body"),
+            gh_issue(9, labels=["priority: P3"], body="ninth body"),
+        ]
+        rc, out, err = self._run(["--select", "--detail", "9"], issues)
+        self.assertIn("ninth body", out)
+        self.assertNotIn("first body", out)
+
+    def test_detail_for_an_issue_outside_the_digest_says_so(self):
+        rc, out, err = self._run(
+            ["--select", "--detail", "404"], [gh_issue(1, labels=["priority: P0"])])
+        self.assertIn("not-in-digest: #404", out)
+
+    def test_plain_select_is_unchanged(self):
+        rc, out, err = self._run(["--select"], [gh_issue(1, labels=["priority: P0"])])
+        self.assertNotIn("## Priority ranking", out)
+        self.assertNotIn("## #1", out)
+
+
+class DigestCacheTest(DigestRunner, unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.state = Path(self._tmp.name)
+
+    def _gh_fetches(self):
+        return [c for c in self.gh_calls if c[:2] in (["issue", "list"], ["pr", "list"])]
+
+    def test_second_call_serves_from_cache(self):
+        issues = [gh_issue(1, labels=["priority: P0"], body="cached body")]
+        self._run(["--select", "--cache-ttl", "300"], issues,
+                  state_dir=self.state, cache=True)
+        self.assertEqual(len(self._gh_fetches()), 2)
+        # A second, differently-shaped call within the TTL: no gh at all, and
+        # the detail comes out of the same fetch the --select paid for.
+        rc, out, err = self._run(["--select", "--detail", "1", "--cache-ttl", "300"],
+                                 issues, state_dir=self.state, cache=True)
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self._gh_fetches(), [])
+        self.assertIn("cached body", out)
+
+    def test_refresh_bypasses_a_warm_cache(self):
+        issues = [gh_issue(1, labels=["priority: P0"])]
+        self._run(["--select", "--cache-ttl", "300"], issues,
+                  state_dir=self.state, cache=True)
+        self._run(["--select", "--refresh", "--cache-ttl", "300"], issues,
+                  state_dir=self.state, cache=True)
+        self.assertEqual(len(self._gh_fetches()), 2)
+
+    def test_zero_ttl_disables_the_cache(self):
+        issues = [gh_issue(1, labels=["priority: P0"])]
+        self._run(["--select", "--cache-ttl", "300"], issues,
+                  state_dir=self.state, cache=True)
+        self._run(["--select", "--cache-ttl", "0"], issues,
+                  state_dir=self.state, cache=True)
+        self.assertEqual(len(self._gh_fetches()), 2)
+
+    def test_a_different_filter_is_a_different_cache_entry(self):
+        issues = [gh_issue(1, labels=["priority: P0", "bug"])]
+        self._run(["--select", "--cache-ttl", "300"], issues,
+                  state_dir=self.state, cache=True)
+        self._run(["--select", "--label", "bug", "--cache-ttl", "300"], issues,
+                  state_dir=self.state, cache=True)
+        self.assertEqual(len(self._gh_fetches()), 2)
+
+    def test_expired_cache_refetches(self):
+        issues = [gh_issue(1, labels=["priority: P0"])]
+        self._run(["--select", "--cache-ttl", "300"], issues,
+                  state_dir=self.state, cache=True)
+        self._run(["--select", "--cache-ttl", "1"], issues,
+                  state_dir=self.state, cache=True)
+        cache_file = next(self.state.glob("shipping-issues/*/digest-cache.json"))
+        blob = json.loads(cache_file.read_text())
+        blob["fetched_at"] -= 3600
+        cache_file.write_text(json.dumps(blob))
+        self._run(["--select", "--cache-ttl", "300"], issues,
+                  state_dir=self.state, cache=True)
+        self.assertEqual(len(self._gh_fetches()), 2)
+
+    def test_malformed_cache_is_a_miss_not_an_error(self):
+        issues = [gh_issue(1, labels=["priority: P0"])]
+        self._run(["--select", "--cache-ttl", "300"], issues,
+                  state_dir=self.state, cache=True)
+        cache_file = next(self.state.glob("shipping-issues/*/digest-cache.json"))
+        cache_file.write_text("{ not json")
+        rc, out, err = self._run(["--select", "--cache-ttl", "300"], issues,
+                  state_dir=self.state, cache=True)
+        self.assertEqual(rc, 0, err)
+        self.assertIn("select: #1", out)
+        self.assertEqual(len(self._gh_fetches()), 2)
+
+    def test_env_kill_switch_disables_the_cache(self):
+        issues = [gh_issue(1, labels=["priority: P0"])]
+        self._run(["--select", "--cache-ttl", "300"], issues,
+                  state_dir=self.state, cache=True)
+        # cache=False leaves FakeGh's SHIPPING_ISSUES_NO_CACHE=1 in place.
+        self._run(["--select"], issues, state_dir=self.state)
+        self.assertEqual(len(self._gh_fetches()), 2)
+
+    def test_the_cache_is_off_unless_a_caller_asks_for_it(self):
+        # The dangerous default is on-by-default: a digest served from before
+        # this run's own merge can re-select an issue that is already closed,
+        # and nothing downstream would notice. Opting in is the caller's job.
+        issues = [gh_issue(1, labels=["priority: P0"])]
+        self._run(["--select"], issues, state_dir=self.state, cache=True)
+        self._run(["--select"], issues, state_dir=self.state, cache=True)
+        self.assertEqual(len(self._gh_fetches()), 2)

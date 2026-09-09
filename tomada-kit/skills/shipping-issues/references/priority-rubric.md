@@ -10,7 +10,7 @@
 
 Read when the backlog has issues without a `priority:` label, or when a written
 label looks wrong. On a fully labeled backlog the pick comes from
-`issue_digest.py --select` and this file is not needed. Dependency mechanics
+the plan's `select:` line and this file is not needed. Dependency mechanics
 (what must land before what) live in `dependency-triage.md`.
 
 **Priority here means impact on the rest of the backlog, not "the one I feel
@@ -129,7 +129,8 @@ not.
 The same rubric produces the *order*, not just the winner. Sort by dependency
 level first (an issue cannot precede what it depends on), then by tier within a
 level, then by score within a tier — which is exactly what
-`issue_digest.py --select N` prints. Re-rank after each merge with that same
+`issue_digest.py --select N` prints. Re-rank after each merge with `plan.py
+--refresh` — the same
 call: merging a blocker moves its dependents from BLOCKED to READY, and a
 freshly READY P0 may outrank whatever was next in the original plan. Because the
 tiers are labels, the re-rank costs one script call, not another research pass.
