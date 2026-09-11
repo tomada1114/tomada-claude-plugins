@@ -80,6 +80,59 @@ codex execpolicy check --pretty --rules ~/.codex/rules/default.rules -- git comm
   runtime. See `references/rules-execpolicy.md` for how `prefix_rule()` and precedence
   work.
 
+### This is the safe way to verify a `forbidden` rule — never the live way
+
+`codex execpolicy check` is a static, offline rule matcher: it evaluates the
+given argv against the `.rules` pattern set and prints the decision. It never
+spawns the command, touches the filesystem, or starts an agent turn. This is
+the whole reason it's the right tool for confirming that something like
+`rm -rf ~` or `sudo` really resolves to `forbidden` — you get the answer
+without ever letting the command run. Confirming a `forbidden` rule by instead
+asking the agent to actually execute the dangerous command ("try running
+`rm -rf ~` and see if it's blocked") is not an equivalent, safer-looking
+substitute — it is a real invocation of a destructive command, gated only by
+whatever you're trying to verify in the first place. Never do that; use
+`execpolicy check` instead.
+
+**Caveat: `execpolicy check` shows the raw rule decision, not what happens
+after `approval_policy` is applied to it.** It has no flag to pass an
+`approval_policy`, so it cannot show you the one transformation that matters
+most for a Full Access / `--yolo` setup: under `approval_policy = "never"`,
+Codex does not silently run a command a rule marked `prompt` — a rule that
+would otherwise ask fails closed to a hard block instead, because there is no
+one left to ask. This is implemented in `codex-rs/core/src/exec_policy.rs`
+(the `PROMPT_CONFLICT_REASON` path, `AskForApproval::Never => Decision::Forbidden`
+for `Prompt`-decision rule matches) and confirmed by `codex-rs/core/src/tools/orchestrator.rs`,
+which turns any `ExecApprovalRequirement::Forbidden` into a rejected tool call
+unconditionally, regardless of `sandbox_mode`. `--dangerously-bypass-approvals-and-sandbox`
+(`--yolo`) is not a separate, more permissive code path around any of this —
+`codex-rs/cli/src/main.rs` shows it just sets `sandbox_mode = DangerFullAccess`
+and `approval_policy = Never`, the same two values a `default_permissions =
+":danger-full-access"` + `approval_policy = "never"` profile sets explicitly.
+So: an `allow` rule runs either way, a `forbidden` rule always blocks, and a
+`prompt` rule blocks under `never` and asks under every other approval policy
+— it never turns into a silent `allow` just because nothing is watching.
+
+Separately, Codex also flags some dangerous commands even with **zero**
+user-authored rules: `codex-rs/shell-command/src/command_safety/is_dangerous_command.rs`
+pattern-matches forced `rm` (`rm -rf`, `rm -f`, and wrapped/piped variants like
+`sudo rm -rf …`, `bash -c 'rm -rf …'`, `for x in …; do rm -rf …; done`) as a
+built-in "dangerous command" heuristic, which feeds the same
+`Never → Forbidden` / `else → Prompt` logic above. Don't over-generalize this,
+though — it is a literal pattern match on `rm`, not a semantic one: it does
+not catch `python -c "import shutil; shutil.rmtree('/')"`, `find . -delete`,
+`git push --force`, `git reset --hard`, or `sudo` in general. Anything outside
+forced-`rm` shapes needs an explicit `forbidden`/`prompt` rule of your own —
+see the `rm`/`sudo`/`git push --force`/`git reset --hard` entries in the
+headline recipe in `references/rules-execpolicy.md`.
+
+Verified 2026-09 against codex-cli 0.153.4 by reading the `codex-rs` source on
+`openai/codex` directly (`exec_policy.rs`, `tools/orchestrator.rs`,
+`shell-command/src/command_safety/is_dangerous_command.rs`, `cli/src/main.rs`)
+— at the time of writing, no blog post, Zenn/Qiita article, or the official
+docs spelled out this interaction, so re-check the source if behavior here
+seems to have drifted on a newer release.
+
 ## `codex features list` / `enable` / `disable`
 
 ```bash
@@ -106,6 +159,56 @@ layer) is actually landing in the running session.
 | AGENTS.md changes aren't taking effect | Either the combined instruction chain hit `project_doc_max_bytes` (32 KiB default) and later files got truncated, or the edited file is outside the discovery walk (wrong directory, or shadowed by an `AGENTS.override.md` in the same directory) | `references/agents-md.md` |
 | A permission profile change seems to have no effect | Both `sandbox_mode`/`[sandbox_workspace_write]` and `default_permissions`/`[permissions.<name>]` are active at once — the docs say use one system per session, not both, and mixing them produces confusing results | `references/permissions-and-sandbox.md` |
 | A skill isn't triggering, or doesn't seem to exist at all | Either it's outside every discovery path (or a broken/dangling symlink into one), or it loaded fine but its `description` doesn't match the request — run `codex debug prompt-input` to see the actual skill-roots table and catalog and tell the two apart | `references/skills-and-plugins.md` (discovery paths, symlink support) |
+
+## `codex sandbox` as a model-free test harness
+
+`codex doctor` does **not** accept `-p/--profile` (it errors with
+`unexpected argument '-p'`), so a profile file cannot be verified through
+it. `codex sandbox` can:
+
+```bash
+codex sandbox -p <profile-file-name> -- /bin/sh -c '<probe>'
+codex sandbox -P <permission-profile-name> -- <cmd>   # named profile from the stack
+```
+
+It runs a real command under the real sandbox with **no model call and no
+token cost**, which makes it the right way to answer "does this profile
+actually do what I wrote." Probe with exit codes rather than content:
+
+```bash
+codex sandbox -p mine -- /bin/sh -c '
+  head -c 1 ~/.ssh/known_hosts >/dev/null 2>&1; echo "read_ssh=$?"
+  touch .git/probe 2>/dev/null; echo "write_dotgit=$?"; rm -f .git/probe
+'
+```
+
+`--log-denials` (macOS) streams the sandbox denials the run produced.
+
+What `codex doctor --json` *does* report for this axis is the
+`sandbox.helpers` check, whose details carry `approval policy`,
+`filesystem sandbox` (`restricted` / `unrestricted`) and `network
+sandbox`. Those three are the fastest confirmation that a config edit
+landed — but they describe the **base** config only, never a `-p` layer.
+
+## The domain allowlist is a no-op without the network proxy
+
+`mode = "limited"` plus `[permissions.<name>.network.domains]` is only
+enforced when the MITM network proxy is on. With
+`features.network_proxy = false` the allowlist silently does nothing and
+every domain is reachable. Measured three ways on 0.153.4:
+
+| Config | `curl https://example.com` (not on the allowlist) |
+|---|---|
+| `mode = "limited"`, allowlist = github only, `network_proxy = false` | **200 — allowed** |
+| same, `--enable network_proxy` | 000 — blocked |
+| `network.enabled = false` | 000 — blocked |
+
+So `enabled = true/false` is enforced by the sandbox itself; per-domain
+filtering is enforced by the proxy. A config carrying a `domains` table
+without the proxy reads as protection that isn't there — say so rather
+than treating the allowlist as live. (The proxy re-signs TLS with the CA
+in `$CODEX_HOME/proxy/`, which is why Go binaries that ignore
+`SSL_CERT_FILE` — `gh` on macOS — fail TLS verification when it is on.)
 
 ## Process gates vs. CLI diagnostics
 

@@ -256,6 +256,97 @@ codex sandbox --permission-profile project-edit
 `-P, --permission-profile <NAME>` applies a named permission profile from the
 active config stack to the `codex sandbox` invocation.
 
+### What the desktop app's permission picker actually lists
+
+The Codex desktop app's "How should ChatGPT actions be approved?" menu is
+built from three sources:
+
+1. the built-in modes — **Ask for approval**, **Approve for me**, **Full
+   access**;
+2. every named `[permissions.<name>]` profile in `config.toml` (this is why
+   a custom `project-edit` shows up there by name);
+3. **Custom (config.toml)** — "uses permissions defined in config.toml",
+   i.e. whatever `default_permissions` + `approval_policy` say.
+
+A `$CODEX_HOME/<name>.config.toml` profile *file* (the `-p/--profile`
+layer) does **not** appear in that menu at all — it is CLI-only. Someone
+who builds a "full access" profile file and then goes looking for it in the
+app will not find it.
+
+Consequence worth stating up front: picking **Full access** in that menu
+sets `approval_policy = "never"` along with the sandbox. Under `never`, a
+Rules `prompt` entry has nobody to ask, so it **fails closed into a hard
+block** — "ask me before dangerous commands" quietly becomes "refuse
+dangerous commands." To run with the sandbox off *and* keep prompts as real
+prompts, put it in `config.toml` and pick **Custom (config.toml)**:
+
+```toml
+default_permissions = ":danger-full-access"   # sandbox off
+approval_policy = "on-request"                # prompts still prompt
+```
+
+### `":root" = "write"` — the fix for "Codex can't touch git metadata"
+
+`:workspace` (and `workspace-write`) keeps `.git` recursively read-only
+inside every writable root, so a profile that merely `extends = ":workspace"`
+leaves `git commit`, `rebase`, and `pre-commit install` failing. Granting
+`":root" = "write"` in the profile's `filesystem` table lifts that:
+
+```toml
+[permissions.wide.filesystem]
+":root" = "write"
+"/Users/me/.aws/**" = "deny"
+```
+
+Measured on 0.153.4: `.git` writable, `git status`/`commit` fine, `gh`
+fine, and paths outside the workspace writable — while the listed denies
+still hold. This is a genuine alternative to turning the sandbox off for
+someone whose only complaint is that git doesn't work.
+
+### Filesystem-table path syntax (two rules that bite)
+
+- Every key in a bare `[permissions.<name>.filesystem]` table must be
+  **absolute**, start with `~/`, or start with `:` — a relative glob like
+  `"**/*.env"` is rejected (`must be absolute, use `~/...`, or start with
+  `:``). Relative globs belong under the `":workspace_roots"` sub-table.
+  For "anywhere on disk," write `"/**/.env"`.
+- A glob key that does not end in `/**` supports **`deny` only** — `read`
+  and `write` need an exact path or a trailing `/**` subtree. So you cannot
+  carve a readable exception out of a deny glob (`"/**/.env.*" = "deny"`
+  cannot be un-denied for `.env.example`); enumerate the secret variants
+  instead of denying the whole family.
+
+### Denying SSH private keys without breaking `git push`
+
+`"~/.ssh/id_*" = "deny"` also denies the matching `.pub` files, and ssh
+needs the public half to select an agent identity — the result is
+`Permission denied (publickey)` even with a loaded `ssh-agent`. Deny the
+private keys by **exact path** instead and leave `~/.ssh/**` readable:
+
+```toml
+"/Users/me/.ssh/**" = "read"
+"/Users/me/.ssh/id_ed25519" = "deny"
+```
+
+Measured: `git ls-remote` over SSH succeeds via the agent while
+`head -c 1 ~/.ssh/id_ed25519` is denied. The cost is that a newly created
+key has to be added by hand — no glob can express it.
+
+### `approvals_reviewer` has a third value
+
+`ApprovalsReviewer` is `user | auto_review | guardian_subagent`. Guardian
+is a model-based risk classifier ("judging one planned coding-agent action
+… assess the exact action's intrinsic risk and whether the transcript
+authorizes its target and side effects"), with trigger sources including
+`command_execution`, `sandbox_denial`, `network_policy_denial` and
+`execve_intercept`. `guardian_approval` ships as a stable, default-on
+feature flag; `guardianv2` is still under development. It is the only layer
+in Codex that judges an action by **meaning** rather than by argv shape —
+relevant whenever someone asks how to catch a destructive operation whose
+spelling no `prefix_rule` pattern can anticipate. Whether it fires under
+`approval_policy = "never"` has not been verified here; don't assert that it
+does.
+
 ## /permissions and other in-session controls
 
 There is no `/approvals` command — it's `/permissions`.

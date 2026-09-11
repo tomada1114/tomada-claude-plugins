@@ -8,6 +8,7 @@
 - [Parallel vs sequential (`all` mode)](#parallel-vs-sequential-all-mode)
 - [Single mode: which issue](#single-mode-which-issue)
 - [Deciding a held design](#deciding-a-held-design)
+- [The `model: light` label](#the-model-light-label)
 
 **`plan.py` already answers most of this.** Its `grouping:` line is
 `MECHANICAL` when every issue in the batch declared its `touches=` — that
@@ -170,3 +171,28 @@ the background, the cleared issue is simply ready — for this run at step 8c if
 budget allows, otherwise for the next one. The tier label is untouched by any
 of this — see priority-rubric.md's note that tier and design-readiness are
 orthogonal.
+
+## The `model: light` label
+
+Marks an issue a lightweight model can ship from its body alone without the
+result suffering — the thinking is done, only execution is left. The `light`
+mode ships only these, and a lighter runner (the Codex-side skill) is expected
+to take them, so a false positive sends a weak model into judgment work while a
+false negative only costs a stronger one. When in doubt, leave it off.
+
+All three must hold:
+
+1. **Design settled** — no `blocked: design` / `design=open`, and no open
+   question in the body: it names the files, the shape of the change, and the
+   close condition. "Decide", "measure and choose", "tune", "consider" fail it.
+2. **Small** — one coherent PR of a handful of files, following a pattern the
+   repository already has.
+3. **Little to judge** — the close condition is a command or test that passes.
+   Nothing [foundational](cost-discipline.md#the-foundation-exception-opus-for-what-the-backlog-builds-on),
+   and nothing whose output quality is the judgment (generated content, prompt
+   tuning, choosing from a measurement).
+
+Tier and `blocked: dependency` are orthogonal: a light issue still ranks by its
+tier and still passes the readiness gate above like any other. A repository
+that keeps its own label vocabulary (a `triaging-issues` skill,
+`.github/labels.yml`) owns the definition there; this section is the fallback.

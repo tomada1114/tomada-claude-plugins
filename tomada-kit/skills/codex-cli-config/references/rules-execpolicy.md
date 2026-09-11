@@ -215,3 +215,65 @@ Caveats worth keeping in mind when adapting this:
 
 For why `.git` needs an escape hatch at all under `workspace-write`, see
 `references/permissions-and-sandbox.md`.
+
+## Measured limits of the pattern language (0.153.4)
+
+The Starlark builtins the policy parser exposes are exactly `prefix_rule`,
+`network_rule`, `paths` and `host_executable`. There is **no regex, glob or
+substring matching on arguments** — a pattern is a positional list where
+each position is a literal token or a list of literal alternatives. Three
+consequences worth stating plainly whenever someone asks "why didn't my
+rule fire":
+
+**1. A shell wrapper defeats every rule.** Anything with a redirect, pipe,
+substitution or control structure arrives as one `["bash","-lc","<whole
+line>"]` invocation, and no rule written against the inner command matches:
+
+```
+$ codex execpolicy check -r default.rules -- rm -rf /
+{"decision":"forbidden"}
+$ codex execpolicy check -r default.rules -- bash -lc "rm -rf /"
+{"matchedRules":[]}
+```
+
+Same for `bash -lc "cat .env"`, `bash -lc "sudo …"`, `bash -lc "git commit
+--no-verify"`. Only the built-in dangerous-`rm` heuristic (a separate code
+path, invisible to `execpolicy check`) unwraps `sudo` / `env` / `bash -c` /
+`for` loops at all. Rules are a speed limit, not a wall.
+
+**2. Position is fixed, so a flag that moves is a flag that escapes.**
+
+```
+find . -delete               -> prompt      (matches ["find",".","-delete"])
+find . -name '*.py' -delete  -> NO MATCH
+rsync --delete src dst       -> prompt
+rsync -a --delete src dst    -> NO MATCH
+```
+
+**3. Only the argv *shape* is visible, never the intent.** `cat .env` is
+blockable; `grep -r KEY .env` and `python3 -c "open('.env').read()"` are
+not. A file-level guarantee has to come from the permission profile's
+`filesystem` deny (which applies to every reader), not from rules — and a
+disabled sandbox gives that up.
+
+### `any_of` works at position 0 too
+
+The alternatives list is not special-cased to later positions, so a whole
+family of readers collapses into one rule:
+
+```python
+SECRET_READERS = ["cat", "bat", "head", "less", "xxd", "cp", "open", "vim"]
+SECRET_FILES   = [".env", "./.env", "~/.netrc"]
+
+prefix_rule(
+    pattern = [SECRET_READERS, SECRET_FILES],
+    decision = "forbidden",
+    justification = "Reading or copying a secret file is not allowed.",
+    match = ["cat .env", "cp .env /tmp/x", "open ~/.netrc"],
+    not_match = ["cat .env.example", "cp src/a.ts src/b.ts"],
+)
+```
+
+Verified against 0.153.4. Note that `match`/`not_match` examples are
+checked when the file loads, so a rules file that `codex execpolicy check`
+parses at all has already self-tested every example in it.

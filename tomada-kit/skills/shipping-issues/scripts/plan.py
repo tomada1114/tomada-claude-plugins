@@ -22,7 +22,7 @@ answer. That degrades in the right direction: the more issues carry a ship
 contract, the less there is left to judge.
 
 Usage:
-    plan.py [--mode all|single|<issue number>] [--max-parallel N]
+    plan.py [--mode all|light|single|<issue number>] [--max-parallel N]
             [--label L]... [--assignee A] [--milestone M]
             [--include-design] [--refresh] [--record] [--json]
 
@@ -47,6 +47,10 @@ SKILL_DIR = Path(__file__).resolve().parent
 # otherwise. Three is a balance struck in cost-discipline.md, not a technical
 # limit; --max-parallel is how a caller who asked for more gets it.
 DEFAULT_MAX_PARALLEL = 3
+
+# `light` mode is `all` narrowed to issues triage marked as shippable by a
+# lightweight model (design settled, small, low-judgment).
+LIGHT_LABEL = "model: light"
 
 # Branch-name prefix by what the issue evidently is. Read from the title's
 # conventional-commit prefix first, then its labels, so a repo that writes
@@ -211,7 +215,7 @@ def group_batches(
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--mode", default="single",
-                   help="all | single | an issue number (the skill's argument)")
+                   help="all | light | single | an issue number (the skill's argument)")
     p.add_argument("--max-parallel", type=int, default=DEFAULT_MAX_PARALLEL,
                    help=f"worktrees held open at once in all mode "
                         f"(default {DEFAULT_MAX_PARALLEL}); the user asking for "
@@ -232,12 +236,14 @@ def main() -> int:
     args = p.parse_args()
 
     explicit_issue = None
-    if args.mode not in ("all", "single"):
+    if args.mode not in ("all", "light", "single"):
         if not args.mode.lstrip("#").isdigit():
-            print("error: --mode takes 'all', 'single' or an issue number",
+            print("error: --mode takes 'all', 'light', 'single' or an issue number",
                   file=sys.stderr)
             return 2
         explicit_issue = int(args.mode.lstrip("#"))
+    if args.mode == "light" and LIGHT_LABEL not in args.label:
+        args.label.append(LIGHT_LABEL)
     if args.max_parallel < 1:
         print("error: --max-parallel must be at least 1", file=sys.stderr)
         return 2
@@ -336,7 +342,7 @@ def main() -> int:
         ready = [r for r in ranking if r["number"] == explicit_issue]
 
     # --- 3. grouping -------------------------------------------------------
-    if args.mode == "all" and explicit_issue is None:
+    if args.mode in ("all", "light") and explicit_issue is None:
         batches, confidence, undeclared = group_batches(ready, args.max_parallel)
     else:
         # One issue means one branch in the main checkout: a worktree for it

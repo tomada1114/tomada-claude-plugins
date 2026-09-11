@@ -1,7 +1,7 @@
 ---
 name: shipping-issues
-description: "Rank open GitHub Issues by their `priority: P0`-`P3` labels — backfilling a missing label from how much an issue unblocks and how far its impact spreads — then implement the top one, review and fix it with `/code-review` before the PR, open a PR that auto-closes the issue (Closes #N), watch CI to green, merge on green with no approval pause, confirm the issue closed, and return the checkout to the default branch. With no argument it ships the highest-priority issue and then what that run itself produced — the follow-ups it filed, the designs it unblocked. Pass \"all\" to work through every issue in dependency order, independent ones implemented in parallel git worktrees, with PR, CI and merge still serialized. Design-blocked issues get a background sub-agent that decides the approach and clears the block. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, or work through the open issues."
-argument-hint: "[all | <issue number> | (empty = one issue)] [parallel N]"
+description: "Rank open GitHub Issues by their `priority: P0`-`P3` labels — backfilling a missing label from how much an issue unblocks and how far its impact spreads — then implement the top one, review and fix it with `/code-review` before the PR, open a PR that auto-closes the issue (Closes #N), watch CI to green, merge on green with no approval pause, confirm the issue closed, and return the checkout to the default branch. With no argument it ships the highest-priority issue and then what that run itself produced — the follow-ups it filed, the designs it unblocked. Pass \"all\" to work through every issue in dependency order, independent ones implemented in parallel git worktrees, with PR, CI and merge still serialized; pass \"light\" to do the same for only the issues labeled `model: light` (design settled, small, low-judgment). Design-blocked issues get a background sub-agent that decides the approach and clears the block. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, or work through the open issues."
+argument-hint: "[all | light | <issue number> | (empty = one issue)] [parallel N]"
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/*.py:*), Bash(${CLAUDE_SKILL_DIR}/scripts/*.sh:*)
 metadata:
   platforms: claude-code
@@ -34,6 +34,7 @@ inline: a genuinely tied top two at step 2, and `NO_CHECKS` at step 6.
 |---|---|
 | _(none)_ | Ship the highest-priority shippable issue, then continue through **its own output only** — the follow-ups it filed, the designs it unblocked ([step 8c](#8c-take-the-runs-own-output-back-into-the-queue)). Never reaches back into the wider backlog. |
 | `all` | Ship every shippable issue, in dependency-then-priority order. Independent issues are implemented and reviewed in parallel, one git worktree each; PR, CI watch and merge stay serialized. Follow-ups this run files join the same queue. |
+| `light` | `all`, narrowed to open issues labeled `model: light` ([what the label means](references/dependency-triage.md#the-model-light-label)). A follow-up this run files joins the queue only if it carries the label too. The label chooses *which* issues, not *how*: implementation keeps the [model assignment](references/cost-discipline.md#model-and-effort-assignment) it would get anyway. |
 | a number, e.g. `42` | Ship that specific issue, after checking nothing it depends on is still open. |
 
 A count or concurrency in the argument — "10個ぐらい", "3 at a time", "parallel
@@ -94,7 +95,7 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/run_record.py --repo <owner>/<repo> \
 ### 1. Plan — one call
 
 ```bash
-python3 ${CLAUDE_SKILL_DIR}/scripts/plan.py --mode <all|single|N> \
+python3 ${CLAUDE_SKILL_DIR}/scripts/plan.py --mode <all|light|single|N> \
     [--max-parallel N] [--label L] [--assignee A] [--milestone M] \
     [--include-design] --record
 ```
@@ -374,7 +375,8 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/file_followup.py \
 `--tier` is required even with `--needs-design` — the moment the design is
 decided the issue must already rank correctly. `--area` and `--touches` become
 the issue's [ship contract](references/ship-contract.md). `--needs-design` is for
-an open design question, not a verified fix. Exit 2 (`NO_WRITE_ACCESS`) → report
+an open design question, not a verified fix. Add `--label "model: light"` when the
+follow-up meets [its three conditions](references/dependency-triage.md#the-model-light-label). Exit 2 (`NO_WRITE_ACCESS`) → report
 the finding at step 10 instead. File as you go, right after the PR that surfaced
 it lands; record (`--event followup`), and pass `--refresh` on the next plan.
 

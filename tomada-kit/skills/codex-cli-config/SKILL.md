@@ -64,6 +64,21 @@ prefix_rule(
 Full recipe, safety-complement rules (`push`, `push --force`, `reset --hard`),
 and caveats: `references/rules-execpolicy.md`.
 
+**"I picked Full access but now it refuses things instead of asking."**
+Full access sets `approval_policy = "never"` alongside the sandbox, and a
+Rules `prompt` entry with nobody to ask fails closed into a block. For
+"sandbox off, but still ask me," write `default_permissions =
+":danger-full-access"` + `approval_policy = "on-request"` in `config.toml`
+and select **Custom (config.toml)** in the app's picker — a `-p` profile
+*file* never appears in that picker at all.
+`references/permissions-and-sandbox.md`.
+
+**"Codex can't write git metadata / commits fail under my profile."**
+`:workspace` keeps `.git` recursively read-only. A custom profile needs
+`":root" = "write"` in its `filesystem` table — that is usually the whole
+fix, and it beats turning the sandbox off.
+`references/permissions-and-sandbox.md`.
+
 **"Codex equivalent of Claude Code's auto mode."** `workspace-write` +
 `approval_policy = "on-request"` + `approvals_reviewer = "auto_review"` (or
 `codex exec --approve-for-me`) — same sandbox boundary as standard on-request,
@@ -79,6 +94,16 @@ forward path for anything finer-grained. `references/permissions-and-sandbox.md`
 
 **"There's no `/approvals` command."** It's `/permissions`. `/approve` is a
 different thing (retry an auto-review denial). `references/permissions-and-sandbox.md`.
+
+**"Does a `forbidden` rule still block under Full Access / `--yolo`?"** Yes.
+`--dangerously-bypass-approvals-and-sandbox` just sets `sandbox_mode =
+DangerFullAccess` + `approval_policy = Never` — the same two values a
+`:danger-full-access` + `never` profile sets explicitly, not a separate
+bypass path. A `forbidden` rule always blocks; a `prompt` rule fails closed to
+a block under `never` (no one left to ask) instead of silently running; only
+`allow` is unaffected. Verified against the `codex-rs` source, not a blog —
+full citations and the built-in dangerous-`rm` heuristic that applies even
+with zero user rules: `references/diagnostics.md`.
 
 ## Reference map
 
@@ -111,6 +136,10 @@ usually resolves in `diagnostics.md`'s symptom table plus one linked file.
 - When a fact in these references looks like it might have drifted (flag
   names change often on Codex CLI releases), say so and suggest checking
   `codex --help` / `codex doctor` / the docs rather than asserting confidently.
+- Never verify a `forbidden`/dangerous rule (or answer "will this survive
+  Full Access") by having the agent actually run the dangerous command —
+  that's a real invocation, not a test. Use `codex execpolicy check` (a
+  static, non-executing rule matcher) instead — see `references/diagnostics.md`.
 
 ## Platform notes
 

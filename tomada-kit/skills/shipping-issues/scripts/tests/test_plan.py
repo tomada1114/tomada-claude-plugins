@@ -290,6 +290,22 @@ class MainTest(unittest.TestCase):
         self.assertIn("max-parallel 10", out)
         self.assertIn("--spec 10:", out)
 
+    def test_light_mode_filters_on_the_light_label_and_groups_like_all(self):
+        rows = [rank_row(1, touches=["src/a/"]), rank_row(2, touches=["src/b/"])]
+        rc, out, err = self._run(["--mode", "light"], rows)
+        self.assertEqual(rc, 0, err)
+        i = self.digest_cmd.index("--label")
+        self.assertEqual(self.digest_cmd[i + 1], plan.LIGHT_LABEL)
+        self.assertIn("plan: parallel", out)
+        self.assertIn("--spec 1:", out)
+        self.assertIn("--spec 2:", out)
+
+    def test_light_mode_does_not_repeat_a_label_the_caller_passed(self):
+        rc, _, err = self._run(["--mode", "light", "--label", plan.LIGHT_LABEL],
+                               [rank_row(1)])
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.digest_cmd.count(plan.LIGHT_LABEL), 1)
+
     def test_explicit_issue_number_selects_only_that_issue(self):
         rows = [rank_row(1, touches=["a/"]), rank_row(42, touches=["b/"])]
         rc, out, err = self._run(["--mode", "42"], rows)
