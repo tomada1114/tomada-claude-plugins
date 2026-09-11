@@ -21,7 +21,12 @@ full issue body into the prompt means the parent must first pull it into *this*
 context — the exact cost `cost-discipline.md` exists to avoid, paid once per
 issue and again on every resume run. So every template below that reads an
 issue hands over its *number* and lets the agent run `gh issue view <n>
---comments` itself, under the standing prohibitions below. Give it a
+--repo <o/r> --json title,body,labels,comments` itself, under the standing
+prohibitions below. The JSON form is not a style choice: without a TTY — which
+is how every sub-agent runs `gh` — `gh issue view <n> --comments` prints the
+comments and **not the body**, so an agent handed that command implements an
+issue it never read (observed: the agent reported the body's checklist as
+unreadable). Give it a
 two-or-three-sentence paraphrase alongside, marked as subordinate to the body,
 so a misread is visible rather than silent. What never moves to a sub-agent is
 a write, or a merge-gating judgment.

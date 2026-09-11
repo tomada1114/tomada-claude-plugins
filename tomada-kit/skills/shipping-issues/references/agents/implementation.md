@@ -22,7 +22,7 @@ repository. {workdir_note}
 {Issue #{n}: "{title}" (labels: {labels}{, UNBLOCKS/BLOCKED-BY if any}).
 
 Read the full issue body and every comment yourself, read-only, with:
-  gh issue view {n} --repo {owner}/{repo} --comments
+  gh issue view {n} --repo {owner}/{repo} --json title,body,labels,comments
 That read is the ONLY GitHub command you are permitted to run.
 
 Then a short paraphrase of what the issue asks — two or three sentences — so
@@ -72,7 +72,7 @@ Do:
 5. Commit in coherent increments, and push as soon as the first coherent
    commit exists — a run stopped mid-way keeps only what was pushed.
 6. The only GitHub command you may run is
-   `gh issue view {n} --repo {owner}/{repo} --comments` — every other GitHub
+   `gh issue view {n} --repo {owner}/{repo} --json title,body,labels,comments` — every other GitHub
    call, including `gh pr`, `gh issue edit/comment/close`, any label change,
    or a non-GET `gh api` call, belongs to the parent (it opens the PR and
    watches CI). Never `rm`: undo a probe inside the checkout with

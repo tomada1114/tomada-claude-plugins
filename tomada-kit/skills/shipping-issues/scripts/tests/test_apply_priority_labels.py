@@ -176,6 +176,40 @@ class SetClearDesignTest(unittest.TestCase):
         self.assertFalse(edited)
 
 
+class ClearDependencyTest(unittest.TestCase):
+    """clear_dependency() shells out to the real `gh` on PATH — route PATH at
+    a fake one instead of mocking subprocess, same as SetClearDesignTest."""
+
+    def test_removes_carried_label(self):
+        view = json.dumps({"labels": [{"name": "blocked: dependency"},
+                                      {"name": "priority: P1"}]})
+        with FakeGh({("issue", "view"): view, ("issue", "edit"): ""}) as fake:
+            with patch.dict("os.environ", fake.env, clear=False):
+                removed = apl.clear_dependency(12, dry_run=False)
+            edits = [c for c in fake.calls if c[:2] == ["issue", "edit"]]
+        self.assertEqual(removed, ["blocked: dependency"])
+        self.assertEqual(
+            edits, [["issue", "edit", "12", "--remove-label", "blocked: dependency"]])
+
+    def test_noop_when_not_present(self):
+        view = json.dumps({"labels": [{"name": "priority: P1"}]})
+        with FakeGh({("issue", "view"): view}) as fake:
+            with patch.dict("os.environ", fake.env, clear=False):
+                removed = apl.clear_dependency(12, dry_run=False)
+            edited = any(c[:2] == ["issue", "edit"] for c in fake.calls)
+        self.assertEqual(removed, [])
+        self.assertFalse(edited)
+
+    def test_dry_run_makes_no_gh_mutations(self):
+        view = json.dumps({"labels": [{"name": "blocked: dependency"}]})
+        with FakeGh({("issue", "view"): view}) as fake:
+            with patch.dict("os.environ", fake.env, clear=False):
+                removed = apl.clear_dependency(12, dry_run=True)
+            edited = any(c[:2] == ["issue", "edit"] for c in fake.calls)
+        self.assertEqual(removed, ["blocked: dependency"])
+        self.assertFalse(edited)
+
+
 class MainEndToEndTest(unittest.TestCase):
     """Runs main() in-process against a fake `gh` on PATH. load_digest()
     still shells out to issue_digest.py as a real subprocess (that is its
@@ -356,6 +390,63 @@ class MainEndToEndTest(unittest.TestCase):
         self.assertEqual(rc, 0, err)
         payload = json.loads(out)
         self.assertEqual(payload["design_cleared"], [{"number": 12, "removed": []}])
+
+    def test_clear_dependency_via_main_reports_cleared(self):
+        view = json.dumps({"labels": [{"name": "blocked: dependency"}]})
+        rc, out, err, fake = self._run(
+            ["--clear-dependency", "12"],
+            {("issue", "view"): view, ("issue", "edit"): ""},
+        )
+        self.assertEqual(rc, 0, err)
+        self.assertIn("#12: dependency-block cleared", out)
+
+    def test_clear_dependency_via_main_is_noop_when_absent(self):
+        view = json.dumps({"labels": []})
+        rc, out, err, fake = self._run(
+            ["--clear-dependency", "12"],
+            {("issue", "view"): view},
+        )
+        self.assertEqual(rc, 0, err)
+        self.assertIn("#12: dependency-block already clear", out)
+        self.assertFalse(any(c[:2] == ["issue", "edit"] for c in fake.calls))
+
+    def test_clear_dependency_dry_run_makes_no_gh_mutations(self):
+        view = json.dumps({"labels": [{"name": "blocked: dependency"}]})
+        rc, out, err, fake = self._run(
+            ["--clear-dependency", "12", "--dry-run"],
+            {("issue", "view"): view},
+        )
+        self.assertEqual(rc, 0, err)
+        self.assertFalse(any(c[:2] == ["issue", "edit"] for c in fake.calls))
+
+    def test_clear_dependency_via_main_json_output(self):
+        view = json.dumps({"labels": []})
+        rc, out, err, fake = self._run(
+            ["--clear-dependency", "12", "--json"],
+            {("issue", "view"): view},
+        )
+        self.assertEqual(rc, 0, err)
+        payload = json.loads(out)
+        self.assertEqual(payload["dependency_cleared"], [{"number": 12, "removed": []}])
+
+    def test_clear_dependency_combines_with_clear_design_in_one_call(self):
+        view = json.dumps({"labels": [{"name": "blocked: dependency"},
+                                      {"name": "blocked: design"}]})
+        rc, out, err, fake = self._run(
+            ["--clear-dependency", "12", "--clear-design", "12", "--json"],
+            {("issue", "view"): view, ("issue", "edit"): ""},
+        )
+        self.assertEqual(rc, 0, err)
+        payload = json.loads(out)
+        self.assertEqual(payload["dependency_cleared"],
+                         [{"number": 12, "removed": ["blocked: dependency"]}])
+        self.assertEqual(payload["design_cleared"],
+                         [{"number": 12, "removed": ["blocked: design"]}])
+
+    def test_clear_dependency_combined_with_backfill_is_a_usage_error(self):
+        rc, out, err, fake = self._run(["--clear-dependency", "12", "--backfill"], {})
+        self.assertNotEqual(rc, 0)
+        self.assertIn("standalone", err)
 
     def test_set_on_already_correct_label_is_unchanged(self):
         issues = json.dumps([issue(12, ["priority: P0"])])

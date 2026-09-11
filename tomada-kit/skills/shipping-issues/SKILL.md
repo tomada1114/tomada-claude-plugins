@@ -132,6 +132,11 @@ Field-by-field legend, caching rules, and the one-call way to pull issue bodies:
   [step 8b](#8b-unblock-held-designs-in-the-background). Spawn that round **here,
   before step 3** — it costs this session nothing to wait on, and starting now is
   what gets those issues unblocked while the run is still going.
+- `stale-labels:` names issues still labeled `blocked: dependency` although
+  every dependency is closed. Readiness already ignores that label, but a human
+  reading the backlog does not — run the `--clear-dependency` command the line
+  prints, without asking. The same line after a merge (the re-plan at step 8c)
+  is how the issues that merge just unblocked get cleared.
 
 `labels: COMPLETE` → **skip step 2**. `github: write=no` → label and follow-up
 writes exit 2, so rank from `~Pn` suggestions and report findings instead.
@@ -370,10 +375,19 @@ and finish this PR on that path. Exit 2 → treat as `verdict: ERROR`. The forma
 and why a marker from anyone but the reviewer bot is ignored:
 [ci-review.md](references/ci-review.md).
 
+**You read the findings; the script does not.** The digest hands over the
+reviewer's summary and inline comments verbatim, because a model wrote them and
+a parser would drop whatever it failed to match. List each finding with the
+severity and `R<n>` the reviewer gave it. Where the reviewer slipped — no
+number, no tag — number it by position, take its severity from
+[the table](references/ci-review.md#severity), and say so in the response.
+`declared:` is the reviewer's own tally: a tally that disagrees with the list
+is a slip to mention at step 10, never a reason to read fewer findings.
+
 **The CI review is a lead, not a verdict.** It reads the change from a context
-that did not write it, and it can be wrong about it. Read every finding against
-the code before acting on it, the same way step 4's findings are triaged. Each
-one ends as exactly one of:
+that did not write it, and it can be wrong about it — severity tags included.
+Read every finding against the code before acting on it, the same way step 4's
+findings are triaged. Each one ends as exactly one of:
 
 - **fixed** — accepted, and in this PR's scope;
 - **rejected** — wrong in front of the code; the reason is a fact about the
@@ -386,6 +400,11 @@ one ends as exactly one of:
 | 1 | every accepted finding, `nit` included | out-of-scope and `pre-existing` |
 | 2 | accepted `must-fix` and `should-fix` | `nit` |
 | 3 and later | accepted `must-fix` only | `should-fix`, `nit` |
+
+This table governs the PR even where the host brings its own PR-handling
+defaults — a PR-activity subscription's "optional findings never start a
+push" or "no round limit" among them. The user invoked this skill, and its
+round rules are what they chose.
 
 Then, in this order:
 
@@ -506,7 +525,11 @@ next run, or for this one at step 8c.
 Before cleanup, re-plan (`plan.py --mode <same> --refresh
 --allow-existing-worktrees`) and keep going through **what this run produced**:
 the follow-ups filed at step 8 and the issues step 8b unblocked. Each runs the
-same steps 3–8, one PR at a time. Take one on only when all four hold:
+same steps 3–8, one PR at a time. With an explicit issue number, the re-plan
+only ever looks at that number and prints `select: none` — so re-plan each
+candidate by its own number instead (`plan.py --mode <m> --refresh`), and
+apply condition 4 from its labels yourself. Take one on only when all four
+hold:
 
 1. **Depth 1** — it came from *this* run's own work. A follow-up filed while
    shipping a follow-up is recorded and left for the next run.
@@ -537,9 +560,13 @@ Step 7 already left `HEAD` on the up-to-date default branch, which the branch
 deletion below requires — it refuses to delete whatever is currently checked out,
 in the main checkout *or* in a surviving worktree.
 
+Pass every branch this run created as `--branch <name>`. Without it the
+script deletes every merged-PR branch in the repository — other people's
+included — which is not this run's to decide.
+
 ```bash
-${CLAUDE_SKILL_DIR}/scripts/cleanup_run.sh [--remote] [--dry-run] \
-    [--worktree-root <runstate>/worktrees] [--merged-only] [--force]
+${CLAUDE_SKILL_DIR}/scripts/cleanup_run.sh --branch <name> [--branch <name> ...] \
+    [--remote] [--dry-run] [--worktree-root <runstate>/worktrees] [--merged-only] [--force]
 ${CLAUDE_SKILL_DIR}/scripts/preflight.sh \
     --profile-cache <runstate>/repo-profile.json --set-worktree-viable <yes|no>
 ```

@@ -297,6 +297,23 @@ class DesignBlockLabelsTest(unittest.TestCase):
         self.assertNotIn(idg.normalize_label("bug"), idg.DESIGN_BLOCK_LABELS)
 
 
+class DependencyBlockLabelsTest(unittest.TestCase):
+    def test_normalized_equivalents_all_recognized(self):
+        for name in ("blocked: dependency", "Blocked: Dependency",
+                     "blocked/dependency", "blocked-by-dependency",
+                     "blocked: dependencies", "waiting on dependency"):
+            self.assertIn(idg.normalize_label(name), idg.DEPENDENCY_BLOCK_LABELS,
+                          f"{name!r} should be a recognized dependency-block label")
+
+    def test_bare_blocked_not_recognized(self):
+        # Deliberately excluded — ambiguous with READY_NEGATIVE_LABELS's
+        # general "blocked" and not specific to a dependency edge.
+        self.assertNotIn(idg.normalize_label("blocked"), idg.DEPENDENCY_BLOCK_LABELS)
+
+    def test_unrelated_label_not_recognized(self):
+        self.assertNotIn(idg.normalize_label("bug"), idg.DEPENDENCY_BLOCK_LABELS)
+
+
 class ResolveDesignLabelTest(unittest.TestCase):
     def test_canonical_present_is_reused(self):
         name, needs_create = idg.resolve_design_label(["blocked: design", "bug"])
@@ -445,6 +462,44 @@ class MainEndToEndTest(DigestRunner, unittest.TestCase):
         rc, out, err = self._run([], issues)
         self.assertEqual(rc, 0, err)
         self.assertIn("NEEDS-DESIGN:blocked: design", out)
+
+    def test_stale_dependency_label_detected_when_all_deps_closed(self):
+        # #2 is not in the open-issue list at all, i.e. closed — so #1's only
+        # recorded dependency has closed and its label is stale.
+        issues = [gh_issue(1, title="stale label", labels=["priority: P1",
+                            "blocked: dependency"], body="depends on #2")]
+        rc, out, err = self._run(["--json"], issues)
+        self.assertEqual(rc, 0, err)
+        payload = json.loads(out)
+        self.assertEqual(payload["stale_dependency_labels"], [1])
+        rec = payload["issues"][0]
+        self.assertEqual(rec["stale_dependency_labels"], ["blocked: dependency"])
+
+    def test_not_stale_when_a_dependency_is_still_open(self):
+        issues = [
+            gh_issue(1, title="still blocked", labels=["priority: P1",
+                     "blocked: dependency"], body="depends on #2"),
+            gh_issue(2, title="the blocker", labels=["priority: P3"]),
+        ]
+        rc, out, err = self._run(["--json"], issues)
+        self.assertEqual(rc, 0, err)
+        payload = json.loads(out)
+        self.assertEqual(payload["stale_dependency_labels"], [])
+        rec = next(r for r in payload["issues"] if r["number"] == 1)
+        self.assertEqual(rec["stale_dependency_labels"], [])
+
+    def test_not_stale_when_no_dependency_recorded(self):
+        # The label is present but no edge was ever declared or scraped — the
+        # edge may be expressed somewhere the regex/contract scrape misses,
+        # so this is deliberately left alone rather than flagged.
+        issues = [gh_issue(1, title="no recorded dep",
+                            labels=["priority: P1", "blocked: dependency"])]
+        rc, out, err = self._run(["--json"], issues)
+        self.assertEqual(rc, 0, err)
+        payload = json.loads(out)
+        self.assertEqual(payload["stale_dependency_labels"], [])
+        rec = payload["issues"][0]
+        self.assertEqual(rec["stale_dependency_labels"], [])
 
     def test_issue_filter_restricts_output_but_not_dependency_graph(self):
         issues = [

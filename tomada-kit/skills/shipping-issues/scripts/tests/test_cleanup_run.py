@@ -332,6 +332,167 @@ class CleanupRunTest(unittest.TestCase):
         self.assertIn(str(wt), worktrees)
         self.assertIn("feat/2-merged", branches)
 
+    def test_branch_flag_limits_local_pass_to_named_branches(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            make_repo(repo)
+            add_local_origin(repo, Path(td))
+            git(repo, "branch", "feat/1-merged")
+            git(repo, "branch", "feat/2-merged")
+
+            proc, calls = run_script(
+                ["--branch", "feat/1-merged"],
+                repo,
+                {MERGED_LIST: "feat/1-merged\nfeat/2-merged", OPEN_LIST: ""},
+            )
+
+            branches = git(repo, "branch", "--format=%(refname:short)").stdout.splitlines()
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("deleted local branch: feat/1-merged\n", proc.stdout)
+        self.assertNotIn("feat/1-merged", branches)
+        # #2 is just as merged, but it was never named — --branch means this
+        # run's own branches only.
+        self.assertIn("feat/2-merged", branches)
+
+    def test_branch_flag_skips_a_name_already_gone_locally(self):
+        # Observed: the merge had already deleted the run's local branch, and a
+        # dry run still proposed `branch -D` for it.
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            make_repo(repo)
+            add_local_origin(repo, Path(td))
+
+            proc, _calls = run_script(
+                ["--dry-run", "--branch", "feat/1-merged"],
+                repo,
+                {MERGED_LIST: "feat/1-merged", OPEN_LIST: ""},
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertNotIn("branch -D feat/1-merged", proc.stdout)
+        self.assertNotIn("deleted local branch", proc.stdout)
+
+    def test_without_branch_flag_old_behavior_holds(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            make_repo(repo)
+            add_local_origin(repo, Path(td))
+            git(repo, "branch", "feat/1-merged")
+            git(repo, "branch", "feat/2-merged")
+
+            proc, calls = run_script(
+                [],
+                repo,
+                {MERGED_LIST: "feat/1-merged\nfeat/2-merged", OPEN_LIST: ""},
+            )
+
+            branches = git(repo, "branch", "--format=%(refname:short)").stdout.splitlines()
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("deleted local branch: feat/1-merged\n", proc.stdout)
+        self.assertIn("deleted local branch: feat/2-merged\n", proc.stdout)
+        self.assertNotIn("feat/1-merged", branches)
+        self.assertNotIn("feat/2-merged", branches)
+
+    def test_branch_flag_skips_automatic_worktree_agent_pass(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            make_repo(repo)
+            add_local_origin(repo, Path(td))
+            git(repo, "branch", "worktree-agent-one")
+
+            proc, calls = run_script(
+                ["--branch", "worktree-agent-one"],
+                repo,
+                {MERGED_LIST: "", OPEN_LIST: ""},
+            )
+
+            branches = git(repo, "branch", "--format=%(refname:short)").stdout.splitlines()
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        # Named explicitly, but it carries no merged PR — with --branch it
+        # must clear the same guard as everything else, not the automatic
+        # unconditional deletion the unscoped pass gives worktree-agent-*.
+        self.assertIn("worktree-agent-one", branches)
+
+    def test_branch_flag_still_honours_merged_pr_guard(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            make_repo(repo)
+            add_local_origin(repo, Path(td))
+            git(repo, "branch", "feat/unmerged")
+
+            proc, calls = run_script(
+                ["--branch", "feat/unmerged"],
+                repo,
+                {MERGED_LIST: "", OPEN_LIST: ""},
+            )
+
+            branches = git(repo, "branch", "--format=%(refname:short)").stdout.splitlines()
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("feat/unmerged", branches)
+
+    def test_remote_pass_deletes_only_named_branch(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td).resolve()
+            repo = td / "repo"
+            repo.mkdir()
+            make_repo(repo)
+            origin = td / "origin.git"
+            git(td, "init", "--bare", "-q", str(origin))
+            git(repo, "remote", "add", "origin", str(origin))
+            git(repo, "branch", "feat/1-merged")
+            git(repo, "branch", "feat/2-merged")
+            git(repo, "push", "-q", "origin", "main", "feat/1-merged", "feat/2-merged")
+            git(repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+
+            proc, calls = run_script(
+                ["--remote", "--branch", "feat/1-merged"],
+                repo,
+                {MERGED_LIST: "feat/1-merged\nfeat/2-merged", OPEN_LIST: ""},
+            )
+
+            remote_branches = git(origin, "branch", "--list").stdout
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("deleted remote branch: origin/feat/1-merged\n", proc.stdout)
+        self.assertNotIn("feat/1-merged", remote_branches)
+        # feat/2-merged is just as merged, but never named.
+        self.assertIn("feat/2-merged", remote_branches)
+
+    def test_remote_pass_does_not_list_a_ref_absent_from_ls_remote(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td).resolve()
+            repo = td / "repo"
+            repo.mkdir()
+            make_repo(repo)
+            origin = td / "origin.git"
+            git(td, "init", "--bare", "-q", str(origin))
+            git(repo, "remote", "add", "origin", str(origin))
+            git(repo, "branch", "feat/gone")
+            git(repo, "push", "-q", "origin", "main", "feat/gone")
+            git(repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+            git(repo, "fetch", "-q", "origin")
+            # Simulate delete-on-merge: the ref is gone on origin, but this
+            # checkout never fetched again, so its local remote-tracking ref
+            # (refs/remotes/origin/feat/gone) is stale.
+            git(origin, "branch", "-D", "feat/gone")
+
+            proc, calls = run_script(
+                ["--remote", "--dry-run"],
+                repo,
+                {MERGED_LIST: "feat/gone", OPEN_LIST: ""},
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        # The local pass still deletes its own (real, merged) local branch —
+        # only the remote pass's enumeration is under test here: it must never
+        # claim a deletion for a ref ls-remote no longer reports.
+        self.assertNotIn("push origin --delete feat/gone", proc.stdout)
+        self.assertNotIn("deleted remote branch: origin/feat/gone", proc.stdout)
+
     def test_gh_lookup_failure_stops_cleanup(self):
         with tempfile.TemporaryDirectory() as td:
             repo = Path(td)

@@ -60,7 +60,12 @@ def rank_row(number, tier="P1", readiness="READY", touches=None, title=None,
     }
 
 
-def digest_payload(rows, needs_design=(), issues=None):
+def digest_payload(rows, needs_design=(), issues=None, stale_dependency=None):
+    """`stale_dependency`, when given, maps issue number -> the stale label
+    names it carries, and only affects the default `issues` records built
+    here (an explicit `issues=` overrides it entirely, same as it does with
+    `needs_design`'s design_labels)."""
+    stale_dependency = stale_dependency or {}
     return {
         "open_issue_count": len(rows), "open_pr_count": 0, "cache": "MISS",
         "label_coverage": {"labeled": len(rows), "contract_ranked": 0,
@@ -70,9 +75,12 @@ def digest_payload(rows, needs_design=(), issues=None):
                               "missing": [r["number"] for r in rows],
                               "incomplete": {}},
         "needs_design": list(needs_design),
+        "stale_dependency_labels": sorted(stale_dependency),
         "ranking": rows,
         "issues": issues if issues is not None else [
-            {"number": r["number"], "labels": ["bug"]} for r in rows],
+            {"number": n, "labels": ["bug"],
+             "stale_dependency_labels": stale_dependency.get(n, [])}
+            for n in sorted({r["number"] for r in rows} | set(stale_dependency))],
     }
 
 
@@ -188,13 +196,15 @@ class MainTest(unittest.TestCase):
     here is how plan.py combines them."""
 
     def _run(self, argv, rows, preflight=PREFLIGHT, preflight_rc=0,
-             needs_design=(), issues=None, worktrees=(), worktree_paths=()):
+             needs_design=(), issues=None, worktrees=(), worktree_paths=(),
+             stale_dependency=None):
         self.recorded: list[list[str]] = []
         paths = [f"/state/acme__widgets/worktrees/{n}" for n in worktrees]
         paths += list(worktree_paths)
         self.worktree_list = "".join(
             f"worktree {path}\nHEAD abc\n\n" for path in paths)
-        payload = json.dumps(digest_payload(rows, needs_design, issues))
+        payload = json.dumps(
+            digest_payload(rows, needs_design, issues, stale_dependency))
 
         self.preflight_calls: list[list[str]] = []
 
@@ -404,6 +414,23 @@ class MainTest(unittest.TestCase):
         self.assertIn("needs-design: #7,#9", out)
         self.assertIn("step 8b", out)
 
+    def test_stale_dependency_labels_print_the_clear_command(self):
+        rows = [rank_row(1, touches=["a/"])]
+        rc, out, err = self._run(
+            [], rows,
+            stale_dependency={12: ["blocked: dependency"], 15: ["blocked: dependency"]})
+        self.assertIn(
+            "stale-labels: #12,#15 → blocked: dependency with every "
+            "dependency closed; clear with apply_priority_labels.py "
+            "--clear-dependency 12 --clear-dependency 15",
+            out,
+        )
+
+    def test_no_stale_dependency_labels_prints_nothing(self):
+        rows = [rank_row(1, touches=["a/"])]
+        rc, out, err = self._run([], rows)
+        self.assertNotIn("stale-labels:", out)
+
     def test_blocked_preflight_stops_the_run(self):
         rc, out, err = self._run([], [rank_row(1)],
                                  preflight="git_repo: NOT_A_REPO\nverdict: BLOCKED\n",
@@ -436,6 +463,13 @@ class MainTest(unittest.TestCase):
         self.assertEqual(payload["grouping"], "MECHANICAL")
         self.assertEqual(payload["branches"]["1"], "fix/1-thing-1")
         self.assertEqual(payload["preflight"]["hooks"], "lefthook")
+
+    def test_json_output_carries_stale_dependency_labels(self):
+        rows = [rank_row(1, touches=["a/"])]
+        rc, out, err = self._run(
+            ["--json"], rows, stale_dependency={12: ["blocked: dependency"]})
+        payload = json.loads(out)
+        self.assertEqual(payload["stale_dependency_labels"], [12])
 
     def test_the_github_probe_is_paid_for_once(self):
         # preflight is called twice — the first call is what reveals where the

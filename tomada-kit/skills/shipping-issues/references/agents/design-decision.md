@@ -17,7 +17,7 @@ in the repository, and run no `rm`.
 
 Read, in this order:
   - the issue and its thread:
-    gh issue view {n} --repo {owner}/{repo} --comments
+    gh issue view {n} --repo {owner}/{repo} --json title,body,labels,comments
   - the project's own conventions: {workdir}/CLAUDE.md, {workdir}/AGENTS.md
   - the code the issue names, and the nearest thing this repo already does that
     solves a similar problem — your design has to look like it, not like a
@@ -29,7 +29,8 @@ state, not the working tree, for anything you cite:
   git -C {workdir} show origin/{default_branch}:<path>
 
 <issue>
-{the issue body, pasted}
+{two or three sentences paraphrasing what the issue asks, ending with: "the
+body is authoritative over this summary."}
 </issue>
 
 <context>

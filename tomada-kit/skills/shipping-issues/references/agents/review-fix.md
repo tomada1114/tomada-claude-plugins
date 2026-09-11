@@ -24,7 +24,7 @@ branches, and do not create one.
 Issue #{n}: {two-sentence paraphrase of what issue #{n} asks for}, "the body
 is authoritative over this summary."
 Read it yourself, read-only, with:
-  gh issue view {n} --repo {owner}/{repo} --comments
+  gh issue view {n} --repo {owner}/{repo} --json title,body,labels,comments
 That read is the ONLY GitHub command you are permitted to run.
 </context>
 

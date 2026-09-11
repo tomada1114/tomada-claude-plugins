@@ -23,7 +23,7 @@ the specification and the diff against {base}:
 Issue #{n}: {two-or-three-sentence paraphrase of what the issue asks} — "the
 body is authoritative over this summary."
 Read it yourself, read-only, with:
-  gh issue view {n} --repo {owner}/{repo} --comments
+  gh issue view {n} --repo {owner}/{repo} --json title,body,labels,comments
 That read is the ONLY GitHub command you are permitted to run.
 </context>
 

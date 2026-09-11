@@ -1,23 +1,28 @@
 #!/usr/bin/env python3
-"""review_digest.py — Read a CI review's summary comment and print a digest.
+"""review_digest.py — Find a CI review of a PR's head and print it for the model to read.
 
-references/ci-review.md is the authoritative contract this script implements:
-what the review job's summary comment looks like, what this skill's response
-comment looks like, and why the marker line is what tells "reviewed, found
+references/ci-review.md is the convention this script implements: what the
+review job's summary comment looks like, what this skill's response comment
+looks like, and why the summary's marker is what tells "reviewed, found
 nothing" apart from "never ran" (the review check is green either way).
 
-The summary comment's first line is a marker:
+This script decides only what a script can decide exactly: whether the
+reviewer bot summarized this head commit, how many distinct heads it has
+summarized (the round), and which comments are the reviewer's at all. It does
+NOT parse findings. The summary and the inline comments are written by a model
+and read by one: the caller reads them verbatim and decides what each finding
+is and how severe it is. A script that parsed them would turn every formatting
+slip into a silently dropped finding — the failure this design removes.
 
-    <!-- claude-review v1 sha=<40-hex head sha> must=<n> should=<n> nit=<n> pre=<n> -->
+A summary is a comment by the reviewer bot containing, on one line, the marker
+`claude-review v<n>` and `sha=<40-hex>` — tolerant of spacing, case, and
+position in the comment. The response marker `claude-review-response` never
+counts as one.
 
-followed by finding lines shaped:
-
-    - [<severity>] R<n> `<path>:<line>` — <what is wrong> — <why it matters>
-
-Only a comment from a **bot** account whose login is in --reviewer (default
-claude[bot]) is trusted — the repo is public-facing, so anyone can post a
-comment carrying the marker, and a forged `must=0` would otherwise wave a
-pull request through. A marker from anyone else is reported under
+Only comments from a **bot** account whose login is in --reviewer (default
+claude[bot]) are trusted — the repo is public-facing, so anyone can post a
+comment carrying the marker, and a forged "no findings" would otherwise wave
+a pull request through. A marker from anyone else is reported under
 `warnings:` with its author's login, never silently accepted.
 
 Usage:
@@ -30,19 +35,24 @@ Read mode prints:
     review: REVIEWED | NOT_REVIEWED
     sha: <sha looked for, default the PR head>
     round: <n distinct head shas the reviewer has summarized on this PR>
-    counts: must=<n> should=<n> nit=<n> pre=<n>
-    findings:
-      R1 must-fix src/x.ts:12 — <what> — <why>
+    declared: <the counts the marker line states, e.g. must=0 should=1, or none>
+    summary:
+      | <the summary comment, verbatim, one line per line>
+    inline:
+      - <path>:<line>
+        | <an inline comment by the reviewer on this sha, verbatim>
     warnings:
-      <counts disagree with the parsed lines / an unparseable finding line /
-       a marker comment ignored because its author is not a reviewer>
+      <markers ignored because their author is not a reviewer / inline
+       comments that could not be read>
+
+`declared:` is the reviewer's own tally, printed for reference only — read the
+findings themselves; a tally and its list can disagree.
 
 `--reviewer` is repeatable and, when given, replaces the default login list
 entirely (it does not add to it) — pass every login that should count.
 
-`--sha` is compared to a marker's sha with plain string equality only; a
-value shorter than 40 hex characters can never match and is never treated
-as a prefix.
+`--sha` is compared to a marker's sha by exact (case-insensitive) equality; a
+value shorter than 40 hex characters is rejected rather than prefix-matched.
 
 --respond FILE posts FILE's content as this skill's response comment,
 prefixed with:
@@ -75,32 +85,12 @@ DEFAULT_REVIEWER = "claude[bot]"
 
 SHA_RE = re.compile(r"[0-9a-f]{40}")
 
-MARKER_RE = re.compile(
-    r"^<!-- claude-review v1 sha=(?P<sha>[0-9a-f]{40}) "
-    r"must=(?P<must>\d+) should=(?P<should>\d+) nit=(?P<nit>\d+) "
-    r"pre=(?P<pre>\d+) -->$"
-)
-
-# The separator between the location, "what", and "why" segments is meant to
-# be an em dash, but the review prompt is a model's own output and sometimes
-# writes "-" or "--" instead — tolerate all three rather than dropping the
-# line to warnings over a cosmetic slip.
-_SEP = r"(?:—|--|-)"
-
-FINDING_RE = re.compile(
-    r"^- \[(?P<sev>must-fix|should-fix|nit|pre-existing)\] "
-    r"R(?P<num>\d+) `(?P<loc>[^`]+)` "
-    rf"{_SEP} (?P<what>.+?) "
-    rf"{_SEP} (?P<why>.+)$"
-)
-
-SEVERITY_TO_COUNT_KEY = {
-    "must-fix": "must",
-    "should-fix": "should",
-    "nit": "nit",
-    "pre-existing": "pre",
-}
-COUNT_KEYS = ("must", "should", "nit", "pre")
+# `claude-review v1`, followed on the same line by `sha=<40 hex>`. The negative
+# lookahead keeps this skill's own `claude-review-response` marker out.
+MARKER_LINE_RE = re.compile(r"claude-review(?!-)\s+v\d+\b(?P<rest>[^\n]*)",
+                            re.IGNORECASE)
+MARKER_SHA_RE = re.compile(r"\bsha\s*[=:]\s*(?P<sha>[0-9a-fA-F]{40})\b")
+DECLARED_RE = re.compile(r"\b(must|should|nit|pre)\s*=\s*(\d+)", re.IGNORECASE)
 
 
 def gh_call(args: list[str]) -> tuple[bool, str, str]:
@@ -116,6 +106,24 @@ def gh_call(args: list[str]) -> tuple[bool, str, str]:
         detail = (proc.stderr or proc.stdout or "").strip().replace("\n", " | ")
         return False, proc.stdout or "", f"gh {' '.join(args)} failed: {detail}"
     return True, proc.stdout or "", ""
+
+
+def gh_json_lines(path: str) -> tuple[bool, list[Any], str]:
+    """Every item of a paginated list endpoint, one JSON object per line:
+    `--paginate` alone prints each page's array back to back (`[...][...]`),
+    which is not one JSON document once there is more than a page."""
+    ok, out, err = gh_call(["api", path, "--paginate", "--jq", ".[] | @json"])
+    if not ok:
+        return False, [], err
+    items = []
+    for line in (out or "").splitlines():
+        if not line.strip():
+            continue
+        try:
+            items.append(json.loads(line))
+        except json.JSONDecodeError as exc:
+            return False, [], f"could not parse a gh api line as JSON: {exc}"
+    return True, items, ""
 
 
 def resolve_repo(explicit: str | None) -> tuple[bool, str, str]:
@@ -142,42 +150,30 @@ def resolve_pr_head_sha(pr: int, repo: str) -> tuple[bool, str, str]:
     return True, sha, ""
 
 
-def parse_finding_lines(body: str) -> tuple[list[dict[str, Any]], list[str]]:
-    """Parse the finding lines under a summary's marker line.
-
-    A line that starts with `- [` and fails to parse is never silently
-    dropped — it goes to the returned warnings, marked unparsed. Any other
-    line (free prose, headings, "No issues found.") is ignored.
-    """
-    findings: list[dict[str, Any]] = []
-    warnings: list[str] = []
-    for raw in body.splitlines()[1:]:
-        line = raw.strip()
-        if not line.startswith("- ["):
-            continue
-        m = FINDING_RE.match(line)
+def find_marker(body: str) -> tuple[str, str] | None:
+    """(sha, marker line) of the first line naming a review and a sha, or None."""
+    for line in body.splitlines():
+        m = MARKER_LINE_RE.search(line)
         if not m:
-            warnings.append(f"unparsed finding line: {line}")
             continue
-        findings.append({
-            "n": int(m.group("num")),
-            "severity": m.group("sev"),
-            "loc": m.group("loc"),
-            "what": m.group("what"),
-            "why": m.group("why"),
-        })
-    return findings, warnings
+        s = MARKER_SHA_RE.search(m.group("rest"))
+        if s:
+            return s.group("sha").lower(), line.strip()
+    return None
 
 
-def counts_from_findings(findings: list[dict[str, Any]]) -> dict[str, int]:
-    counts = {k: 0 for k in COUNT_KEYS}
-    for f in findings:
-        counts[SEVERITY_TO_COUNT_KEY[f["severity"]]] += 1
-    return counts
+def is_reviewer(user: dict[str, Any], reviewer_logins: list[str]) -> bool:
+    return user.get("type") == "Bot" and user.get("login") in reviewer_logins
 
 
-def format_counts(counts: dict[str, int]) -> str:
-    return " ".join(f"{k}={counts[k]}" for k in COUNT_KEYS)
+def declared_counts(marker_line: str) -> str:
+    found = DECLARED_RE.findall(marker_line)
+    return " ".join(f"{k.lower()}={v}" for k, v in found) or "none"
+
+
+def quoted(text: str, indent: str) -> list[str]:
+    return [f"{indent}| {line}".rstrip() for line in text.splitlines()] \
+        or [f"{indent}|"]
 
 
 def do_review(pr: int, repo: str, sha: str | None,
@@ -189,88 +185,67 @@ def do_review(pr: int, repo: str, sha: str | None,
             print("review: ERROR")
             print(f"detail: {err}")
             return 2
+    target_sha = target_sha.lower()
 
-    # One JSON object per line: `--paginate` alone prints each page's array
-    # back to back (`[...][...]`), which is not one JSON document once a PR
-    # has more than a page of comments.
-    ok, out, err = gh_call(["api", f"repos/{repo}/issues/{pr}/comments",
-                            "--paginate", "--jq", ".[] | @json"])
+    ok, comments, err = gh_json_lines(f"repos/{repo}/issues/{pr}/comments")
     if not ok:
         print("review: ERROR")
         print(f"detail: {err}")
         return 2
-    comments = []
-    for line in (out or "").splitlines():
-        if not line.strip():
-            continue
-        try:
-            comments.append(json.loads(line))
-        except json.JSONDecodeError as exc:
-            print("review: ERROR")
-            print(f"detail: could not parse a gh api comment line as JSON: {exc}")
-            return 2
 
     accepted: list[dict[str, Any]] = []
     warnings: list[str] = []
     for c in comments:
         if not isinstance(c, dict):
             continue
-        body = c.get("body") or ""
-        lines = body.splitlines()
-        first = lines[0].strip() if lines else ""
-        m = MARKER_RE.match(first)
-        if not m:
+        found = find_marker(c.get("body") or "")
+        if not found:
             continue
         user = c.get("user") or {}
-        login = user.get("login") or "<unknown>"
-        utype = user.get("type") or ""
-        if utype == "Bot" and login in reviewer_logins:
-            accepted.append({
-                "sha": m.group("sha"),
-                "must": int(m.group("must")), "should": int(m.group("should")),
-                "nit": int(m.group("nit")), "pre": int(m.group("pre")),
-                "body": body,
-            })
+        if is_reviewer(user, reviewer_logins):
+            accepted.append({"sha": found[0], "marker": found[1],
+                             "body": c.get("body") or ""})
         else:
             warnings.append(
-                f"ignored review marker from non-reviewer {login} "
-                f"(type={utype or 'unknown'}, sha={m.group('sha')})")
+                f"ignored review marker from non-reviewer "
+                f"{user.get('login') or '<unknown>'} "
+                f"(type={user.get('type') or 'unknown'}, sha={found[0]})")
 
     round_n = len({a["sha"] for a in accepted})
-
-    # Plain equality only: a --sha shorter than 40 hex characters can never
-    # equal a marker's sha, and that is deliberate — never prefix-match.
     matches = [a for a in accepted if a["sha"] == target_sha]
     winner = matches[-1] if matches else None  # last one wins
 
-    findings: list[dict[str, Any]] = []
-    counts = {k: 0 for k in COUNT_KEYS}
+    inline_lines: list[str] = []
     if winner is not None:
-        findings, parse_warnings = parse_finding_lines(winner["body"])
-        warnings.extend(parse_warnings)
-        parsed_counts = counts_from_findings(findings)
-        marker_counts = {k: winner[k] for k in COUNT_KEYS}
-        if marker_counts != parsed_counts:
-            warnings.append(
-                f"marker counts ({format_counts(marker_counts)}) disagree "
-                f"with parsed findings ({format_counts(parsed_counts)}); "
-                "using the parsed counts")
-        counts = parsed_counts
+        ok, inline, err = gh_json_lines(f"repos/{repo}/pulls/{pr}/comments")
+        if not ok:
+            warnings.append(f"inline comments not read: {err}")
+        for c in inline if ok else []:
+            if not isinstance(c, dict) or c.get("in_reply_to_id"):
+                continue
+            if not is_reviewer(c.get("user") or {}, reviewer_logins):
+                continue
+            made_on = (c.get("original_commit_id") or c.get("commit_id") or "").lower()
+            if made_on != target_sha:
+                continue
+            line = c.get("line") or c.get("original_line") or "?"
+            inline_lines.append(f"  - {c.get('path') or '?'}:{line}")
+            inline_lines.extend(quoted(c.get("body") or "", "    "))
 
-    lines_out = [
+    out = [
         f"review: {'REVIEWED' if winner is not None else 'NOT_REVIEWED'}",
         f"sha: {target_sha}",
         f"round: {round_n}",
-        f"counts: {format_counts(counts)}",
-        "findings:",
     ]
-    for f in findings:
-        lines_out.append(
-            f"  R{f['n']} {f['severity']} {f['loc']} — {f['what']} — {f['why']}")
-    lines_out.append("warnings:")
-    for w in warnings:
-        lines_out.append(f"  {w}")
-    print("\n".join(lines_out))
+    if winner is not None:
+        out.append(f"declared: {declared_counts(winner['marker'])}")
+        out.append("summary:")
+        out.extend(quoted(winner["body"], "  "))
+        out.append("inline:")
+        out.extend(inline_lines)
+    out.append("warnings:")
+    out.extend(f"  {w}" for w in warnings)
+    print("\n".join(out))
     return 0 if winner is not None else 3
 
 
@@ -320,7 +295,7 @@ def main(argv: list[str] | None = None) -> int:
                    help="40-hex sha to look for (read mode) or to stamp the "
                         "response marker with (--respond); default: the PR head")
     p.add_argument("--reviewer", action="append", metavar="LOGIN",
-                   help="bot login whose marker counts as a real review "
+                   help="bot login whose comments count as the review "
                         "(repeatable; replaces, does not add to, the "
                         f"default of {DEFAULT_REVIEWER!r})")
     p.add_argument("--respond", metavar="FILE", type=Path,
@@ -330,7 +305,7 @@ def main(argv: list[str] | None = None) -> int:
 
     reviewer_logins = args.reviewer if args.reviewer else [DEFAULT_REVIEWER]
 
-    if args.sha is not None and not SHA_RE.fullmatch(args.sha):
+    if args.sha is not None and not SHA_RE.fullmatch(args.sha.lower()):
         detail = f"--sha must be a full 40-hex commit sha, got {args.sha!r}"
         if args.respond:
             print(f"error: {detail}", file=sys.stderr)

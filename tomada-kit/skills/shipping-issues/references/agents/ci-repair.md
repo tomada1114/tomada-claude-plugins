@@ -24,7 +24,7 @@ Issue #{n}: {two-or-three-sentence paraphrase of what the issue asks, so a fix
 that changes behavior can be judged against what the issue actually asked
 for} — "the body is authoritative over this summary."
 Read it yourself, read-only, with:
-  gh issue view {n} --repo {owner}/{repo} --comments
+  gh issue view {n} --repo {owner}/{repo} --json title,body,labels,comments
 That read is the ONLY GitHub command you are permitted to run — do not touch
 the GitHub API otherwise, do not watch CI, do not sleep or poll.
 </context>

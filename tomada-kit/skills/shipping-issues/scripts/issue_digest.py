@@ -187,6 +187,19 @@ DESIGN_BLOCK_LABELS = {
      "design-needed")
 }
 
+# Labels that assert "this issue is blocked on a dependency". Readiness never
+# reads these — it is computed from the dependency edges themselves
+# (depends_on_open) — so this set exists only to detect when the label has
+# gone stale: the edges have all closed but the label is still sitting on the
+# issue, misleading a human skimming the backlog. Kept small and literal
+# (normalize_label() output) on purpose: bare "blocked" is deliberately
+# excluded, since it is ambiguous with READY_NEGATIVE_LABELS's general block.
+DEPENDENCY_BLOCK_LABELS = {
+    normalize_label(n) for n in
+    ("blocked: dependency", "blocked-by-dependency", "blocked: dependencies",
+     "waiting on dependency")
+}
+
 
 def resolve_design_label(existing: list[str]) -> tuple[str, bool]:
     """Return (label name this repo uses for the design-not-settled state,
@@ -697,6 +710,16 @@ def main() -> int:
                     if normalize_label(lbl) in READY_NEGATIVE_LABELS]
         design_labels = [lbl for lbl in labels
                           if normalize_label(lbl) in DESIGN_BLOCK_LABELS]
+        depends_on_open = [n for n in deps["depends_on"] if n in open_numbers]
+        # Stale only when there IS a recorded dependency and every one of them
+        # has closed. An issue carrying the label with no recorded dependency
+        # is left alone — the edge may be expressed somewhere the regex/contract
+        # scrape misses, and this script has no way to tell "no edge" from
+        # "edge it couldn't see".
+        stale_dependency_labels = (
+            [lbl for lbl in labels if normalize_label(lbl) in DEPENDENCY_BLOCK_LABELS]
+            if deps["depends_on"] and not depends_on_open else []
+        )
         pr = claimed.get(num)
         rec = {
             "number": num,
@@ -710,11 +733,12 @@ def main() -> int:
             "depends_on": deps["depends_on"],
             "blocks": deps["blocks"],
             "mentions": deps["mentions"],
-            "depends_on_open": [n for n in deps["depends_on"] if n in open_numbers],
+            "depends_on_open": depends_on_open,
             "unblocks_open": sorted(unblocks.get(num, set())),
             "referenced_by_open": sorted(referenced_by.get(num, set())),
             "not_ready_labels": blockers,
             "design_labels": design_labels,
+            "stale_dependency_labels": stale_dependency_labels,
             "open_pr": {"number": pr["number"], "url": pr["url"],
                         "draft": pr["isDraft"]} if pr else None,
             "body": squeeze(body, args.body_chars),
@@ -766,6 +790,7 @@ def main() -> int:
     with_contract = [r for r in records if r["contract"]]
     full_contract = [r for r in with_contract if not r["contract"]["missing_fields"]]
     needs_design = [r for r in records if r["design_labels"]]
+    stale_dependency = [r for r in records if r["stale_dependency_labels"]]
     payload = {
         "open_issue_count": len(records),
         "open_pr_count": len(prs),
@@ -792,6 +817,7 @@ def main() -> int:
             },
         },
         "needs_design": [r["number"] for r in needs_design],
+        "stale_dependency_labels": [r["number"] for r in stale_dependency],
         "ranking": [
             {"number": r["number"], "title": r["title"],
              "score": r["priority_score"],

@@ -365,6 +365,10 @@ def main() -> int:
         return 1
 
     labels_by_number = {i["number"]: i["labels"] for i in digest["issues"]}
+    stale_dependency_by_number = {
+        i["number"]: i["stale_dependency_labels"]
+        for i in digest["issues"] if i.get("stale_dependency_labels")
+    }
     ranking = digest["ranking"]
     ready = [r for r in ranking if r["readiness"] == "READY"]
     if explicit_issue is not None:
@@ -427,6 +431,7 @@ def main() -> int:
         "label_coverage": digest["label_coverage"],
         "contract_coverage": digest["contract_coverage"],
         "needs_design": digest["needs_design"],
+        "stale_dependency_labels": sorted(stale_dependency_by_number),
         "deferred_light": deferred_light,
         "cache": digest.get("cache"),
         "open_issue_count": digest["open_issue_count"],
@@ -533,6 +538,14 @@ def main() -> int:
         print("needs-design: "
               + ",".join(f"#{n}" for n in digest["needs_design"])
               + " → step 8b background agents (spawn now, do not wait)")
+    if stale_dependency_by_number:
+        stale_numbers = sorted(stale_dependency_by_number)
+        label_spelling = stale_dependency_by_number[stale_numbers[0]][0]
+        print("stale-labels: "
+              + ",".join(f"#{n}" for n in stale_numbers)
+              + f" → {label_spelling} with every dependency closed; clear with "
+              + "apply_priority_labels.py "
+              + " ".join(f"--clear-dependency {n}" for n in stale_numbers))
     if deferred_light:
         print("deferred-light: "
               + ",".join(f"#{n}" for n in deferred_light)

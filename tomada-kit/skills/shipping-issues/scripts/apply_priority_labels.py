@@ -24,12 +24,21 @@ Usage:
     apply_priority_labels.py --set 12=P0 [--set 9=P2 ...] [--quiet] [--dry-run]
     apply_priority_labels.py --set-design 12 [--set-design 9 ...] [--dry-run]
     apply_priority_labels.py --clear-design 12 [--dry-run]
+    apply_priority_labels.py --clear-dependency 12 [--clear-dependency 9 ...] [--dry-run]
     apply_priority_labels.py --ensure-labels [--dry-run]
 
 `--set-design`/`--clear-design` mark or clear the soft "design not settled"
 block (`blocked: design` or a recognized equivalent) that excludes an issue
 from automatic selection — see references/dependency-triage.md. Independent
 of the tier machinery above; tier and design-readiness are orthogonal.
+
+`--clear-dependency` removes a dependency-block label (`blocked: dependency`
+or a recognized equivalent) once issue_digest.py reports every dependency the
+issue records as closed — see its `stale_dependency_labels` field and
+references/dependency-triage.md. Readiness never reads this label; clearing it
+only corrects what a human reading the backlog sees. It may be combined with
+--set-design/--clear-design in one call, but not with --backfill/--set/
+--ensure-labels.
 
 Exit codes:
     0 = labels applied (possibly zero changes)
@@ -50,8 +59,9 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from issue_digest import (DESIGN_BLOCK_LABELS, DESIGN_LABEL, TIER_ALIASES, TIER_LABELS,
-                          TIER_ORDER, normalize_label, resolve_design_label)
+from issue_digest import (DEPENDENCY_BLOCK_LABELS, DESIGN_BLOCK_LABELS, DESIGN_LABEL,
+                          TIER_ALIASES, TIER_LABELS, TIER_ORDER, normalize_label,
+                          resolve_design_label)
 
 DIGEST = Path(__file__).resolve().parent / "issue_digest.py"
 
@@ -145,20 +155,36 @@ def set_design(number: int, dry_run: bool) -> str:
     return name
 
 
-def clear_design(number: int, dry_run: bool) -> list[str]:
-    """Remove whichever design-block label(s) the issue actually carries.
-    Returns the label names removed — empty when the issue carried none, which
-    is success, not an error (this is the routine call after a design is
-    decided, and the issue may have been taken on with --include-design
-    instead of ever being labeled)."""
+def clear_labels_in(number: int, label_set: set[str], dry_run: bool) -> list[str]:
+    """Remove whichever label(s) in `label_set` (normalize_label() keys) the
+    issue actually carries. Returns the label names removed — empty when the
+    issue carried none, which is success, not an error."""
     carried = [lbl for lbl in issue_labels(number)
-              if normalize_label(lbl) in DESIGN_BLOCK_LABELS]
+              if normalize_label(lbl) in label_set]
     if carried and not dry_run:
         args = ["issue", "edit", str(number)]
         for lbl in carried:
             args += ["--remove-label", lbl]
         gh(args)
     return carried
+
+
+def clear_design(number: int, dry_run: bool) -> list[str]:
+    """Remove whichever design-block label(s) the issue actually carries.
+    Returns the label names removed — empty when the issue carried none, which
+    is success, not an error (this is the routine call after a design is
+    decided, and the issue may have been taken on with --include-design
+    instead of ever being labeled)."""
+    return clear_labels_in(number, DESIGN_BLOCK_LABELS, dry_run)
+
+
+def clear_dependency(number: int, dry_run: bool) -> list[str]:
+    """Remove whichever dependency-block label(s) the issue actually carries.
+    Returns the label names removed — empty when the issue carried none, which
+    is success, not an error (this is the routine call after issue_digest.py
+    has reported the issue's dependencies as all closed, via its
+    `stale_dependency_labels` field)."""
+    return clear_labels_in(number, DEPENDENCY_BLOCK_LABELS, dry_run)
 
 
 def apply(number: int, tier: str, current_labels: list[str], dry_run: bool) -> bool:
@@ -194,6 +220,11 @@ def main() -> int:
                    metavar="N",
                    help="remove the design-not-settled label once the design "
                         "is decided (repeatable); a no-op if not present")
+    p.add_argument("--clear-dependency", action="append", default=[], type=int,
+                   metavar="N",
+                   help="remove the dependency-block label once every "
+                        "dependency has closed (repeatable); a no-op if not "
+                        "present")
     p.add_argument("--ensure-labels", action="store_true",
                    help="only create the four label definitions")
     p.add_argument("--dry-run", action="store_true",
@@ -204,28 +235,33 @@ def main() -> int:
     args = p.parse_args()
 
     if not (args.backfill or args.set or args.set_design or args.clear_design
-            or args.ensure_labels):
+            or args.clear_dependency or args.ensure_labels):
         p.error("one of --backfill, --set, --set-design, --clear-design, "
-                "or --ensure-labels is required")
-    if (args.set_design or args.clear_design) and (args.backfill or args.set
-                                                    or args.ensure_labels):
-        p.error("--set-design/--clear-design run standalone — combine with "
-                "--backfill, --set, or --ensure-labels in separate calls")
+                "--clear-dependency, or --ensure-labels is required")
+    if (args.set_design or args.clear_design or args.clear_dependency) and \
+            (args.backfill or args.set or args.ensure_labels):
+        p.error("--set-design/--clear-design/--clear-dependency run standalone "
+                "— combine with --backfill, --set, or --ensure-labels in "
+                "separate calls")
     if not shutil.which("gh"):
         print("error: gh CLI not found", file=sys.stderr)
         return 1
 
-    # Design-block state is independent of the tier machinery below — no
-    # digest fetch needed.
-    if args.set_design or args.clear_design:
+    # Design-block and dependency-block state are independent of the tier
+    # machinery below — no digest fetch needed.
+    if args.set_design or args.clear_design or args.clear_dependency:
         design_set = [(n, set_design(n, args.dry_run)) for n in dict.fromkeys(args.set_design)]
         design_cleared = [(n, clear_design(n, args.dry_run))
                           for n in dict.fromkeys(args.clear_design)]
+        dependency_cleared = [(n, clear_dependency(n, args.dry_run))
+                              for n in dict.fromkeys(args.clear_dependency)]
         if args.as_json:
             json.dump({"verdict": "OK", "dry_run": args.dry_run,
                       "design_set": [{"number": n, "label": lbl} for n, lbl in design_set],
                       "design_cleared": [{"number": n, "removed": removed}
-                                         for n, removed in design_cleared]},
+                                         for n, removed in design_cleared],
+                      "dependency_cleared": [{"number": n, "removed": removed}
+                                             for n, removed in dependency_cleared]},
                       sys.stdout, ensure_ascii=False, indent=2)
             print()
         else:
@@ -235,8 +271,12 @@ def main() -> int:
             for n, removed in design_cleared:
                 print(f"#{n}: needs-design cleared" if removed
                       else f"#{n}: needs-design already clear")
+            for n, removed in dependency_cleared:
+                print(f"#{n}: dependency-block cleared" if removed
+                      else f"#{n}: dependency-block already clear")
             print(f"verdict: OK\ndesign-{verb}: {len(design_set)} · "
-                  f"design-cleared: {len(design_cleared)}")
+                  f"design-cleared: {len(design_cleared)} · "
+                  f"dependency-cleared: {len(dependency_cleared)}")
         return 0
 
     created = ensure_labels(args.dry_run)

@@ -206,3 +206,13 @@ Tier and `blocked: dependency` are orthogonal: a light issue still ranks by its
 tier and still passes the readiness gate above like any other. A repository
 that keeps its own label vocabulary (a `triaging-issues` skill,
 `.github/labels.yml`) owns the definition there; this section is the fallback.
+
+Readiness itself never reads `blocked: dependency` (or an equivalent) — rule 2
+of the [readiness gate](#readiness-gate) comes from the dependency edges
+themselves, `BLOCKED-BY`. So a `blocked: dependency` label whose every
+dependency has since closed is simply stale: correct at selection time, wrong
+by the time a human reads the backlog. `plan.py` names these on a
+`stale-labels:` line when any exist; the run clears them with
+`apply_priority_labels.py --clear-dependency` without asking, since it is only
+correcting a label to match edges the plan already verified, not making a new
+judgment call.
