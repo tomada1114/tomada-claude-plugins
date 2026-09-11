@@ -306,6 +306,82 @@ class MainTest(unittest.TestCase):
         self.assertEqual(rc, 0, err)
         self.assertEqual(self.digest_cmd.count(plan.LIGHT_LABEL), 1)
 
+    @staticmethod
+    def _labels(light, rows):
+        return [{"number": r["number"],
+                 "labels": ["bug", plan.LIGHT_LABEL] if r["number"] in light
+                 else ["bug"]} for r in rows]
+
+    def test_all_mode_defers_a_light_issue_nothing_heavier_waits_on(self):
+        rows = [rank_row(1, touches=["a/"]), rank_row(2, touches=["b/"])]
+        rc, out, err = self._run(["--mode", "all"], rows,
+                                 issues=self._labels({2}, rows))
+        self.assertEqual(rc, 0, err)
+        self.assertIn("deferred-light: #2", out)
+        self.assertIn("select: #1", out)
+        self.assertNotIn("#2[", out)
+
+    def test_no_argument_defers_a_light_issue_even_when_it_ranks_first(self):
+        rows = [rank_row(1, tier="P0", touches=["a/"]),
+                rank_row(2, tier="P1", touches=["b/"])]
+        rc, out, err = self._run([], rows, issues=self._labels({1}, rows))
+        self.assertEqual(rc, 0, err)
+        self.assertIn("select: #2", out)
+        self.assertIn("deferred-light: #1", out)
+
+    def test_a_light_issue_a_heavier_one_waits_on_is_kept(self):
+        rows = [rank_row(1, touches=["a/"], unblocks=[3]),
+                rank_row(3, readiness="BLOCKED-BY:#1", depends=[1])]
+        rc, out, err = self._run(["--mode", "all"], rows,
+                                 issues=self._labels({1}, rows))
+        self.assertEqual(rc, 0, err)
+        self.assertIn("select: #1", out)
+        self.assertNotIn("deferred-light", out)
+
+    def test_a_chain_of_light_issues_ending_in_a_heavier_one_is_kept(self):
+        rows = [rank_row(1, touches=["a/"], unblocks=[2]),
+                rank_row(2, readiness="BLOCKED-BY:#1", depends=[1], unblocks=[3]),
+                rank_row(3, readiness="BLOCKED-BY:#2", depends=[2])]
+        rc, out, err = self._run(["--mode", "all"], rows,
+                                 issues=self._labels({1, 2}, rows))
+        self.assertEqual(rc, 0, err)
+        self.assertIn("select: #1", out)
+        self.assertNotIn("deferred-light", out)
+
+    def test_a_light_issue_only_light_ones_wait_on_is_deferred(self):
+        rows = [rank_row(1, touches=["a/"], unblocks=[2]),
+                rank_row(2, readiness="BLOCKED-BY:#1", depends=[1]),
+                rank_row(3, touches=["c/"])]
+        rc, out, err = self._run(["--mode", "all"], rows,
+                                 issues=self._labels({1, 2}, rows))
+        self.assertEqual(rc, 0, err)
+        self.assertIn("deferred-light: #1", out)
+        self.assertIn("select: #3", out)
+
+    def test_include_light_takes_them_anyway(self):
+        rows = [rank_row(1, touches=["a/"]), rank_row(2, touches=["b/"])]
+        rc, out, err = self._run(["--mode", "all", "--include-light"], rows,
+                                 issues=self._labels({2}, rows))
+        self.assertEqual(rc, 0, err)
+        self.assertNotIn("deferred-light", out)
+        self.assertIn("--spec 2:", out)
+
+    def test_light_mode_never_defers_the_issues_it_exists_to_ship(self):
+        rows = [rank_row(1, touches=["a/"])]
+        rc, out, err = self._run(["--mode", "light"], rows,
+                                 issues=self._labels({1}, rows))
+        self.assertEqual(rc, 0, err)
+        self.assertIn("select: #1", out)
+        self.assertNotIn("deferred-light", out)
+
+    def test_a_named_light_issue_is_taken(self):
+        rows = [rank_row(1, touches=["a/"]), rank_row(42, touches=["b/"])]
+        rc, out, err = self._run(["--mode", "42"], rows,
+                                 issues=self._labels({42}, rows))
+        self.assertEqual(rc, 0, err)
+        self.assertIn("select: #42", out)
+        self.assertNotIn("deferred-light", out)
+
     def test_explicit_issue_number_selects_only_that_issue(self):
         rows = [rank_row(1, touches=["a/"]), rank_row(42, touches=["b/"])]
         rc, out, err = self._run(["--mode", "42"], rows)

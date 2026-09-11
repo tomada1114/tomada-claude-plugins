@@ -43,6 +43,10 @@ the two fields that carry a duty for the calling session.
 - `select:` / `batch A:` / `branch:` — the pick, everything that can be worked
   beside it, and the branch name already derived for each. Use those names.
 - `needs-design:` — the input to SKILL.md step 8b's background sweep.
+- `deferred-light:` — READY `model: light` issues this run leaves for a lighter
+  runner, because nothing heavier waits on them
+  ([SKILL.md](../SKILL.md#deferring-light-issues)). Absent in `light` mode, for
+  an explicit issue number, and under `--include-light`. Step 10 names them.
 - `next:` — the exact command step 3 starts with.
 
 `--record` writes `run-start`, `selection` and (in parallel mode)

@@ -212,6 +212,31 @@ def group_batches(
     return batches, confidence, undeclared
 
 
+def defer_light(ranking: list[dict[str, Any]],
+                labels_by_number: dict[int, list[str]]) -> set[int]:
+    """`model: light` issues nothing heavier is waiting on.
+
+    Those are left for a lighter runner (the Codex-side skill). A light issue
+    stays in this run's queue when an issue that is *not* deferred depends on
+    it, directly or through a chain of light issues — deferring it would stall
+    the heavier work behind it. Computed to a fixed point so the chain case
+    holds whatever order the ranking is in.
+    """
+    light = {r["number"] for r in ranking
+             if LIGHT_LABEL in labels_by_number.get(r["number"], [])}
+    kept = {r["number"] for r in ranking} - light
+    changed = True
+    while changed:
+        changed = False
+        for r in ranking:
+            n = r["number"]
+            if n in light and n not in kept \
+                    and set(r.get("unblocks_open") or []) & kept:
+                kept.add(n)
+                changed = True
+    return light - kept
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--mode", default="single",
@@ -224,6 +249,10 @@ def main() -> int:
     p.add_argument("--assignee")
     p.add_argument("--milestone")
     p.add_argument("--include-design", action="store_true")
+    p.add_argument("--include-light", action="store_true",
+                   help="also take model: light issues nothing heavier waits "
+                        "on; all and single mode otherwise leave them for a "
+                        "lighter runner")
     p.add_argument("--refresh", action="store_true",
                    help="re-fetch instead of reading the digest cache")
     p.add_argument("--record", action="store_true",
@@ -341,6 +370,16 @@ def main() -> int:
     if explicit_issue is not None:
         ready = [r for r in ranking if r["number"] == explicit_issue]
 
+    # `light` mode exists to ship exactly these, and a named issue is the user
+    # choosing it; everywhere else a light issue nothing heavier waits on is
+    # left for the lighter runner rather than spent on this one.
+    deferred_light: list[int] = []
+    if args.mode in ("all", "single") and explicit_issue is None \
+            and not args.include_light:
+        deferred = defer_light(ranking, labels_by_number)
+        deferred_light = [r["number"] for r in ready if r["number"] in deferred]
+        ready = [r for r in ready if r["number"] not in deferred]
+
     # --- 3. grouping -------------------------------------------------------
     if args.mode in ("all", "light") and explicit_issue is None:
         batches, confidence, undeclared = group_batches(ready, args.max_parallel)
@@ -388,6 +427,7 @@ def main() -> int:
         "label_coverage": digest["label_coverage"],
         "contract_coverage": digest["contract_coverage"],
         "needs_design": digest["needs_design"],
+        "deferred_light": deferred_light,
         "cache": digest.get("cache"),
         "open_issue_count": digest["open_issue_count"],
         "open_pr_count": digest["open_pr_count"],
@@ -493,6 +533,11 @@ def main() -> int:
         print("needs-design: "
               + ",".join(f"#{n}" for n in digest["needs_design"])
               + " → step 8b background agents (spawn now, do not wait)")
+    if deferred_light:
+        print("deferred-light: "
+              + ",".join(f"#{n}" for n in deferred_light)
+              + " → left for a lighter runner (model: light, nothing heavier "
+                "waits on them; --include-light takes them)")
     held = [r for r in ranking
             if r["readiness"] != "READY" and not r["readiness"].startswith("DESIGN:")]
     if held:

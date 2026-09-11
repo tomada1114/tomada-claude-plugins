@@ -180,7 +180,7 @@ mode ships only these, and a lighter runner (the Codex-side skill) is expected
 to take them, so a false positive sends a weak model into judgment work while a
 false negative only costs a stronger one. When in doubt, leave it off.
 
-All three must hold:
+All four must hold:
 
 1. **Design settled** — no `blocked: design` / `design=open`, and no open
    question in the body: it names the files, the shape of the change, and the
@@ -191,6 +191,16 @@ All three must hold:
    Nothing [foundational](cost-discipline.md#the-foundation-exception-opus-for-what-the-backlog-builds-on),
    and nothing whose output quality is the judgment (generated content, prompt
    tuning, choosing from a measurement).
+4. **Runner-neutral** — the body carries every fact the fix needs, including
+   anything only this runner knows: an Anthropic SDK or API behaviour, a Claude
+   model's quirk, how a Claude Code feature works. The lighter runner is not
+   Claude and has only the body; if the fix depends on knowledge the body does
+   not state, write it in or leave the label off.
+
+Outside `light` mode, this runner leaves a light issue for the lighter one unless
+something heavier is waiting on it
+([SKILL.md](../SKILL.md#deferring-light-issues)). So the label is also a
+routing decision: set it only when the issue can genuinely wait for that runner.
 
 Tier and `blocked: dependency` are orthogonal: a light issue still ranks by its
 tier and still passes the readiness gate above like any other. A repository

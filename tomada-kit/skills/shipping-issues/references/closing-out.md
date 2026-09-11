@@ -83,6 +83,9 @@ omitting one is a defect, not a stylistic choice.
   widened diff is indistinguishable from scope creep), and findings checked and
   deliberately *not* filed with what prevented each — a verified non-issue is a
   result, and silence reads as "nothing was noticed".
+- **Light issues left for the lighter runner** — every number on a
+  `deferred-light:` line, the backlog's and this run's own filings alike, so
+  the reader knows they were routed rather than overlooked.
 - **Operator actions** the run surfaced — things resolved by running a command
   or changing a setting rather than by a PR. The backlog will never show them,
   so the report is their only record.
