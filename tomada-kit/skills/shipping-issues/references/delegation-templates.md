@@ -92,20 +92,21 @@ Prompt body: [references/agents/implementation.md](agents/implementation.md).
 
 ## Review fix, parallel mode
 
-Only in parallel mode, and only for findings this session has already read and
-accepted. `/code-review --fix` writes to the session's own working tree, which
-in parallel mode is the main checkout sitting on the default branch — the
-wrong tree — so the review runs read-only and the writing is delegated here
-instead. See [SKILL.md step 4](../SKILL.md#4-review-and-fix--judge-the-result-before-the-pr-exists).
-Zero accepted findings → no spawn. Spawn one **`sonnet`** sub-agent per branch
-that has any.
+Only for findings this session has already read and accepted: in parallel mode
+at step 4, and at step 6b when the accepted fixes are more than this session
+should write itself. `/code-review --fix` writes to the session's own working
+tree, which in parallel mode is the main checkout sitting on the default branch
+— the wrong tree — so the review runs read-only and the writing is delegated
+here instead. See [SKILL.md step 4](../SKILL.md#4-local-review--only-where-ci-does-not-review)
+and [step 6b](../SKILL.md#6b-review-rounds). Zero accepted findings → no spawn.
+Spawn one **`sonnet`** sub-agent per branch that has any.
 
 Prompt body: [references/agents/review-fix.md](agents/review-fix.md).
 
 ## Review fallback
 
 Only when this session's host will not let it launch `/code-review`
-directly — see [SKILL.md step 4](../SKILL.md#4-review-and-fix--judge-the-result-before-the-pr-exists).
+directly — see [SKILL.md step 4](../SKILL.md#4-local-review--only-where-ci-does-not-review).
 Spawn one independent, **read-only** `opus` sub-agent against the branch.
 
 Prompt body: [references/agents/review-fallback.md](agents/review-fallback.md).

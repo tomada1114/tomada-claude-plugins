@@ -1,8 +1,10 @@
 # Review fix, parallel mode (sub-agent prompt)
 
-Spawned at [SKILL.md step 4](../../SKILL.md#4-review-and-fix--judge-the-result-before-the-pr-exists),
-only in parallel mode and only for findings this session has already read and
-accepted, one **`sonnet`** sub-agent per branch that has any.
+Spawned at [SKILL.md step 4](../../SKILL.md#4-local-review--only-where-ci-does-not-review)
+in parallel mode, or at [step 6b](../../SKILL.md#6b-review-rounds) when the
+accepted findings are more than the session should write itself — only for
+findings this session has already read and accepted, one **`sonnet`** sub-agent
+per branch that has any.
 
 `/code-review --fix` writes to the session's own working tree, which in
 parallel mode is the main checkout sitting on the default branch — the wrong
@@ -10,8 +12,8 @@ tree — so the review runs read-only and the writing is delegated here
 instead. Zero accepted findings → no spawn.
 
 ```
-Branch {branch} implements issue #{n} in {owner}/{repo} and is about to become
-a PR. A review has already run against it and I have triaged the findings
+Branch {branch} implements issue #{n} in {owner}/{repo} and is, or is about to
+become, a PR. A review has already run against it and I have triaged the findings
 myself; below are the ones I accepted. Apply exactly these and nothing else.
 
 Work only inside {workdir} — not any sibling checkout or worktree of the same

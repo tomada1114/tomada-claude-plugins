@@ -61,7 +61,7 @@ followed by one line per finding:
 ```
 - R<n> fixed — <what changed>
 - R<n> rejected — <why the finding is wrong, against the code>
-- R<n> deferred — #<issue>
+- R<n> deferred — <#issue, or "follow-up" when it is filed after the merge>
 ```
 
 The next round's review reads these, so a rejected finding is not raised again

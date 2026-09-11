@@ -1,6 +1,6 @@
 ---
 name: shipping-issues
-description: "Rank open GitHub Issues by their `priority: P0`-`P3` labels — backfilling a missing label from how much an issue unblocks and how far its impact spreads — then implement the top one, review and fix it with `/code-review` before the PR, open a PR that auto-closes the issue (Closes #N), watch CI to green, merge on green with no approval pause, confirm the issue closed, and return the checkout to the default branch. With no argument it ships the highest-priority issue and then what that run itself produced — the follow-ups it filed, the designs it unblocked. Pass \"all\" to work through every issue in dependency order, independent ones implemented in parallel git worktrees, with PR, CI and merge still serialized; pass \"light\" to do the same for only the issues labeled `model: light` (design settled, small, low-judgment). Design-blocked issues get a background sub-agent that decides the approach and clears the block. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, or work through the open issues."
+description: "Rank open GitHub Issues by their `priority: P0`-`P3` labels — backfilling a missing label from how much an issue unblocks and how far its impact spreads — then implement the top one, open a PR that auto-closes the issue (Closes #N), watch CI to green, work its CI review through severity-ordered fix rounds, merge with no approval pause, confirm the issue closed, and return the checkout to the default branch. With no argument it ships the highest-priority issue and then what that run itself produced — the follow-ups it filed, the designs it unblocked. Pass \"all\" to work through every issue in dependency order, independent ones implemented in parallel git worktrees, with PR, CI and merge still serialized; pass \"light\" to do the same for only the issues labeled `model: light` (design settled, small, low-judgment). Design-blocked issues get a background sub-agent that decides the approach and clears the block. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, or work through the open issues."
 argument-hint: "[all | light | <issue number> | (empty = one issue)] [parallel N]"
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/*.py:*), Bash(${CLAUDE_SKILL_DIR}/scripts/*.sh:*)
 metadata:
@@ -13,9 +13,10 @@ metadata:
 CLOSED, and nothing was deleted or weakened to get there.
 
 **Invoking this skill is the authorization for every write it makes, up to and
-including the merge** — labels, branches, pushes, the PR, follow-up issues,
-step 8b's design comments, cleanup. Green CI is the go-ahead: on `verdict: PASS`
-the merge happens in the same turn, with no "shall I merge?" and no
+including the merge** — labels, branches, pushes, the PR, review-response
+comments, follow-up issues, step 8b's design comments, cleanup. Green CI with a
+cleared review is the go-ahead: once [step 6b](#6b-review-rounds) clears, the
+merge happens in the same turn, with no "shall I merge?" and no
 summary-then-wait. Re-confirming per issue defeats `all` mode entirely. The only
 pauses are the [Stop conditions](#stop-conditions) and two narrow asks named
 inline: a genuinely tied top two at step 2, and `NO_CHECKS` at step 6.
@@ -24,7 +25,7 @@ inline: a genuinely tied top two at step 2, and `NO_CHECKS` at step 6.
 
 - [Modes](#modes) · [Deferring light issues](#deferring-light-issues) · [Working rules](#working-rules) · [Inputs and outputs](#inputs-and-outputs)
 - [1. Plan](#1-plan--one-call) · [2. Label](#2-label-the-unlabeled--only-when-the-plan-says-so) · [2b. Gating design](#2b-decide-a-design-that-gates-the-pick) · [2c. Confirm the batch](#2c-confirm-the-proposed-batch)
-- [3. Implement](#3-implement) · [4. Review and fix](#4-review-and-fix--before-the-pr-exists) · [5. Open the PR](#5-open-the-pr) · [6. CI to green](#6-ci-to-green) · [7. Merge](#7-merge-and-confirm-the-issue-closed)
+- [3. Implement](#3-implement) · [4. Local review](#4-local-review--only-where-ci-does-not-review) · [5. Open the PR](#5-open-the-pr) · [6. CI to green](#6-ci-to-green) · [6b. Review rounds](#6b-review-rounds) · [7. Merge](#7-merge-and-confirm-the-issue-closed)
 - [8. Close out findings](#8-close-out-the-findings-the-run-turned-up) · [8b. Unblock designs](#8b-unblock-held-designs-in-the-background) · [8c. Re-queue this run's output](#8c-take-the-runs-own-output-back-into-the-queue) · [9. Clean up](#9-clean-up) · [10. Report](#10-report)
 - [Stop conditions](#stop-conditions) · [Further reading](#further-reading)
 
@@ -232,7 +233,7 @@ decision. What each returned field is for:
 | `ACCEPTANCE` | **Here, first.** A `not-met` line is work still owed. Sending it back costs one resume run; letting it through merges a PR that closed an issue it did not answer. Green CI does not cover this — it proves the repository still works, not that the issue was answered. |
 | `UNRESOLVED` | **Here.** Judgment calls the agent made alone: each is accepted (and stated at step 10) or sent back, never silently inherited. |
 | `PR-SUMMARY` / `TEST-PLAN` | [Step 5](#5-open-the-pr), verbatim. |
-| `MEASURE` | [Step 4](#4-review-and-fix--before-the-pr-exists) — what findings are checked against. |
+| `MEASURE` | [Step 6b](#6b-review-rounds), or step 4 — what review findings are checked against. |
 | `SCOPE-NOTES` / `FOLLOW-UPS` | [Step 8](#8-close-out-the-findings-the-run-turned-up). |
 
 At most **2 resume runs** on top of the first, same model; a third miss is
@@ -241,11 +242,20 @@ stopped before pushing, or missed or widened the spec:
 [recovery.md](references/recovery.md) — never re-spawn an agent that returned
 without its report.
 
-### 4. Review and fix — before the PR exists
+### 4. Local review — only where CI does not review
+
+**Skip this step when the repository reviews in CI** — a workflow on the
+default branch carries the [CI review contract](references/ci-review.md)'s
+marker (`grep -l 'claude-review v1' .github/workflows/*`). That review runs on
+every push of the PR and [step 6b](#6b-review-rounds) works it; a local pass
+first would pay for the same review twice. What follows is for a repository
+without one, and for a PR step 6b finds `NOT_REVIEWED`.
 
 Run against the branch, before any PR exists. In parallel mode step 4 covers the
 whole batch: review each branch, triage all of them, then fix them concurrently —
-no PR opens until the batch's last review is triaged.
+no PR opens until the batch's last review is triaged. This local pass is one
+round: triage it as step 6b's round 1 — fix every accepted finding, defer the
+rest the way step 6b does — and do not re-review after the fix.
 
 ```
 /code-review <effort> <branch> [--fix]
@@ -337,6 +347,71 @@ one PR at a time, even in `all` mode. Record (`--event ci ...`).
 [agents/ci-repair.md](references/agents/ci-repair.md), at most 3 attempts.
 `NO_CHECKS` or `ERROR` →
 [recovery.md#no_checks-error-and-other-non-verdicts](references/recovery.md#no_checks-error-and-other-non-verdicts).
+`PASS` → [step 6b](#6b-review-rounds) before any merge when the repository
+reviews in CI: the review check succeeds whether or not it found anything. A
+`FAIL` confined to the review check itself — its token expired, the action
+errored — is not a code failure: do not send it to ci-repair; step 6b reads it
+as `NOT_REVIEWED`.
+
+### 6b. Review rounds
+
+Only when the repository reviews in CI (step 4 was skipped). Every push to the
+PR re-runs that review, so each pass through step 6 is one round.
+
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/review_digest.py <pr> \
+    > <runstate>/review/<pr>-<round>.log
+```
+
+Exit 3, `NOT_REVIEWED`: no review for this head — a fork or Dependabot PR, a PR
+that edits the review workflow itself, a review job that errored. Run
+[step 4](#4-local-review--only-where-ci-does-not-review) against the branch now
+and finish this PR on that path. Exit 2 → treat as `verdict: ERROR`. The format,
+and why a marker from anyone but the reviewer bot is ignored:
+[ci-review.md](references/ci-review.md).
+
+**The CI review is a lead, not a verdict.** It reads the change from a context
+that did not write it, and it can be wrong about it. Read every finding against
+the code before acting on it, the same way step 4's findings are triaged. Each
+one ends as exactly one of:
+
+- **fixed** — accepted, and in this PR's scope;
+- **rejected** — wrong in front of the code; the reason is a fact about the
+  code, never "out of scope" or "not worth it";
+- **deferred** — real, but held back by the table below or out of this PR's
+  scope.
+
+| `round:` | Fix | Defer |
+|---|---|---|
+| 1 | every accepted finding, `nit` included | out-of-scope and `pre-existing` |
+| 2 | accepted `must-fix` and `should-fix` | `nit` |
+| 3 and later | accepted `must-fix` only | `should-fix`, `nit` |
+
+Then, in this order:
+
+1. **Defer.** A `pre-existing` finding verified real is an ordinary
+   [step 8](#8-close-out-the-findings-the-run-turned-up) follow-up. Everything
+   else deferred goes into **one** issue per PR, `Review leftovers from #<pr>` —
+   a checklist of `file:line — what — why`, filed with `file_followup.py --tier
+   P3 --found-while <n>` at the first deferral (`--label "model: light"` when
+   every item meets [its conditions](references/dependency-triage.md#the-model-light-label)).
+   Later rounds add their items to it as a comment.
+2. **Respond**, before pushing, so the next round reads it:
+   `review_digest.py <pr> --respond <file> --sha <reviewed sha>`, one line per
+   finding.
+3. **Fix** in `<workdir>` — here, or through
+   [agents/review-fix.md](references/agents/review-fix.md) when the fixes are
+   more than this session should write itself. Read what changed, re-run the
+   verification command, push, and go back to [step 6](#6-ci-to-green).
+
+**Cleared** — go to step 7 — when a round leaves nothing to fix. **FAILED** when
+round 4 or later still has an accepted `must-fix`: the loop is not converging.
+Leave the PR open, record `--event blocked --field reason=review-rounds`, and in
+`all` mode move on.
+
+Record each round: `--event review --field issue=<n> --field pr=<pr> --field
+round=<k> --field source=<ci|local> --field must=<n> --field fixed=<n> --field
+rejected=<n> --field deferred=<n>`.
 
 ### 7. Merge and confirm the issue closed
 
@@ -344,9 +419,9 @@ one PR at a time, even in `all` mode. Record (`--event ci ...`).
 ${CLAUDE_SKILL_DIR}/scripts/land_pr.sh <pr> --issue <n>
 ```
 
-Merge as soon as step 6 reports `verdict: PASS` — call `land_pr.sh` in that same
-turn. Do not ask whether to merge, and do not report the green CI and wait: green
-CI is the approval. Read `result:` and `issue:`. Six results, one of which must
+Merge as soon as step 6 reports `verdict: PASS` and step 6b has cleared — call
+`land_pr.sh` in that same turn. Do not ask whether to merge, and do not report
+the green CI and wait: green CI with a cleared review is the approval. Read `result:` and `issue:`. Six results, one of which must
 never read as success: [landing-outcomes.md](references/landing-outcomes.md).
 Record (`--event merged ...`). Then:
 

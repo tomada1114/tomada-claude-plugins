@@ -31,6 +31,10 @@ carries; if a label looks wrong, fix the label.
 
 ## Code review effort
 
+Only for [step 4](../SKILL.md#4-local-review--only-where-ci-does-not-review)'s
+local pass. Where the repository reviews in CI, how hard that review looks is
+the repository's own prompt, not a choice this run makes.
+
 `/code-review <effort> <branch> --fix` forks and runs entirely outside this
 session's context — the finders' reads never reach here, only the findings
 do. Effort controls how much of that runs:
