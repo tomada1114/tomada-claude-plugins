@@ -13,6 +13,11 @@ Analyze the current changes, group related ones together, and create appropriate
    - `git diff` for staged/unstaged content
    - If anything is already staged, handle it first
    - **Exclude only secret-bearing files; treat everything else as committable**
+   - **Scope is the entire working tree, not just this session's edits**: commit every
+     outstanding change, including work left over from before this session or made by
+     someone/something else. Being invoked at all means the user wants everything
+     committed now — don't hold anything back to ask first, and don't skip a file just
+     because you don't recognize its origin.
 
 2. **Group the changes**
    Group by content and file type, using these rules:
@@ -45,17 +50,19 @@ Analyze the current changes, group related ones together, and create appropriate
    - **Styles / design** (`src/ui/`, `tokens.ts`, style-related changes):
      - `style:`, or `feat:` for design-system updates
 
-3. **Commit and push**
+3. **Commit each group**
    For each group:
    - Stage the related files with `git add`
    - Write a short, clear commit message (English, one line)
    - Describe *what* changed, not *why*
    - Commit with the one-line form `git commit -m "message"` (no HEREDOC)
-   - Run `git push`
 
 4. **Final check**
    - After every commit, run `git status` to see what remains
    - If files are still uncommitted, explain why (secret-bearing files are the expected case)
+
+5. **Push**
+   - Once all groups are committed, run `git push` once
 
 ## Important notes
 
