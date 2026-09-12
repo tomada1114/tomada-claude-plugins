@@ -1,10 +1,8 @@
 # Review fix, parallel mode (sub-agent prompt)
 
-Spawned at [SKILL.md step 4](../../SKILL.md#4-local-review--only-where-ci-does-not-review)
-in parallel mode, or at [step 6b](../../SKILL.md#6b-review-rounds) when the
-accepted findings are more than the session should write itself — only for
-findings this session has already read and accepted, one **`sonnet`** sub-agent
-per branch that has any.
+Spawned at [SKILL.md step 4](../../SKILL.md#4-review-the-branch) in parallel
+mode — only for findings this session has already read and accepted, one
+**`sonnet`** sub-agent per branch that has any.
 
 `/code-review --fix` writes to the session's own working tree, which in
 parallel mode is the main checkout sitting on the default branch — the wrong

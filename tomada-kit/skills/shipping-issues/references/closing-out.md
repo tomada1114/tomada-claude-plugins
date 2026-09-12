@@ -68,13 +68,11 @@ omitting one is a defect, not a stylistic choice.
 
 - **Any issue left open behind a merged PR.** This is the failure mode the skill
   exists to prevent; it can never be implied, only stated.
-- **How each merged PR was reviewed** — CI review rounds (how many, and every
-  rejected finding with its one-line reason), the local `/code-review` because
-  CI was `NOT_REVIEWED` or absent, or the fallback agent — and any `REJECTED`
-  finding this session did not resolve. A run that shipped unreviewed must not
-  read like one that passed. Never present re-reading your own diff as a review.
-- **Each PR's review-leftovers issue**, and any PR left open as `FAILED` by the
-  review rounds, with the `must-fix` that would not converge.
+- **How each merged PR was reviewed** — the local `/code-review` pass (effort
+  used, findings, what was fixed vs. rejected) or the fallback agent — and any
+  `REJECTED` finding this session did not resolve. A run that shipped
+  unreviewed must not read like one that passed. Never present re-reading your
+  own diff as a review.
 - **Acceptance criteria that shipped `not-met`, and why that was accepted.** If
   none did, say the criteria were met. If the issue carried none, say that —
   rather than implying it passed a check it never had.
