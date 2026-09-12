@@ -1,7 +1,7 @@
 ---
 name: shipping-issues
-description: "Rank open GitHub Issues by their `priority: P0`-`P3` labels — backfilling a missing label from how much an issue unblocks and how far its impact spreads — then implement the top one, review the branch locally with /code-review, open a PR that auto-closes the issue (Closes #N), watch CI to green, merge with no approval pause, confirm the issue closed, and return the checkout to the default branch. With no argument it ships the highest-priority issue and then what that run itself produced — the follow-ups it filed, the designs it unblocked. Pass \"all\" to work through every issue in dependency order, independent ones implemented in parallel git worktrees, with PR, CI and merge still serialized; pass \"light\" to do the same for only the issues labeled `model: light` (design settled, small, low-judgment). Design-blocked issues get a background sub-agent that decides the approach and clears the block. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, or work through the open issues."
-argument-hint: "[all | light | <issue number> | (empty = one issue)] [parallel N]"
+description: "Rank open GitHub Issues by their `priority: P0`-`P3` labels — backfilling a missing label from how much an issue unblocks and how far its impact spreads — then implement the top one, review the branch locally with /code-review, open a PR that auto-closes the issue (Closes #N), watch CI to green, merge with no approval pause, confirm the issue closed, and return the checkout to the default branch. With no argument it ships the highest-priority issue and then what that run itself produced — the follow-ups it filed, the designs it unblocked. Pass \"all\" to work through every issue in dependency order, independent ones implemented in parallel git worktrees, with PR, CI and merge still serialized. Design-blocked issues get a background sub-agent that decides the approach and clears the block. Use when asked to ship the remaining issues, start from the highest-priority issue, implement an issue through to merge, take on the next issue, clear the ticket backlog, or work through the open issues."
+argument-hint: "[all | <issue number> | (empty = one issue)] [parallel N]"
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/*.py:*), Bash(${CLAUDE_SKILL_DIR}/scripts/*.sh:*)
 metadata:
   platforms: claude-code
@@ -23,7 +23,7 @@ genuinely tied top two at step 2, and `NO_CHECKS` at step 6.
 
 ## Table of Contents
 
-- [Modes](#modes) · [Deferring light issues](#deferring-light-issues) · [Working rules](#working-rules) · [Inputs and outputs](#inputs-and-outputs)
+- [Modes](#modes) · [Working rules](#working-rules) · [Inputs and outputs](#inputs-and-outputs)
 - [1. Plan](#1-plan--one-call) · [2. Label](#2-label-the-unlabeled--only-when-the-plan-says-so) · [2b. Gating design](#2b-decide-a-design-that-gates-the-pick) · [2c. Confirm the batch](#2c-confirm-the-proposed-batch)
 - [3. Implement](#3-implement) · [4. Review](#4-review-the-branch) · [5. Open the PR](#5-open-the-pr) · [6. CI to green](#6-ci-to-green) · [7. Merge](#7-merge-and-confirm-the-issue-closed)
 - [8. Close out findings](#8-close-out-the-findings-the-run-turned-up) · [8b. Unblock designs](#8b-unblock-held-designs-in-the-background) · [8c. Re-queue this run's output](#8c-take-the-runs-own-output-back-into-the-queue) · [9. Clean up](#9-clean-up) · [10. Report](#10-report)
@@ -33,9 +33,8 @@ genuinely tied top two at step 2, and `NO_CHECKS` at step 6.
 
 | Argument | Behavior |
 |---|---|
-| _(none)_ | Ship the highest-priority shippable issue — [deferred `model: light` issues](#deferring-light-issues) aside — then continue through **its own output only** — the follow-ups it filed, the designs it unblocked ([step 8c](#8c-take-the-runs-own-output-back-into-the-queue)). Never reaches back into the wider backlog. |
-| `all` | Ship every shippable issue except the [deferred `model: light` ones](#deferring-light-issues), in dependency-then-priority order. Independent issues are implemented and reviewed in parallel, one git worktree each; PR, CI watch and merge stay serialized. Follow-ups this run files join the same queue. |
-| `light` | `all`, narrowed to open issues labeled `model: light` ([what the label means](references/dependency-triage.md#the-model-light-label)). A follow-up this run files joins the queue only if it carries the label too. The label chooses *which* issues, not *how*: implementation keeps the [model assignment](references/cost-discipline.md#model-and-effort-assignment) it would get anyway. |
+| _(none)_ | Ship the highest-priority shippable issue, then continue through **its own output only** — the follow-ups it filed, the designs it unblocked ([step 8c](#8c-take-the-runs-own-output-back-into-the-queue)). Never reaches back into the wider backlog. |
+| `all` | Ship every shippable issue, in dependency-then-priority order. Independent issues are implemented and reviewed in parallel, one git worktree each; PR, CI watch and merge stay serialized. Follow-ups this run files join the same queue. |
 | a number, e.g. `42` | Ship that specific issue, after checking nothing it depends on is still open. |
 
 A count or concurrency in the argument — "10個ぐらい", "3 at a time", "parallel
@@ -50,20 +49,6 @@ automatically, even under `all` — take it on only by naming its number or pass
 label itself is not left alone:
 [step 8b](#8b-unblock-held-designs-in-the-background) sends a background agent
 after every design-blocked issue this run files or finds.
-
-### Deferring light issues
-
-Under `all` and with no argument, an issue labeled `model: light` is **left for
-a lighter runner** (the Codex-side skill) rather than shipped here — its thinking
-is done, so spending this runner on it buys nothing a cheaper one would not.
-The exception is an issue something heavier is waiting on: when an issue that
-is *not* deferred depends on it, directly or through a chain of light issues,
-it ships in this run like any other, because leaving it would stall the work
-behind it. `plan.py` makes the call and prints what it left on
-`deferred-light:`; step 10 names them. `--include-light` takes them anyway, and
-`light` mode and an explicit issue number are unaffected. A follow-up this run
-files with the label is deferred by the same rule at
-[step 8c](#8c-take-the-runs-own-output-back-into-the-queue).
 
 ## Working rules
 
@@ -110,7 +95,7 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/run_record.py --repo <owner>/<repo> \
 ### 1. Plan — one call
 
 ```bash
-python3 ${CLAUDE_SKILL_DIR}/scripts/plan.py --mode <all|light|single|N> \
+python3 ${CLAUDE_SKILL_DIR}/scripts/plan.py --mode <all|single|N> \
     [--max-parallel N] [--label L] [--assignee A] [--milestone M] \
     [--include-design] --record
 ```
@@ -399,8 +384,7 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/file_followup.py \
 `--tier` is required even with `--needs-design` — the moment the design is
 decided the issue must already rank correctly. `--area` and `--touches` become
 the issue's [ship contract](references/ship-contract.md). `--needs-design` is for
-an open design question, not a verified fix. Add `--label "model: light"` when the
-follow-up meets [its three conditions](references/dependency-triage.md#the-model-light-label). Exit 2 (`NO_WRITE_ACCESS`) → report
+an open design question, not a verified fix. Exit 2 (`NO_WRITE_ACCESS`) → report
 the finding at step 10 instead. File as you go, right after the PR that surfaced
 it lands; record (`--event followup`), and pass `--refresh` on the next plan.
 
@@ -443,9 +427,8 @@ Before cleanup, re-plan (`plan.py --mode <same> --refresh
 the follow-ups filed at step 8 and the issues step 8b unblocked. Each runs the
 same steps 3–8, one PR at a time. With an explicit issue number, the re-plan
 only ever looks at that number and prints `select: none` — so re-plan each
-candidate by its own number instead (`plan.py --mode <m> --refresh`), and
-apply condition 4 from its labels yourself. Take one on only when all four
-hold:
+candidate by its own number instead (`plan.py --mode <m> --refresh`). Take one
+on only when all three hold:
 
 1. **Depth 1** — it came from *this* run's own work. A follow-up filed while
    shipping a follow-up is recorded and left for the next run.
@@ -455,10 +438,6 @@ hold:
 3. **[Budget left](references/cost-discipline.md#run-budget).** Out of budget, or
    a background design still in flight once everything else is done → stop and
    name it at step 10 rather than waiting.
-4. **Not deferred-light** — a `model: light` follow-up that nothing heavier
-   waits on stays filed for the lighter runner
-   ([why](#deferring-light-issues)); the re-plan's `deferred-light:` line names
-   it.
 
 In `all` mode these join the existing queue with no privilege over the backlog's
 own issues. With no argument or an explicit number, this step is the *only* thing
