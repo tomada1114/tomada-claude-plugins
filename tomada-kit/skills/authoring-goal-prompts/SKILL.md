@@ -1,6 +1,14 @@
 ---
 name: authoring-goal-prompts
-description: "Author a self-contained prompt for Claude Code's /goal command, run unattended in a separate session — a lead-to-staff handoff where this (stronger) session researches, designs, and decides, and a (typically weaker) executor model implements. Drafts a goal with measurable done-criteria, transcript-verifiable checks, scope + anti-cheat constraints, and stop rules; packages design intent, code examples, research findings, checklists, and pre-answered decisions as support files in a per-goal state directory whenever the executor would otherwise re-derive them. Use when the user mentions /goal, a goal prompt, an unattended or self-driving run, deciding the done-criteria for a goal run, or setting up a long-running autonomous Claude session. Examples: <example>Context: User wants an unattended run user: 'Write the prompt I will hand to /goal' assistant: 'I will use authoring-goal-prompts skill' <commentary>goal-prompt authoring request</commentary></example>"
+description: >-
+  Author a self-contained prompt for Claude Code's /goal command, run unattended in a
+  separate session — a lead-to-staff handoff where this (stronger) session researches,
+  designs, and decides, and a (typically weaker) executor model implements. Drafts a
+  goal with measurable done-criteria, transcript-verifiable checks, scope + anti-cheat
+  constraints, and stop rules; packages design intent, code examples, research findings,
+  checklists, and pre-answered decisions as support files in a per-goal state directory
+  whenever the executor would otherwise re-derive them. Use when setting up a /goal run
+  or a long-running autonomous session, or when deciding its done-criteria.
 allowed-tools: Read, Grep, Glob, Bash, Write, Edit, Agent, AskUserQuestion
 argument-hint: "[task to draft a /goal prompt for]"
 metadata:

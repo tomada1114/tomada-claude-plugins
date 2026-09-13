@@ -1,6 +1,10 @@
 ---
 name: planning-tickets
-description: "Plan and create GitHub Issues with agile/scrum methodology. Analyze requirements, identify parallel work, manage dependencies, and suggest git worktree strategies. Use PROACTIVELY when creating tickets, planning sprints, breaking down features, organizing issues, identifying parallel tasks, managing dependencies, or working with GitHub Issues, scrum, agile planning, ticket breakdown, worktree planning. Examples: <example>Context: User wants to plan implementation user: 'Let us start cutting tickets' assistant: 'I will use planning-tickets skill' <commentary>Triggered by ticket creation request</commentary></example> <example>Context: User has requirements user: 'Split these requirements into issues' assistant: 'I will use planning-tickets skill' <commentary>Triggered by issue breakdown request</commentary></example>"
+description: >-
+  Plan and create GitHub Issues with agile/scrum methodology. Analyze requirements,
+  identify parallel work, manage dependencies, and suggest git worktree strategies. Use
+  when cutting tickets, breaking a feature into issues, planning a sprint, or organizing
+  an issue backlog.
 metadata:
   platforms: claude-code, codex
 ---

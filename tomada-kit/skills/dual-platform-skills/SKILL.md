@@ -1,6 +1,14 @@
 ---
 name: dual-platform-skills
-description: "Convert one existing skill (Claude Code origin or Codex origin) into a layout that works on both Claude Code and OpenAI Codex CLI. Uses Topology A: the real files live in .claude/skills/ and the Codex side symlinks them. Capabilities the running runtime may not expose (parallel delegation, skill-to-skill calls, option prompts, context forking, batch runs, tmux) are inlined as best-effort sequential steps, and knowledge held by dependent sub-agents is extracted into references/agents/. Orchestrates the phases with Python scripts and bundled sub-agents. Use when making a skill work in Codex, dual-platforming a skill, porting a skill to Codex, bridging a skill to Codex, or sharing one skill across both platforms."
+description: >-
+  Convert one existing skill (Claude Code origin or Codex origin) into a layout that
+  works on both Claude Code and OpenAI Codex CLI. Uses Topology A: the real files live
+  in .claude/skills/ and the Codex side symlinks them. Capabilities the running runtime
+  may not expose (parallel delegation, skill-to-skill calls, option prompts, context
+  forking, batch runs, tmux) are inlined as best-effort sequential steps, and knowledge
+  held by dependent sub-agents is extracted into references/agents/. Orchestrates the
+  phases with Python scripts and bundled sub-agents. Use when porting a skill to Codex,
+  dual-platforming a skill, or sharing one skill across both platforms.
 argument-hint: "<skill-name or path> [--scope user|repo]"
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task, Skill
 metadata:

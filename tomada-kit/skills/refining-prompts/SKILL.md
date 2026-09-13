@@ -1,6 +1,14 @@
 ---
 name: refining-prompts
-description: "Polish a rough instruction (often dictated by voice) into a precise prompt that can be handed straight to another agentic coding session (Claude Code, Codex CLI, etc.), and print it in the CLI as a single code block (no file is saved). Runs a light scouting pass with a Sonnet sub-agent only when needed, and questions the user only when needed; the investigating and the thinking are deliberately left as work for the receiving session. When the user wants a /goal prompt for an unattended run, use authoring-goal-prompts instead. Use when the user asks to write a prompt for Claude Code or Codex CLI, turn something into a prompt, tidy up or sharpen an instruction, produce a prompt to hand to another session, or dictates a rough wish or problem and wants a polished instruction. Examples: <example>user: 'Make me a prompt for another session about this design' assistant: 'I will build it with the refining-prompts skill'</example>"
+description: >-
+  Polish a rough instruction (often dictated by voice) into a precise prompt that can be
+  handed straight to another agentic coding session (Claude Code, Codex CLI, etc.), and
+  print it in the CLI as a single code block (no file is saved). Runs a light scouting
+  pass with a Sonnet sub-agent only when needed, and questions the user only when
+  needed; the investigating and the thinking are deliberately left as work for the
+  receiving session. When the user wants a /goal prompt for an unattended run, use
+  authoring-goal-prompts instead. Use when asked to write, tidy up, or sharpen a prompt
+  to hand to another session.
 allowed-tools: Read, Grep, Glob, Bash, Agent, AskUserQuestion
 argument-hint: "[rough instruction, thing to talk through, or problem to solve]"
 metadata:

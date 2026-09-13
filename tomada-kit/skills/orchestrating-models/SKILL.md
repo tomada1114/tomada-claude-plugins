@@ -1,6 +1,14 @@
 ---
 name: orchestrating-models
-description: "Playbook for choosing models and deciding what to delegate. The default posture flips with the main model: when the main model is Fable, concentrate on judgment and push execution to Opus/Sonnet/Haiku; when it is Opus, execute directly by default and delegate only independent parallel tracks, mechanical work, and context isolation. Covers per-model role assignment, the required elements of a delegation prompt, relay formations, wording tuned to each model's quirks, and techniques for surfacing unknowns. Use PROACTIVELY when starting a large task, a multi-file implementation, or broad research, or when the user asks to work efficiently, save tokens, cut cost, orchestrate, delegate, use sub-agents, or wonders whether to do the work directly or hand it off. Examples: <example>user: 'Should I hand this to a sub-agent?' assistant: 'I will decide with the delegation triage in orchestrating-models'</example>"
+description: >-
+  Playbook for choosing models and deciding what to delegate. The default posture flips
+  with the main model: when the main model is Fable, concentrate on judgment and push
+  execution to Opus/Sonnet/Haiku; when it is Opus, execute directly by default and
+  delegate only independent parallel tracks, mechanical work, and context isolation.
+  Covers per-model role assignment, the required elements of a delegation prompt, relay
+  formations, wording tuned to each model's quirks, the cache cost a sub-agent spawn
+  pays, and techniques for surfacing unknowns. Use when starting a large task, when
+  deciding whether to delegate, or when asked to cut token cost.
 metadata:
   platforms: claude-code
 ---

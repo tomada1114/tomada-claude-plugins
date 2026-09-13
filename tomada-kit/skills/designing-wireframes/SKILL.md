@@ -1,6 +1,9 @@
 ---
 name: designing-wireframes
-description: "Create ASCII wireframes, user flow diagrams, and cross-cutting specifications for UI/UX visualization (ワイヤーフレーム、画面設計、UI/UXフロー). Use PROACTIVELY when user mentions wireframe, UI design, UX flow, screen layout, screen design, user flow, or asks to visualize screens. Examples: <example>Context: User needs screen design user: 'Create wireframes for this feature' assistant: 'I will use designing-wireframes skill' <commentary>Triggered by wireframe request</commentary></example> <example>Context: After requirements are detailed user: 'Let me design the screens' assistant: 'I will use designing-wireframes skill' <commentary>Triggered by screen design request</commentary></example>"
+description: >-
+  Create ASCII wireframes, user flow diagrams, and cross-cutting specifications for
+  UI/UX visualization. Use when asked for a wireframe, screen layout, screen design, or
+  user flow, or to visualize screens before implementation.
 metadata:
   platforms: claude-code, codex
 ---

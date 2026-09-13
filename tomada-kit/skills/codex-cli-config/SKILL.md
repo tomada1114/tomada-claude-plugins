@@ -1,19 +1,14 @@
 ---
 name: codex-cli-config
 description: >-
-  Reference for OpenAI Codex CLI configuration, permissions, sandboxing, and
-  autonomy — sandbox_mode and permission profiles, approval_policy, Rules
-  (.rules / prefix_rule), config.toml precedence and trust, AGENTS.md
-  discovery, task design (Mini Codex, Done When, Plan mode), Skills/Plugins/
-  subagents/MCP, and running Codex unattended in CI or Automations.
-  Use when asked how to configure Codex CLI, loosen or tighten its sandbox,
-  let it run commands (including git) without full access, set up the
-  equivalent of an "auto mode," diagnose why a config.toml, AGENTS.md, or
-  Rules file isn't taking effect, or write task prompts and AGENTS.md/Skill
-  content Codex will act on well. Also use when Codex CLI itself is asked
-  about its own configuration, permissions, or sandboxing — 自分（Codex）の
-  設定・権限・サンドボックスについて聞かれたとき、承認なしで動かす方法や
-  config.toml/AGENTS.md/Rules が効かない原因を尋ねられたときにも使う。
+  Reference for OpenAI Codex CLI configuration, permissions, sandboxing, and autonomy —
+  sandbox_mode and permission profiles, approval_policy, Rules (.rules / prefix_rule),
+  config.toml precedence and trust, AGENTS.md discovery, task design (Mini Codex, Done
+  When, Plan mode), Skills/Plugins/subagents/MCP, and running Codex unattended in CI or
+  Automations. Use when configuring Codex CLI, loosening or tightening its sandbox,
+  diagnosing why a config.toml, AGENTS.md, or Rules file is not taking effect, or
+  writing task prompts and AGENTS.md content Codex will act on well. Also applies when
+  Codex CLI itself is asked about its own configuration, permissions, or sandboxing.
 metadata:
   platforms: claude-code, codex
 ---

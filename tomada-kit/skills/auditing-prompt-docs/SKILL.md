@@ -1,16 +1,14 @@
 ---
 name: auditing-prompt-docs
 description: >-
-  Audit and fix prompt-bearing documents — SKILL.md, CLAUDE.md, AGENTS.md, agent
-  and command definitions, reference files, whole repositories — against
-  Anthropic's published prompting guidance for current Claude models, proposing
-  edits for approval before writing anything. Also answers how to prompt a
-  specific model: holds the per-model guidance for Claude Fable 5.1, Claude Opus
-  5, and Claude Sonnet 5 alongside the cross-model practices. Use when reviewing
-  or slimming a CLAUDE.md, AGENTS.md, skill, or agent definition, when
-  instructions are being ignored or fire too often, when migrating a prompt to a
-  newer model, when asking what makes an instruction good for Claude, or when
-  refreshing this guidance after a model release.
+  Audit and fix prompt-bearing documents — SKILL.md, CLAUDE.md, AGENTS.md, agent and
+  command definitions, reference files, whole repositories — against Anthropic's
+  published prompting guidance for current Claude models, proposing edits for approval
+  before writing anything. Also answers how to prompt a specific model: holds the per-
+  model guidance for Claude Fable 5.1, Claude Opus 5, and Claude Sonnet 5 alongside the
+  cross-model practices. Use when reviewing or slimming an instruction file, when
+  instructions are ignored or fire too often, when migrating a prompt to a newer model,
+  or when refreshing this guidance after a model release.
 metadata:
   platforms: claude-code, codex
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/lint_prompt_doc.py:*)

@@ -1,6 +1,11 @@
 ---
 name: refining-requirements
-description: "Clarify ambiguous requirements through structured questioning and produce detailed, implementation-ready specifications. Acts as PdM to identify unclear points and resolve them through structured questioning. Use PROACTIVELY when user mentions requirements, specs, PRD, refine, detail, clarify requirements, or asks to detail/refine app ideas. Also trigger when the user is about to jump into implementation with a vague or incomplete spec — even if they haven't explicitly asked to \"refine\" anything. Examples: <example>Context: User has rough idea user: 'Help me refine this app spec' assistant: 'I will use refining-requirements skill' <commentary>spec refinement</commentary></example> <example>Context: User jumps to implementation with vague spec user: 'Let me start building this feature' assistant: 'I will use refining-requirements first' <commentary>pre-implementation</commentary></example>"
+description: >-
+  Clarify ambiguous requirements through structured questioning and produce detailed,
+  implementation-ready specifications. Acts as PdM to identify unclear points and
+  resolve them through structured questioning. Use when asked to refine or detail a
+  spec, PRD, or app idea. Also trigger when the user is about to start implementing from
+  a vague or incomplete spec, even without an explicit request to refine.
 metadata:
   platforms: claude-code, codex
 ---
