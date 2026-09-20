@@ -51,8 +51,8 @@ Phase 1: Discovery & design (autonomous)  →  Phase 2: Choose the handoff packa
 Investigate the target project before drafting. Default target is the current working directory
 unless the user names another. Gather, in order:
 
-1. **Project rules** — read the target `CLAUDE.md` and any dev-rule/contribution docs. Scope limits
-   (e.g. "don't rename/refactor unrelated code") become `CONSTRAINTS` verbatim.
+1. **Project rules** — read the target `AGENTS.md`/`CLAUDE.md` and any dev-rule/contribution docs.
+   Scope limits (e.g. "don't rename/refactor unrelated code") become `CONSTRAINTS` verbatim.
 2. **Baseline** — find the verify command (test/build/lint) and determine its **current** state
    (run it if cheap/safe, else infer from recent signals) so the goal is reachable — capture as
    `BASELINE`. If the goal will make commits, also capture `git status` and name any pre-existing

@@ -2,7 +2,7 @@
 
 Thariq Shihipar(Anthropic / Claude Code チーム)の Field Guide がベース。前提となる考え方:
 
-- **Map**: プロンプト・スキル・CLAUDE.md・会話で与えたコンテキスト
+- **Map**: プロンプト・スキル・AGENTS.md/CLAUDE.md・会話で与えたコンテキスト
 - **Territory**: 実際のコードベースと現実の制約
 
 Map と Territory のギャップ(未知)が手戻りの原因になる。安価な事前ステップで未知を潰すほど、高コストな実装フェーズのやり直しが減る。未知は 4 象限で捉える:

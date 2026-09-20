@@ -27,8 +27,8 @@ VERIFY: [The exact command(s) that prove DONE WHEN, and the instruction to PRINT
        Do not claim success without showing fresh output from the latest code."]
 
 CONSTRAINTS:
-  - Scope: [What must NOT change — pulled from the project's CLAUDE.md / dev rules. e.g. "do not
-    rename, refactor, or touch files outside src/api/. No unrelated cleanup."]
+  - Scope: [What must NOT change — pulled from the project's AGENTS.md/CLAUDE.md / dev rules.
+    e.g. "do not rename, refactor, or touch files outside src/api/. No unrelated cleanup."]
   - Integrity (anti-cheat): Do NOT skip, xfail, disable, or delete tests; do not weaken assertions;
     do not stub or mock to make checks pass. The implementation must genuinely satisfy the checks.
   - [Process (TDD) — include for coding goals that add or change behavior:] For each new behavior

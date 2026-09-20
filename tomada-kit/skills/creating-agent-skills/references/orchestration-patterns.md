@@ -249,7 +249,7 @@ This is the single most important pattern for building chains of skills. The dir
 1. Pick a deterministic root path. See `workspace-conventions.md` (load via SKILL.md).
 2. Pick stable filenames. Use kebab-case, prefix with order-hint (`00_`, `01_`) when the user might want to read them in order.
 3. In each skill's SKILL.md, write a "## Inputs" and "## Outputs" section listing exact filenames.
-4. In CLAUDE.md, list the recommended pipeline order so users can follow it sequentially.
+4. In AGENTS.md (or CLAUDE.md), list the recommended pipeline order so users can follow it sequentially.
 
 ---
 

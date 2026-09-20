@@ -49,7 +49,7 @@ Put the substance — coding conventions, security requirements, architecture de
 |---|---|---|
 | Codex | `AGENTS.md` (repo root) | Loaded directly — no pointer needed. |
 | GitHub Copilot | `.github/copilot-instructions.md` | "Refer to AGENTS.md for repository rules." |
-| Claude Code | `CLAUDE.md` | "Refer to AGENTS.md for repository rules." |
+| Claude Code | `AGENTS.md` (repo root) | Loaded directly, project-scoped, no pointer needed (Claude Code ≥2.1.277) — unless a `CLAUDE.md`/`CLAUDE.local.md` also exists in the working directory or above it, which by default takes over instead: keep that `CLAUDE.md` a one-line `@AGENTS.md` pointer. |
 | Cursor | `.cursor/rules/main.mdc` | "Refer to AGENTS.md for repository rules." |
 | Cline | `.clinerules/main.md` | "Refer to AGENTS.md for repository rules." |
 | Amazon Q | `.amazonq/rules/main.md` | "Refer to AGENTS.md for repository rules." |

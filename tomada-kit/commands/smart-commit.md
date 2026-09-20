@@ -28,7 +28,7 @@ Analyze the current changes, group related ones together, and create appropriate
      - Test fixes → "test: fix ..."
      - Test improvements → "test: improve ..."
 
-   - **Documentation** (`.md`, `docs/`, `CLAUDE.md`, `README.md`):
+   - **Documentation** (`.md`, `docs/`, `AGENTS.md`, `CLAUDE.md`, `README.md`):
      - Prefix: `docs:`
      - New → "docs: add ..."
      - Updated → "docs: update ..."
@@ -74,7 +74,7 @@ Analyze the current changes, group related ones together, and create appropriate
   - Filename patterns implying secrets, such as `**/*password*`, `**/*secret*`, `**/*key*.pem`
 - **Default policy**: everything other than the secret files above **is committable**
   - Configuration (`.claude/`, `*.json`, `*.md`)
-  - Documentation (`*.md`, `CLAUDE.md`, `README.md`)
+  - Documentation (`*.md`, `AGENTS.md`, `CLAUDE.md`, `README.md`)
   - Source code (`*.ts`, `*.tsx`, `*.js`, `*.jsx`)
   - Tests (`*.test.*`, `__tests__/`)
   - Commit work-in-progress files freely

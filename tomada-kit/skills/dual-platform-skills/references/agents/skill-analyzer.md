@@ -13,7 +13,7 @@ Recommended `subagent_type`: `Explore`（読取専用）。
 1. `{{RULES_DIR}}/platform-diff.md`、`{{RULES_DIR}}/transformation-rules.md`、`{{RULES_DIR}}/topology.md`
 2. `{{TARGET_SKILL_DIR}}/SKILL.md` 全文＋ `references/` 配下＋ `scripts/` の役割
 3. サブエージェント定義の実体を **3 系統**で確認: `<skill>/agents/`（skill-local）／`<repo>/.claude/agents/`／`~/.claude/agents/`
-4. リポジトリ直下 `CLAUDE.md`（あれば）の「Sub-Agent Activation Rules」表など、**ファイル外で宣言されたサブエージェント対応**
+4. リポジトリ直下 `AGENTS.md`・`CLAUDE.md`（あれば）の「Sub-Agent Activation Rules」表など、**ファイル外で宣言されたサブエージェント対応**
 
 ## 手順
 1. SKILL.md 本文と `references/**/*.md`・`templates/**/*.md` を読み、プラットフォーム依存箇所を**ファイル:行レベル**で特定（Task/Skill/AskUserQuestion/TodoWrite/context:fork/MCP/tmux//batch/絶対 `.claude/` パス/`CLAUDE_PLUGIN_ROOT`/独自状態パス）。`classify_skill.py --json` の `construct_locations` を出発点に、誤検出を除外し漏れを補完する。
