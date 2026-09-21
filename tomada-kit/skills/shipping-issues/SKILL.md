@@ -70,6 +70,15 @@ after every design-blocked issue this run files or finds.
   a batch; everything that talks to GitHub stays in this session, serialized, one
   PR at a time, in both modes. Parallel worktrees buy back the implementation
   wait — making merges concurrent is not a goal.
+- **Nothing waits on the user mid-run.** A command the user's permission
+  settings put behind an approval prompt (`permissions.ask` — typically the
+  `rm -rf` family) stalls an unattended run until someone answers it. Route
+  around it, in order: an equivalent that raises no prompt (`mv` into the
+  holding area instead of `rm`); if none exists and it can wait, defer it to the
+  single end-of-run confirmation; run it mid-run only when the issue's goal
+  cannot move forward without it. Holding area, what counts as "can wait", and
+  the final confirmation:
+  [closing-out.md#approval-gated-commands](references/closing-out.md#approval-gated-commands).
 - Every issue starts from a clean, up-to-date default branch, and the run returns
   there after every merge (`git switch <default> && git pull --ff-only`).
 - **A run finishes what it started**, to depth 1
@@ -457,7 +466,8 @@ that extends the run past its first merge.
 **Once, after the last merge, script only.** Every deletion this run makes
 happens in a single `cleanup_run.sh` call, including when a batch finished long
 ago. `rm` is never used anywhere in the run — not on repository content, not on a
-throwaway fixture under the scratchpad. Reasoning, scope, and what to do instead:
+throwaway fixture under the scratchpad; what has to go mid-run is moved into
+`<runstate>/holding/<n>/` with `mv`. Reasoning, scope, and what to do instead:
 [closing-out.md#cleanup-scope](references/closing-out.md#cleanup-scope).
 
 Step 7 already left `HEAD` on the up-to-date default branch, which the branch
@@ -481,6 +491,15 @@ inside one is lost with it
 second call runs only when this run actually probed worktree viability; it
 persists the answer so the next run's plan skips the probe. Record the outcome
 (`--event cleanup ...`).
+
+**Deferred approvals come last, all in one ask.** If `<runstate>/holding/` or
+`<runstate>/deferred.md` holds anything from this run, list it in the step 10
+report and make the approval-gated call (one `rm -rf` over the holding
+directories, plus anything deferred) as the run's **final tool call**, after the
+report text — so the report is already on screen while the prompt waits, and
+the user answers once instead of once per issue. Declined → leave it all in
+place and say where it is:
+[closing-out.md#the-final-confirmation](references/closing-out.md#the-final-confirmation).
 
 ### 10. Report
 

@@ -16,8 +16,11 @@ where **`<runstate>`** is
 Every other file this run generates lives there too, and **never inside a
 repo checkout** — the main one or a worktree: issue bodies for follow-ups,
 verify baselines at `<runstate>/verify/<n>-baseline.log`, CI logs at
-`<runstate>/ci/<pr>.log`, and in parallel mode the worktrees themselves at
-`<runstate>/worktrees/<n>/`. An untracked file left in a checkout makes that
+`<runstate>/ci/<pr>.log`, in parallel mode the worktrees themselves at
+`<runstate>/worktrees/<n>/`, and whatever was moved out of the way instead of
+deleted at `<runstate>/holding/<n>/`, with approval-gated commands put off
+until the end in `<runstate>/deferred.md`
+([closing-out.md#approval-gated-commands](closing-out.md#approval-gated-commands)). An untracked file left in a checkout makes that
 working tree read as dirty, and a commit convention that stages everything
 would land it in the PR. Call it right after the event happens, not batched at
 the end; `--repo` can be omitted when cwd is the repo being shipped.

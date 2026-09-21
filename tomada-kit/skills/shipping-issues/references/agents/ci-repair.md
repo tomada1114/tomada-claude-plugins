@@ -40,8 +40,8 @@ The failing output is in:
 Read that file first. It is outside your work directory; read it there and do
 not copy it in. Then fix the cause at {workdir}, commit, and push — return as
 soon as your fix is pushed. Never `rm`: undo a probe inside the checkout with
-`git checkout --`, or move it aside with `mv`, and name any scratch file you
-left behind in your report.
+`git checkout --`, or move it aside with `mv` into {holding_dir}, and name any
+scratch file you left behind in your report.
 
 This is attempt {attempt} of 3. {What the previous attempts tried and why it
 did not work — leave empty on attempt 1, and never re-send the same

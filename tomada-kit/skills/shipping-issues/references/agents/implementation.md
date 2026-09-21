@@ -76,11 +76,14 @@ Do:
    call, including `gh pr`, `gh issue edit/comment/close`, any label change,
    or a non-GET `gh api` call, belongs to the parent (it opens the PR and
    watches CI). Never `rm`: undo a probe inside the checkout with
-   `git checkout --`, or move it aside with `mv`, and name any scratch file —
-   including a throwaway fixture or repository you created under a temp
-   directory — you left behind in your report. `rm` triggers an approval
-   prompt that stalls the run, and a disposable temp directory costs nothing
-   to keep.
+   `git checkout --`, or move it aside with `mv` into {holding_dir}, and name
+   any scratch file — including a throwaway fixture or repository you created
+   under a temp directory — you left behind in your report. If the issue
+   requires deleting an existing directory, `git rm -r` it when tracked, or
+   `mv` it into {holding_dir} (keep its relative path) when not — never
+   `rm -rf`. `rm` triggers an approval prompt that stalls the run, and a
+   disposable temp directory costs nothing to keep. Any other command that
+   would ask for approval: don't run it — name it under UNRESOLVED.
 7. Run every verification in the **foreground**. Do not start a long command
    in the background and then poll it — a run that returns while waiting on
    its own background job returns without its report, and its work has to be

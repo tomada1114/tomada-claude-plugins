@@ -49,8 +49,8 @@ Do:
    before you return.
 5. No GitHub write of any kind beyond the read above — no `gh pr`, no
    `gh issue edit/comment/close`, no label change. Never `rm`: undo a probe
-   inside the checkout with `git checkout --`, or move it aside with `mv`,
-   and name any scratch file — including a throwaway fixture or repository
+   inside the checkout with `git checkout --`, or move it aside with `mv`
+   into {holding_dir}, and name any scratch file — including a throwaway fixture or repository
    you created under a temp directory — you left behind in your report.
 6. Use my F-numbers verbatim in APPLIED and REJECTED; do not renumber.
 

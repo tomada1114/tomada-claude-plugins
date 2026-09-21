@@ -36,7 +36,8 @@ main checkout in serial mode, that issue's worktree
 (`<runstate>/worktrees/<n>`) in parallel mode. **Two sub-agents never share a
 working directory** — that invariant is what makes parallel mode safe, and
 filling `{workdir}` with the main checkout for two concurrent runs breaks it
-silently rather than loudly. The read-only templates are the exception, and
+silently rather than loudly. `{holding_dir}` is `<runstate>/holding/<n>/` for
+that issue — create it (`mkdir -p`) before spawning. The read-only templates are the exception, and
 only because they write nothing: the review fallback and the design agent read
 a checkout others are working in without disturbing it. Everything downstream
 of implementation still runs one PR at a time in the parent.
@@ -57,7 +58,13 @@ a spawned sub-agent cannot follow a cross-reference back to this file.
   leave it exactly where it is and name it in the report. `rm` triggers an
   approval prompt that stalls the run, and a disposable temp directory costs
   nothing to keep. Revert a probe inside the checkout with `git checkout --`,
-  or move it out of the way with `mv`.
+  or move it out of the way with `mv` into `{holding_dir}`
+  (`<runstate>/holding/<n>/`, keeping its relative path). When the issue itself
+  requires removing a directory, the same move does it — or `git rm -r` for
+  tracked content, whose history is the backup — never `rm -rf`. Any other
+  command that raises an approval prompt is not run: name it under
+  `UNRESOLVED` and the parent defers it
+  ([closing-out.md#approval-gated-commands](closing-out.md#approval-gated-commands)).
 
 The design agent is the one named exception to the first rule: it writes two
 specific things to GitHub (a design comment, a label clear) as its whole
