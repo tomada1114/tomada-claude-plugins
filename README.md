@@ -30,6 +30,7 @@ Run `/plugin` to browse interactively.
 | **refining-prompts** | Polish a rough instruction (often dictated by voice) into a precise prompt that can be handed straight to… |
 | **refining-requirements** | Clarify ambiguous requirements through structured questioning and produce detailed, implementation-ready… |
 | **shipping-issues** | Rank the open GitHub Issues, implement the top one, then drive it through PR, CI, merge to main, and close |
+| **transplanting-harnesses** | Translate a reference repository's development harness — policy docs (AGENTS.md / CLAUDE.md), agent skills… |
 | **ui-ux-designing** | Produces a settled UI/UX design direction for an app or web service, written out as… |
 
 ## Commands
