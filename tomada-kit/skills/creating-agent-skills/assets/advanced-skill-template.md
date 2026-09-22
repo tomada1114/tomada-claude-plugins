@@ -12,7 +12,7 @@ metadata:
 # disallowed-tools: AskUserQuestion   <!-- neutrality-ignore: N1 -->
 # argument-hint: "[arg1] [arg2]"
 # arguments: [arg1, arg2]
-# model: <alias>   (fable/opus/sonnet/haiku — never a dated full ID)
+# model: <alias>   (usually omit to inherit the session model; never a dated full ID)
 # effort: high
 # context: fork   <!-- neutrality-ignore: N1 -->
 # agent: Explore

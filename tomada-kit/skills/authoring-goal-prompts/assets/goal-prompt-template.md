@@ -18,7 +18,7 @@ Hard length limit: ≤ 4000 characters (`/goal` rejects a longer condition). Mea
 GOAL: [One sentence. The end state, not the activity. "Every call site of getUserV1 is migrated
        to getUserV2 and the build passes" — not "work on the migration".]
 
-DONE WHEN: [Binary, measurable, transcript-observable. Prefer ONE objective check the small
+DONE WHEN: [Binary, measurable, transcript-observable. Prefer one objective check the small
        evaluator can read off the conversation. End with a sentinel the goal session must print:
        e.g. "the goal session has run `npm test` and printed a line `GOAL_DONE: npm test exited 0`".]
 
@@ -29,7 +29,7 @@ VERIFY: [The exact command(s) that prove DONE WHEN, and the instruction to PRINT
 CONSTRAINTS:
   - Scope: [What must NOT change — pulled from the project's AGENTS.md/CLAUDE.md / dev rules.
     e.g. "do not rename, refactor, or touch files outside src/api/. No unrelated cleanup."]
-  - Integrity (anti-cheat): Do NOT skip, xfail, disable, or delete tests; do not weaken assertions;
+  - Integrity (anti-cheat): Do not skip, xfail, disable, or delete tests; do not weaken assertions;
     do not stub or mock to make checks pass. The implementation must genuinely satisfy the checks.
   - [Process (TDD) — include for coding goals that add or change behavior:] For each new behavior
     write the test first, run it and paste the failing line, then implement to green. Test and
@@ -41,6 +41,13 @@ CONSTRAINTS:
     repo and note the divergence in the final report. If a design element in design.md turns out
     impossible as specified, apply the fallback in decisions.md or stop and report — never silently
     improvise a new design.
+
+TURN ENDINGS: A message with no tool call ends your turn, and the work stalls until the evaluator
+  sends you back. While work remains, do not end a turn with a summary that announces the next step,
+  an offer to continue unless told otherwise, a list of decisions none of which blocks the rest, or a
+  pause because a milestone is done or the turn ran long. Put status notes and recommendations in the
+  same message as your next tool call. The wanted stops: GOAL_DONE after fresh verification output,
+  or a STOP RULE firing. Never print GOAL_DONE while a background command or subagent is still running.
 
 STOP RULES:
   - Stop after [N] turns (or [duration]) even if not done, and report what remains.
@@ -73,8 +80,7 @@ PLAN: [A light approach sketch to prevent aimless exploration. Name concrete pat
        "Mirror the structure of src/api/products.ts." Keep it a sketch, not step-by-step micromanagement.]
 
 OUTPUT: [Artifacts/reviewability for long runs: "Commit after each migrated module with message
-       `migrate: <file>`. After each iteration print one line: `progress: X/Y done, remaining: …`."
-       For goals that commit: name the branch, follow the repo's commit conventions (discovered in
+       `migrate: <file>`." For goals that commit: name the branch, follow the repo's commit conventions (discovered in
        Phase 1), and forbid `--no-verify`. Set granularity explicitly: one commit per logical unit
        (module/behavior + its tests), at least one per work item — never one giant commit for
        multi-module work. If pre-commit hooks auto-fix files, the commit did NOT
@@ -97,6 +103,8 @@ VERIFY: Run `npm test test/auth` and `npm run lint`, pasting each command's summ
 CONSTRAINTS:
   - Scope: change only files in src/auth/ and test/auth/. No unrelated refactors, renames, or cleanup.
   - Integrity: do not skip/xfail/delete tests, weaken assertions, or stub to pass. Fix the real code.
+
+TURN ENDINGS: While failures remain, keep working — no summary-only, offer-to-continue, or milestone-pause turn endings. Stop only on GOAL_DONE or a STOP RULE.
 
 STOP RULES:
   - Stop after 25 turns even if red, and report remaining failures.

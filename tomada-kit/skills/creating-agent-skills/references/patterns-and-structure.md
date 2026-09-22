@@ -70,7 +70,7 @@ context: fork
 | Reference | Main agent decides | Subagent + `skills:` | Not recommended |
 | Task | SKILL.md defines | `context: fork` | Recommended |
 
-Warning: `context: fork` with Reference Contents fails because the forked context needs explicit task instructions, not just guidelines.
+`context: fork` with Reference Contents fails: the forked context receives guidelines but no task to apply them to.
 
 ---
 
@@ -149,7 +149,7 @@ every trigger.
 
 Sub-agent invocation and phase-handoff patterns (A1–A6, B1–B3) live in `orchestration-patterns.md` (load it via SKILL.md). Read it when a skill spawns specialists, runs parallel investigations in one phase, or is one node in a multi-skill pipeline; `workspace-conventions.md` covers the file contracts between those nodes.
 
-The frontmatter choice — subagent + `skills:` for Reference Contents, `context: fork` (optionally with `agent:`) for Task Contents — decides *where* the work runs. It is independent of *how capable* the thing running it is: name a model on every spawn (A6 in `orchestration-patterns.md`, fuller treatment in `prompt-authoring.md`).
+The frontmatter choice — subagent + `skills:` for Reference Contents, `context: fork` (optionally with `agent:`) for Task Contents — decides *where* the work runs. It is independent of *how capable* the thing running it is: name a tier on every spawn (A6 in `orchestration-patterns.md`, fuller treatment in `prompt-authoring.md`).
 
 ---
 
@@ -225,7 +225,7 @@ These are essentially mini-references that happen to live in `templates/` becaus
 
 ## Cross-Skill Reference Reuse
 
-A surprising and very effective pattern in production: **one skill's `references/` files are read by another skill's sub-agents as bootstrap material**. This creates a small number of "map" skills that the rest of the skill ecosystem leans on.
+**One skill's `references/` files can be read by another skill's sub-agents as bootstrap material.** This yields a small number of "map" skills the rest of the collection leans on.
 
 A production example: three thin `*-backend-mapping` / `*-frontend-mapping` / `*-api-bridge` skills exist almost entirely so that other skills' sub-agents can read their `references/*.md` first and learn the codebase structure (route → controller → use case → model, FE page → API call → BE endpoint). Every consumer skill opens its sub-agent prompts with "first read these mapping files, then investigate the actual code" — the bootstrap-then-investigate pattern (A2) in `orchestration-patterns.md`.
 
@@ -270,7 +270,6 @@ Copy this checklist and check items off as you complete them:
 - [ ] 2. Fill in values in `fields.json`
 - [ ] 3. Validate — `python3 ${CLAUDE_SKILL_DIR}/scripts/validate_fields.py fields.json`
 - [ ] 4. Apply — `python3 ${CLAUDE_SKILL_DIR}/scripts/fill_form.py input.pdf fields.json out.pdf`
-- [ ] 5. Verify the output
 
 **Step 3: Validate.** Fix every reported error before continuing to step 4.
 ```

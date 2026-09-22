@@ -56,7 +56,7 @@ each piece with "does Claude really need this?"
 Structure decides *when* text reaches the model; wording decides whether it
 helps once it gets there. Several instructions that were load-bearing for
 earlier models are now neutral or harmful — forced re-verification, severity
-self-filtering in review steps, requests to echo reasoning. Before writing or
+self-filtering in review steps, requests to echo reasoning, shouted emphasis. Before writing or
 approving skill prose, read `prompt-authoring.md` (linked from SKILL.md's Resources).
 
 The single most common defect in an older skill: instructions that restate
@@ -105,19 +105,11 @@ dependencies declared in SKILL.md, test coverage ≥ 90 %, and generated files
 
 Because the body is a recurring cost rather than a one-time one, the budget is
 tight: **target ≤150 lines, warning above 200 (`W031`), error above 500
-(`E030`)** — the same 500-line ceiling the official Agent Skills best
-practices treat as a hard cap. `references/*.md` files get their own ceiling
-for the same reason a body does: warning above 400 lines (`A010`) — moving
-content out of SKILL.md only helps if it lands in a file scoped to one domain,
-not a second monolith.
-
-The decision rule for what stays in the body versus what moves to
-`references/`: the body keeps the dispatch map, the decision points, and the
-hard rules. Anything only one branch needs, any rationale, any worked example,
-and any single sub-topic running past roughly 15 lines moves to a reference
-with a one-line "read when" pointer left behind. See `patterns-and-structure.md`'s
-"Sizing and slimming SKILL.md" section (linked from SKILL.md's Resources) for
-the walkthrough of applying this to an existing oversized skill.
+(`E030`)**, and `references/*.md` warn above 400 lines (`A010`) so content moved
+out of the body lands in a file scoped to one domain, not a second monolith.
+The decision rule for what stays in the body and the slimming walkthrough are in
+`patterns-and-structure.md`'s "Sizing and slimming SKILL.md" section (linked
+from SKILL.md's Resources).
 
 ## Content rules
 

@@ -192,9 +192,7 @@ sit *beneath* the mod, and an unanswered call throws naming its event.
 
 Measured: calling `$.ui.toast({ text: 'hi' })` compiles under a loose setup and arrives at the hook as `e.text === "[object Object]"` — silent corruption, not a throw. A prior report attributed this to a generated-types bug specific to `$.mcp.call`; it is in fact the general design. Fix: read the `$` call signature, not the event type, when writing a caller.
 
-Related: **every call on `$` is itself a hookable event** (`OpEventOf`, 50 on 2.1.273, plus 34 `EngineEventOf` engine events and 33 computed `ClassicEventOf`, e.g. `classic.PreToolUse`, `classic.Stop`). `{ value: ... }` answers a `$` call, `{ deny }` refuses it, a hook cannot recurse into its own call, and `next.origin` names the caller. These counts are identical between the 2.1.271 repo snapshot and 2.1.273-generated declarations — pin *behavior* claims to a version, not the event catalogue. `on()`'s second overload takes an optional matcher narrowing both when the hook runs and its types: `on('tool.check', { tool: 'Read' }, () => ({ decision: 'allow' }))`. `tool.check` (event + `$` call, resolving to `{ decision, reason?, rule? }`) shipped on 2.1.273 — prefer it over `tool.call` for a guard, since on `tool.call` the core of the dispatch *is* running the tool.
-
-**Still missing on 2.1.273**: no realpath/symlink resolution in `$.fs` (only `read`, `write`, `list`, `exists`, `stat`, `ancestors`) — a path guard ported from a classic hook's `realpathSync` check matches only the unresolved path, and a symlink into a denied location passes.
+Related: a hook on a `$` call cannot recurse into its own call, and `next.origin` names the caller. The event families, the `{ value } | { deny }` shape and the matcher overload are in references/api-model.md §2, §4 and §6.
 
 ---
 
@@ -216,5 +214,5 @@ published via `plugin.json`'s `"types"` field; the returned value is typed again
 ## 8. Unverified
 
 - The exact CLI output format of `claude plugin validate` (table vs. JSON, flags beyond the plain invocation shown here).
-- Whether `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS` is a stable, long-term name for the gating variable, or specific to this early-access window — it appears in no shipped declaration file, only in the run commands above; re-check before quoting it as permanent.
+- Whether `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS` is a stable, long-term name for the gating variable, or specific to this early-access window — it appears in no shipped declaration file, only in the run commands above; quote it as early-access, not permanent.
 - Whether `plugin.register`'s full gating semantics (judged by declared `tier` and scanned `uses`, per its doc comment) match how a real managed deployment would use it — no shipped mod exercises it.

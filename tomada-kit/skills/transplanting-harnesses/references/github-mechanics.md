@@ -10,6 +10,7 @@ the plan written at step 5 and what the script does with it — read it while wr
 - [Field semantics](#field-semantics)
 - [What dry-run validates](#what-dry-run-validates)
 - [Why REST rather than gh flags](#why-rest-rather-than-gh-flags)
+- [The tracking issue's contract](#the-tracking-issues-contract)
 - [Two-pass creation](#two-pass-creation)
 - [Idempotency](#idempotency)
 - [When a native link fails](#when-a-native-link-fails)

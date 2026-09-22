@@ -33,6 +33,8 @@ If the installed major is above 7, this skill is out of date: say so, work from 
 
 **Do not trust a snippet because it is on ai-sdk.dev.** As of 2026-09-15 several cookbook and RSC pages in `vercel/ai` still carried v4-era code. Version-check the snippet, not the domain.
 
+For anything version-sensitive, work from current sources rather than recall. `context7`'s `/vercel/ai` index lagged the live docs by a major as of 2026-09-15 — cross-check against `ai-sdk.dev`, `https://registry.npmjs.org/ai`, or the shipped type definitions (`unpkg.com/ai@<version>/dist/index.d.ts`, which cannot be stale by construction).
+
 ## What the SDK does not do
 
 Expecting any of these from the SDK produces a broken design:
@@ -73,10 +75,6 @@ The deciding question is how much of the screen is *not* the chat, not which lib
 - **ChatKit** and **CopilotKit** do not connect to `useChat` at all — each brings its own protocol. Pick one only for a reason specific to it.
 
 Details, licenses, and the comparison table: [references/ui-layer-choice.md](references/ui-layer-choice.md).
-
-## Before writing code
-
-Prefer current documentation over recall for anything version-sensitive. `context7` is useful but its `/vercel/ai` index lagged the live docs by a major as of 2026-09-15 — cross-check against `ai-sdk.dev`, `https://registry.npmjs.org/ai`, or the shipped type definitions (`unpkg.com/ai@<version>/dist/index.d.ts`, which cannot be stale by construction).
 
 ## Resources
 

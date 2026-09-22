@@ -1,3 +1,4 @@
+<!-- prompt-lint-ignore-file: D002 -->
 # Issue body template
 
 One file per issue under `bodies/`, named after its plan key. The shape below is the

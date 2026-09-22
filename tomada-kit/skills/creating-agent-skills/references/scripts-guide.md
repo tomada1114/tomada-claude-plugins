@@ -58,7 +58,7 @@ Two rules keep this from rotting: changing `_shared/` means running every consum
 - `argparse`-based, with working `--help`.
 - `--json` on anything an agent parses: stable keys, `ensure_ascii=False`. Human-readable text is the default output; `--json` is opt-in.
 - Exit codes: `0` = OK, `1` = findings/errors, `2` = bad invocation.
-- Errors go to stderr and name the fix — `Field 'signature_date' not found. Available fields: customer_name, order_total, signature_date_signed` costs one turn to fix; `KeyError: signature_date` costs three.
+- Errors go to stderr and name the fix (see [Solve, don't defer](#solve-dont-defer)).
 - Input and output paths are **arguments**, never assumed. A script invoked through `${CLAUDE_SKILL_DIR}` (or a full absolute path when called from outside a skill) takes the workspace path as an argument — the parent skill already knows where the workspace lives; the script should accept that path, not invent its own.
 - `--dry-run` on anything that mutates: perform the analysis, make no changes, let the agent preview before re-running for real.
 

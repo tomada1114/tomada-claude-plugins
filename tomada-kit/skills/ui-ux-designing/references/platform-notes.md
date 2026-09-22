@@ -14,7 +14,7 @@ SKILL.md が使う機能と、ホストごとの実現手段の対応表。使�
   どちらも使えない場合: 参考アプリ名・URL・スクリーンショットをユーザーに提供してもらい、それを材料に同じ観点で比較する。
 
 - **サブエージェントへの委譲**（Phase 2）
-  Claude Code: `Task` で `subagent_type: executor` のサブエージェント1体に `agents/research-competitors.md` のプロンプトを渡す。
+  Claude Code: `Agent` ツールで `subagent_type: executor` のサブエージェント1体に `agents/research-competitors.md` のプロンプトを渡す。
   Codex: 同じプロンプトを本体セッションでそのまま実行する。読む資料・観点・出力形式は変えない。
 
 - **スクリプト実行**（Phase 6 のコントラスト実測）

@@ -29,7 +29,7 @@ Codex supports symlinked skill folders and follows the symlink target when scann
       - assets/
 ```
 
-`SKILL.md` frontmatter requires exactly two fields — `name` and `description` — nothing else is mandatory:
+`SKILL.md` frontmatter requires exactly two fields — `name` and `description`; everything else is optional:
 
 ```markdown
 ---

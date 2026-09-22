@@ -7,6 +7,7 @@ modes and worked examples that make a goal robust.
 
 - [How `/goal` actually runs](#how-goal-actually-runs)
 - [The two failure modes](#the-two-failure-modes)
+- [Early turn endings (Opus 5.5)](#early-turn-endings-opus-55)
 - [Designing for the small evaluator](#designing-for-the-small-evaluator)
 - [Anti-cheat: why and how](#anti-cheat-why-and-how)
 - [No human mid-run: encode fallbacks](#no-human-mid-run-encode-fallbacks)
@@ -46,6 +47,25 @@ Every weak goal fails in one of two ways. Design against both:
   without fresh evidence, or a compound condition is partly satisfied. Mitigations: require a
   **sentinel line tied to fresh command output**; keep the success check to one unambiguous clause;
   forbid claiming success without showing current output.
+
+## Early turn endings (Opus 5.5)
+
+The goal session is typically Opus 5.5. On long multi-part work it ends some turns with a text-only
+progress report while work is still owed. `/goal` absorbs this — the evaluator answers "no" and the
+session continues — but each such stop costs an evaluator round and a turn from the ceiling, and a
+confident-sounding summary is exactly what a small evaluator can misread as done.
+
+Opus 5.5 responds to instructions that **name the specific early stops** to avoid and the stops that
+are wanted, so the template's `TURN ENDINGS` section does both: it lists the four unwanted endings
+(a summary announcing the next step, an offer to continue, a non-blocking decision list, a
+milestone/long-turn pause), asks for status notes to ride along with the next tool call, and names
+the wanted stops (the sentinel, a STOP RULE). Keep it in `goal.md` itself, not a sibling: it works
+when present from the first request, and `goal.md` is that request. It adds a few tool calls; it
+does not waive CONSTRAINTS on risky or destructive actions.
+
+A checklist the session updates (next sections) is the other half: open items are visible in the
+transcript, so an early stop reads as unfinished rather than done. Add "never print the sentinel
+while a background command or subagent is still running" — a turn can end while one is in flight.
 
 ## Designing for the small evaluator
 
@@ -124,23 +144,18 @@ prerequisite is genuinely uncertain at run time.
 
 Keep the `/goal` prompt short. Two independent triggers push material into a bundle:
 
-1. **Knowledge transfer (primary).** The goal session is a fresh, often weaker-model session; it
-   sees none of your discovery or design reasoning. Design decisions, code patterns worth showing,
+1. **Knowledge transfer (primary).** The goal session is fresh, typically at a lower effort than
+   this one, and sees none of your discovery or design reasoning. Design decisions, code patterns worth showing,
    research findings, and pre-answered ambiguities go into support files so the executor never
    re-derives them — see [support-file-guide.md](support-file-guide.md) for the quality rules of each
    support file (`design.md`, `examples.md`, `research.md`, `checklist.yaml`, `decisions.md`).
 2. **Size (mechanical).** The prompt physically must fit the `/goal` cap.
 
-**The hard cap is 4000 characters** — `/goal` rejects a longer condition. This is mechanical, not a
-style call, so *measure* the final prompt (`wc -m`, character count, not `wc -c` bytes) before you
-emit — every time, not by eyeball. Crucially, **bundling resets the budget**: only `goal.md` is
-passed to `/goal`, so siblings (`inventory.md`, `research.md`, …) don't count against the cap. If
-you're near or over 4000, the fix is always to move bulk into siblings until `goal.md` fits, never to
-trim load-bearing sections (GOAL / DONE WHEN / VERIFY / CONSTRAINTS / STOP RULES) to squeeze under.
-
-Chat-only vs bundle is decided in [../SKILL.md](../SKILL.md) Phase 2, which also fixes where a
-bundle lives and how its `<slug>` is formed. The effect is progressive disclosure: `goal.md` stays
-small and points at siblings by absolute path, and the bulk loads on demand.
+**The hard cap is 4000 characters** — `/goal` rejects a longer condition. Measure with `wc -m`
+(characters, not `wc -c` bytes). Only `goal.md` is passed to `/goal`, so siblings don't count
+against the cap. When near or over, move bulk into siblings until `goal.md` fits; never trim the
+load-bearing sections (GOAL / DONE WHEN / VERIFY / CONSTRAINTS / TURN ENDINGS / STOP RULES) to
+squeeze under.
 
 A self-maintained **checklist artifact** is the cleanest way to make "queue empty" measurable for
 backlog/migration goals: have the session maintain `checklist.md` and make `DONE WHEN` = "every item
@@ -223,18 +238,16 @@ CONSTRAINTS:
   - Scope: only migrate call sites; do not change getUserV2's behavior or unrelated code.
   - Integrity: do not silence the deprecation by deleting call sites or stubbing; migrate them for real.
 
+TURN ENDINGS: While call sites remain, keep working — no summary-only, offer-to-continue, or
+  milestone-pause turn endings. Stop only on GOAL_DONE or a STOP RULE.
+
 STOP RULES: Stop after 60 turns and report remaining items. If a call site can't be mechanically
   migrated (different return shape), leave it, note it in inventory.md, and continue.
 ```
 
 `inventory.md` (the bulky sibling) holds the 41-line queue, keeping `goal.md` small.
 
-### C. Backlog (self-maintained checklist)
-`DONE WHEN: every item in ${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/<slug>/checklist.md is checked and
-`npm test` exits 0; then print GOAL_DONE.` The session maintains the checklist; "queue empty"
-becomes a transcript-visible fact.
-
-### D. Design-heavy feature (bundled — the design is the payload)
+### C. Design-heavy feature (bundled — the design is the payload)
 When this session made real design choices, the bundle exists to transfer them, not to save
 characters: `goal.md` (contract) + `design.md` (interfaces as code, decisions with rationale and
 rejected alternatives) + `examples.md` (verbatim repo patterns, wrong-way block) + `checklist.yaml`
@@ -252,3 +265,4 @@ rejected alternatives) + `examples.md` (verbatim repo patterns, wrong-way block)
 | Five-clause AND in one sentence | Small evaluator misjudges | One printed sentinel emitted only when all hold |
 | "DONE WHEN: all checklist boxes ticked" | Checklist is self-graded → tickable without the work | Boxes ticked AND final verification commands' fresh output pasted |
 | Goal ends at `git push` / `gh pr create`, no fallback | Environmental failure → thrash until the ceiling | Degraded terminal sentinel that keeps local commits and reports the blocker |
+| No turn-ending rule on a long run | Summary-only turns burn evaluator rounds and ceiling turns | `TURN ENDINGS` naming the unwanted and wanted stops |

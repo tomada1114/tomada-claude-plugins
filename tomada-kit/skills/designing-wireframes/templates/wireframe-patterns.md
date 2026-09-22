@@ -2,7 +2,7 @@
 
 Common UI patterns for ASCII wireframes.
 
-## Thumb-Zone Design (Mobile UX Critical)
+## Thumb-Zone Design
 
 Primary actions should be placed in the "green zone" (bottom of screen) for easy thumb reach.
 
@@ -63,18 +63,6 @@ Primary actions should be placed in the "green zone" (bottom of screen) for easy
 
 ## Screen Structure
 
-### Basic Screen with Header
-
-```
-┌─────────────────────────────────┐
-│  Screen Title                   │
-├─────────────────────────────────┤
-│                                 │
-│  Content Area                   │
-│                                 │
-└─────────────────────────────────┘
-```
-
 ### Screen with Header Actions
 
 ```
@@ -85,20 +73,6 @@ Primary actions should be placed in the "green zone" (bottom of screen) for easy
 │  Content Area                   │
 │                                 │
 └─────────────────────────────────┘
-```
-
-### Tab-based Navigation
-
-```
-┌─────────────────────────────────┐
-│  Title                    [⚙️]  │
-├─────────────────────────────────┤
-│                                 │
-│  Content Area                   │
-│                                 │
-├──────────┬──────────────────────┤
-│  [Tab 1]  │     [Tab 2]        │
-└──────────┴──────────────────────┘
 ```
 
 ## Components
@@ -337,19 +311,7 @@ Swiped left:
 
 ## Empty States
 
-### Simple Text
-
-```
-┌─────────────────────────────────┐
-│                                 │
-│                                 │
-│      No records yet             │
-│                                 │
-│                                 │
-└─────────────────────────────────┘
-```
-
-### With Illustration
+### Empty State with Illustration
 
 ```
 ┌─────────────────────────────────┐

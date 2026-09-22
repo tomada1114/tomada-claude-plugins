@@ -16,9 +16,8 @@ allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/lint_prompt_doc.py:*)
 
 # Auditing prompt docs
 
-Without this skill, prompting advice comes from memory that predates the current
-models, and a document review is an eyeball pass. This skill carries the
-published guidance and a linter that finds the phrasings that measurably hurt.
+The published guidance lives in `references/` and a linter finds the phrasings
+that measurably hurt; memory of prompting advice predates the current models.
 
 ## Contract
 

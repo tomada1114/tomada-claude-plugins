@@ -3,7 +3,6 @@
 
 Role: 変換済みスキルを **委譲・他スキル起動・選択肢提示・コンテキスト分離・MCP のいずれも公開されていないランタイムの視点**で読み、
 「Codex で実際に通せるか」を敵対的に検証する。fresh eyes。**ファイルは編集しない。**
-Recommended `subagent_type`: `Explore`。
 
 主エージェントが埋める:
 - `{{TARGET_SKILL_DIR}}`、`{{RULES_DIR}}`
@@ -14,7 +13,7 @@ Recommended `subagent_type`: `Explore`。
 - `{{RULES_DIR}}/platform-diff.md`（何が Codex に無いか）、`{{RULES_DIR}}/neutral-phrasing.md`（本文がどう中立化されているべきか）
 - `{{VERIFY_JSON}}`
 
-## 検証観点（assume there are problems — 粗探しせよ）
+## 検証観点
 1. **未変換の依存**: Codex で動かない構文が中立化や注記なしで本文（SKILL.md **および references/・templates/**）に残っていないか（生の `Task で…`、`Skill ツールで <other>`、`AskUserQuestion`、`TodoWrite`、絶対 `.claude/` パス、`CLAUDE_PLUGIN_ROOT`）。`platform-notes.md`（`<!-- platform-annex -->` 付き）内は対象外。
 2. **代替手順の位置**: R11 どおり、代替表現が**使用箇所にインライン**であるか。末尾の劣化注記にしか書かれていない箇所がないか。
 3. **劣化注記の妥当性**: `platform-notes.md` の「## Codex での制約」が実際の喪失機能と一致しているか（過不足）。各行が**コスト種別**（所要時間／コンテキスト隔離／保証レベル）まで書けているか——「逐次実行（所要時間増）」止まりは不足として指摘する。委譲の可否が製品名で断定されていないか（「そのランタイムに公開されているか」で条件づけられているべき）。
@@ -31,9 +30,9 @@ Recommended `subagent_type`: `Explore`。
 ```json
 {
   "codex_runnable": true,
-  "blockers": [{"severity":"high|med","location":"SKILL.md '…'","issue":"…","fix":"…"}],
+  "findings": [{"severity":"high|med|low","confidence":"high|med|low","location":"SKILL.md '…'","issue":"…","fix":"…"}],
   "degradation_notes_accurate": true,
   "verdict": "<1-2文の総評>"
 }
 ```
-迷ったら `codex_runnable:false` 寄りに（保守的に）。根拠の場所を必ず示す。
+見つけた問題は確信の低いもの・軽微なものも含めて全件 `findings` に入れ、各件に severity と confidence を付ける（選別はメインが行う）。severity high は「Codex で手順が完結しない」もの。`codex_runnable` は high の finding が 1 件でもあれば false。各件に根拠の場所を示す。

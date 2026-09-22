@@ -61,7 +61,7 @@ Use for a new skill — from scratch, or from an existing doc/runbook/note.
 2. **Name the gap before writing anything.** For each example, state what Claude does *without* the skill and where it falls short — that gap is the spec; everything else documents behavior the model already had. Turn it into three test prompts with checkable expected behavior ([evaluating-skills.md](references/evaluating-skills.md)).
 3. **Plan reusable contents.** Code rewritten each time → `scripts/` (with a test); a doc to consult → `references/`; boilerplate copied into output → `assets/`. From a source doc over ~300 lines: split by concern into `references/`, keeping only what a competent stranger to *this* system couldn't guess.
 4. **Scaffold:** `${CLAUDE_SKILL_DIR}/scripts/init_skill.sh <name> [basic|advanced] [--scope user|project]`.
-5. **Implement resources first, SKILL.md last.** Write and test `scripts/`/`references/`/`assets/`, then the body in imperative form, applying the Core Principles above and [prompt-authoring.md](references/prompt-authoring.md). Omit `allowed-tools` unless one of the two reasons in [yaml-spec.md](references/yaml-spec.md#allowed-tools) applies. Markdown links to bundled files use relative paths; commands and sub-agent prompts use `${CLAUDE_SKILL_DIR}/...`. If the skill delegates to fresh contexts, name a model per spawn (table in [prompt-authoring.md](references/prompt-authoring.md#assigning-models-and-effort)), keep delegation prompts in `references/agents/<name>.md`, and state the delegation bar and cap (patterns in [orchestration-patterns.md](references/orchestration-patterns.md)). From a source doc, write in English; keep original wording only for verbatim material (UI labels, error strings, sample output).
+5. **Implement resources first, SKILL.md last.** Write and test `scripts/`/`references/`/`assets/`, then the body in imperative form, applying the Core Principles above and [prompt-authoring.md](references/prompt-authoring.md). Omit `allowed-tools` unless one of the two reasons in [yaml-spec.md](references/yaml-spec.md#allowed-tools) applies. Markdown links to bundled files use relative paths; commands and sub-agent prompts use `${CLAUDE_SKILL_DIR}/...`. If the skill delegates to fresh contexts, name the tier (`executor` / `architect`) per spawn ([prompt-authoring.md](references/prompt-authoring.md#assigning-models-and-effort)), keep delegation prompts in `references/agents/<name>.md`, and state the delegation bar and cap (patterns in [orchestration-patterns.md](references/orchestration-patterns.md)). From a source doc, write in English; keep original wording only for verbatim material (UI labels, error strings, sample output).
 6. **Validate:** `python3 ${CLAUDE_SKILL_DIR}/scripts/validate_skill.py <skill-path>` and, if the skill has `scripts/`, `check_scripts.py`. Fix every error, including the neutrality lint.
 7. **Check against the gap list.** Run the three step-2 prompts in a fresh session. Separate "didn't activate" (a `description` problem) from "activated but wrong" (a body problem), and delete any instruction covering behavior the no-skill baseline already got right ([evaluating-skills.md](references/evaluating-skills.md) for repeatable measurement).
 
@@ -101,14 +101,14 @@ Read the `profile` block of `audit.json` — it decides the lens set below. See 
 Load on demand:
 - [references/authoring-principles.md](references/authoring-principles.md) — full Core Principles rationale, "what NOT to put in a skill", production patterns worth copying.
 - [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md) — write once for both hosts. Holds `AN` checklist.
-- [references/prompt-authoring.md](references/prompt-authoring.md) — wording for current models, sub-agent prompt layers, model/effort per spawn. Holds `PA` checklist.
+- [references/prompt-authoring.md](references/prompt-authoring.md) — wording for current models, sub-agent prompt layers, tier per spawn. Holds `PA` checklist.
 - [references/yaml-spec.md](references/yaml-spec.md) — every frontmatter field, substitutions, bash injection, diagnosing a skill that never activates.
 - [references/patterns-and-structure.md](references/patterns-and-structure.md) — content types, storage locations, sizing/slimming, workflow shapes. Holds `ST` checklist.
 - [references/scripts-guide.md](references/scripts-guide.md) — script-or-prose decision, conventions, patterns. Holds `SC` checklist.
 - [references/orchestration-patterns.md](references/orchestration-patterns.md) — sub-agent and phase-handoff patterns, when to propose orchestration. Holds `OR` checklist.
 - [references/platform-notes.md](references/platform-notes.md) — Claude Code / Codex tool mapping for orchestration guidance.
 - [references/workspace-conventions.md](references/workspace-conventions.md) — deterministic output paths, snapshot/restore.
-- [references/evaluating-skills.md](references/evaluating-skills.md) — eval-driven authoring, baseline comparison, cross-model testing.
+- [references/evaluating-skills.md](references/evaluating-skills.md) — eval-driven authoring, baseline comparison, testing across effort levels and hosts.
 - [references/agents/review-lens.md](references/agents/review-lens.md) — the prompt template each Improving lens is filled from.
 
 Templates: [assets/basic-skill-template.md](assets/basic-skill-template.md), [assets/advanced-skill-template.md](assets/advanced-skill-template.md).
@@ -119,13 +119,5 @@ Examples: [greeting-generator](examples/greeting-generator/) · [http-status-gui
 
 ## Hard rules
 
-- **Never** confuse `disable-model-invocation: true` (user-only) with `user-invocable: false` (Claude-only).
-- **Always** run `validate_skill.py` (and `check_scripts.py` when `scripts/` exists) before declaring a skill done.
-- **Always** set `metadata.platforms` when scaffolding. Default `claude-code, codex`, agent-neutral body — `claude-code` only when the skill's actual subject is Claude Code itself.
-- **Always** reference bundled scripts as `${CLAUDE_SKILL_DIR}/scripts/...`, never a hardcoded `~/.claude/skills/<name>/...` path. <!-- neutrality-ignore: N2 -->
-- **Always** infer intent from `$ARGUMENTS` rather than demanding a mode keyword.
-- **Never** write an instruction telling the model to echo, transcribe, or explain its internal reasoning — can trigger a refusal and force a model fallback on some hosts.
-- **Always** specify a model when a skill spawns a sub-agent.
-- **Never** add `allowed-tools` without one of the two reasons in [yaml-spec.md](references/yaml-spec.md#allowed-tools).
-- **Always** author skill content in English; `description` is English-only with no mirrored Japanese keywords.
-- **Never** spawn review lenses for a skill under the P1 gate, and never more than the five lenses listed.
+- `disable-model-invocation: true` (user-only) and `user-invocable: false` (Claude-only) are opposites — confusing them silently hides a skill from the wrong party.
+- Set `metadata.platforms` when scaffolding: `claude-code, codex` with an agent-neutral body by default, `claude-code` only when the skill's subject is Claude Code itself.

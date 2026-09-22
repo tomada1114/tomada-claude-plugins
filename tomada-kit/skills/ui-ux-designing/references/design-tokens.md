@@ -174,14 +174,14 @@ Tailwind v4 は CSS ファースト設定なので、JS の config ファイル�
 
 ```css
 :root {
-  /* スペーシング: 4px 基点。--space-N = N * 4px */
-  --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
-  --space-5: 1.25rem; --space-6: 1.5rem; --space-8: 2rem; --space-10: 2.5rem;
-  --space-12: 3rem;
+  /* スペーシング: 4px 基点。1〜8 は 4px 刻み、9 以降は間隔を広げる（templates/tokens.css と同値） */
+  --space-1: 0.25rem; --space-2: 0.5rem;  --space-3: 0.75rem; --space-4: 1rem;
+  --space-5: 1.25rem; --space-6: 1.5rem;  --space-7: 1.75rem; --space-8: 2rem;
+  --space-9: 2.5rem;  --space-10: 3rem;   --space-11: 4rem;   --space-12: 6rem;
 
   /* 角丸: sm タグ・チップ / md ボタン・入力欄 / lg カード / xl モーダル・シート */
-  --radius-sm: 4px; --radius-md: 8px; --radius-lg: 12px;
-  --radius-xl: 16px; --radius-full: 9999px;
+  --radius-sm: 0.25rem; --radius-md: 0.5rem; --radius-lg: 0.75rem;
+  --radius-xl: 1rem; --radius-full: 9999px;
 
   /* エレベーション: 1 カード / 2 ドロップダウン / 3 モーダル */
   --shadow-1: 0 1px 2px rgb(0 0 0 / 0.06);
@@ -205,8 +205,8 @@ Tailwind v4 は CSS ファースト設定なので、JS の config ファイル�
 ```css
 :root {
   --motion-duration-fast: 100ms;  /* 色・不透明度の変化、ホバー、トグル */
-  --motion-duration-base: 200ms;  /* 展開・折りたたみ、ポップオーバー、モーダル */
-  --motion-duration-slow: 400ms;  /* 画面遷移、大きな領域の変化 */
+  --motion-duration-base: 200ms;  /* 展開・折りたたみ、ポップオーバー、小要素の出現 */
+  --motion-duration-slow: 400ms;  /* モーダル、ドロワー、画面遷移 */
 
   --motion-ease-standard:   cubic-bezier(0.2, 0, 0, 1);   /* 標準の入退場 */
   --motion-ease-emphasized: cubic-bezier(0.3, 0, 0, 1);   /* 強調したい遷移 */

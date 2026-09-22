@@ -11,7 +11,7 @@ metadata:
 
 # Planning Tickets
 
-Break requirements into GitHub Issues with agile/scrum methodology. Focus on **parallel work, explicit dependencies, and git worktree optimization**. The full issue body skeleton is the single source of truth in [templates/issue-template.md](templates/issue-template.md) — this file holds the principles; do not duplicate the template here.
+Break requirements into GitHub Issues with agile/scrum methodology. Focus on **parallel work, explicit dependencies, and git worktree optimization**. The issue body skeleton lives in [templates/issue-template.md](templates/issue-template.md); this file holds the principles.
 
 ## Core Principles
 
@@ -57,7 +57,7 @@ Full skeleton in [templates/issue-template.md](templates/issue-template.md). Req
 
 ## Dependency phrasing (machine-readable contract)
 
-Write dependencies exactly as `Depends on #N` / `Blocks #N` (one per line, in the Dependencies section). Automation — the shipping-issues skill's issue digest among others — extracts dependency edges from issue bodies by regex; free-form phrasings ("needs the schema ticket first") create hidden edges that break automated ordering. If there are none, write `None`.
+Write dependencies exactly as `Depends on #N` / `Blocks #N` (one per line, in the Dependencies section). Downstream automation (issue digests, ordering scripts) extracts dependency edges from issue bodies by regex; free-form phrasings ("needs the schema ticket first") create hidden edges that break automated ordering. If there are none, write `None`.
 
 ## Title format
 
@@ -90,13 +90,7 @@ Suggest a worktree when parallel tickets touch different areas, for long-running
 
 ## Creating issues (two-pass, gh CLI)
 
-Issue numbers don't exist until creation, so draft first, then create, then backfill:
-
-1. Write every ticket body to a local file (`NNN-<slug>.md`, provisional IDs in dependency order).
-2. Create in dependency order (foundation → parallel → integration) with `gh issue create --body-file`.
-3. Replace provisional IDs with real numbers and backfill via `gh issue edit --body-file` — foundation tickets' `Blocks #N` can only be written in this pass.
-
-Exact procedure and label/milestone bootstrap commands: [reference.md](reference.md).
+Issue numbers don't exist until creation, so draft every ticket body to a local file with provisional IDs, create in dependency order (foundation → parallel → integration) with `gh issue create --body-file`, then backfill real numbers with `gh issue edit --body-file` — foundation tickets' `Blocks #N` can only be written in that pass. Exact procedure, label/milestone bootstrap commands, and sizing guidance: [reference.md](reference.md).
 
 ## Output when planning
 
@@ -104,11 +98,6 @@ Exact procedure and label/milestone bootstrap commands: [reference.md](reference
 2. **Dependency graph** if the breakdown is complex.
 3. **Phase breakdown** grouped by implementation phase (foundation → parallel streams → integration → polish).
 4. **Worktree plan** listing suggested worktrees.
-
-## Resources
-
-- [templates/issue-template.md](templates/issue-template.md) — **SSOT** for the full issue body skeleton and its foundation/integration variants.
-- [reference.md](reference.md) — creation order and number backfill, label/milestone bootstrap, sizing guidance.
 
 ## Platform notes
 

@@ -1,6 +1,6 @@
 # AI SDK v7 API map
 
-Verified 2026-09-15 against `ai@7.0.102` (npm registry, the shipped `dist/index.d.ts` via unpkg, GitHub Releases, and ai-sdk.dev live docs). Re-verify before trusting this file if the current `ai` major is no longer 7 — see [Release cadence](#release-cadence).
+Checked 2026-09-15 against `ai@7.0.102` (npm registry, the shipped `dist/index.d.ts` via unpkg, GitHub Releases, and ai-sdk.dev live docs). If the current `ai` major is no longer 7, treat this file as stale — see [Release cadence](#release-cadence).
 
 ## Release cadence
 
@@ -10,13 +10,7 @@ Verified 2026-09-15 against `ai@7.0.102` (npm registry, the shipped `dist/index.
 | `ai@6.0.0` | 2025-12-22 | ~5 months |
 | `ai@7.0.0` | 2026-06-25 | ~6 months |
 
-A major lands roughly every six months and every one of them has renamed public API. Treat any AI SDK snippet older than a few months as suspect, including your own memory of the API.
-
-Check what the project actually has before writing code:
-
-```bash
-npm ls ai @ai-sdk/react 2>/dev/null || cat package.json | grep -E '"(ai|@ai-sdk/)'
-```
+A major lands roughly every six months and every one of them has renamed public API. Treat any AI SDK snippet older than a few months as suspect, including your own memory of the API. Check the project's installed version first (command in SKILL.md).
 
 ## Detecting a stale source
 

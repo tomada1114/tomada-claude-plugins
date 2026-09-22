@@ -290,7 +290,7 @@ request changes if something's off, and only then proceed to implementation.
 - Investigation-only tasks
 
 The decision test is whether reviewing the approach before implementation is
-worth the time it costs. Plan mode can double as a way to think out loud with
+worth the time it costs. Plan mode can double as a sounding board for
 still-forming requirements, but the human still has to settle Goal and Done
 When by the end of that conversation — Plan mode surfaces missing
 requirements, it doesn't replace writing them.

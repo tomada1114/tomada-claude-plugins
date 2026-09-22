@@ -80,19 +80,13 @@ codex execpolicy check --pretty --rules ~/.codex/rules/default.rules -- git comm
   runtime. See `references/rules-execpolicy.md` for how `prefix_rule()` and precedence
   work.
 
-### This is the safe way to verify a `forbidden` rule — never the live way
+### This is the safe way to verify a `forbidden` rule
 
 `codex execpolicy check` is a static, offline rule matcher: it evaluates the
-given argv against the `.rules` pattern set and prints the decision. It never
-spawns the command, touches the filesystem, or starts an agent turn. This is
-the whole reason it's the right tool for confirming that something like
-`rm -rf ~` or `sudo` really resolves to `forbidden` — you get the answer
-without ever letting the command run. Confirming a `forbidden` rule by instead
-asking the agent to actually execute the dangerous command ("try running
-`rm -rf ~` and see if it's blocked") is not an equivalent, safer-looking
-substitute — it is a real invocation of a destructive command, gated only by
-whatever you're trying to verify in the first place. Never do that; use
-`execpolicy check` instead.
+given argv against the `.rules` pattern set and prints the decision, without
+spawning the command, touching the filesystem, or starting an agent turn.
+Asking the agent to "try running `rm -rf ~` and see if it's blocked" is a
+real invocation of a destructive command, gated only by the rule under test.
 
 **Caveat: `execpolicy check` shows the raw rule decision, not what happens
 after `approval_policy` is applied to it.** It has no flag to pass an
@@ -130,8 +124,8 @@ Verified 2026-09 against codex-cli 0.153.4 by reading the `codex-rs` source on
 `openai/codex` directly (`exec_policy.rs`, `tools/orchestrator.rs`,
 `shell-command/src/command_safety/is_dangerous_command.rs`, `cli/src/main.rs`)
 — at the time of writing, no blog post, Zenn/Qiita article, or the official
-docs spelled out this interaction, so re-check the source if behavior here
-seems to have drifted on a newer release.
+docs spelled out this interaction; on a newer release where behavior differs,
+the source is the place to look.
 
 ## `codex features list` / `enable` / `disable`
 
@@ -210,19 +204,8 @@ than treating the allowlist as live. (The proxy re-signs TLS with the CA
 in `$CODEX_HOME/proxy/`, which is why Go binaries that ignore
 `SSL_CERT_FILE` — `gh` on macOS — fail TLS verification when it is on.)
 
-## Process gates vs. CLI diagnostics
-
-The tools above answer "what is Codex technically permitted to do right
-now" — sandbox, approvals, rules, config layering. They are a different
-axis from a team's quality gates (review, test, security, documentation
-sign-off) that decide when a human should stop and check Codex's *output*
-before it proceeds. A clean `codex doctor` report or a passing
-`execpolicy check` says nothing about whether a diff should be merged —
-that judgment stays with a reviewer regardless of how the sandbox is
-configured.
-
 ---
 
 Verified against Codex CLI 0.153.4 and learn.chatgpt.com/docs as of
-2026-09. Re-check `codex --version` and `codex doctor` if observed behavior
-doesn't match this file.
+2026-09. If observed behavior doesn't match this file, compare against
+`codex --version` and `codex doctor`.

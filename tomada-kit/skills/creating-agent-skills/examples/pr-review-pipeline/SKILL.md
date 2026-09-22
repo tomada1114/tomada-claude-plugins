@@ -32,7 +32,7 @@ Spawn both in a single message so they run concurrently. Both spawn as `architec
 
 `${CLAUDE_SKILL_DIR}` expands to an absolute path before the model sees it. Never hand a sub-agent a path relative to the skill directory — it has no idea where that is.
 
-### Sub-agent 1 — security (`model: opus`)
+### Sub-agent 1 — security (`architect`)
 
 ```
 Reviewing PR #<NUM> from a security lens.
@@ -45,7 +45,8 @@ CONTEXT: read <workspace>/diff.patch
 Changed files: <PARENT-EXTRACTED LIST>
 
 REVIEW: for each of SEC1..SEC6 report PASS / FAIL / N-A with a one-line
-justification and a <file>:<line> citation. Rank FAILs critical/high/medium/low.
+justification and a <file>:<line> citation. Report every FAIL, including
+uncertain ones, with a severity (critical/high/medium/low) and a confidence.
 
 Write to <workspace>/findings-security.md in this form:
 
@@ -57,7 +58,7 @@ Write to <workspace>/findings-security.md in this form:
 <one paragraph>
 ```
 
-### Sub-agent 2 — performance (`model: opus`)
+### Sub-agent 2 — performance (`architect`)
 
 ```
 Reviewing PR #<NUM> from a performance lens.

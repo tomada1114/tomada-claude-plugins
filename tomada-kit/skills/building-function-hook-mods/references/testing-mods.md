@@ -1,3 +1,4 @@
+<!-- prompt-lint-ignore-file: D002 -->
 # Testing a mod
 
 The `claude-code/testing` kit, which `claude plugin test <dir>` runs. It ships
@@ -22,7 +23,6 @@ See also references/authoring-and-testing.md for the file layout and build loop.
 - Working test templates, verbatim
 
 ---
-
 
 Exports: `describe`, `test`, `expect`, `mock`, `tier`.
 

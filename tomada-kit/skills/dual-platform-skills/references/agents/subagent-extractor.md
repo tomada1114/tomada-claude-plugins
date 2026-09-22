@@ -3,7 +3,7 @@
 
 Role: 対象スキルが依存する**1 つの**サブエージェントの知識を、対象スキル内の
 `references/agents/<name>.md` に抽出して両プラットフォーム共有化する。
-Recommended `subagent_type`: `general-purpose`。**1 サブエージェント＝1 起動**（並列時はファイルが別なので競合しない）。
+**1 サブエージェント＝1 起動**（並列時はファイルが別なので競合しない）。
 
 主エージェントが埋める:
 - `{{TARGET_SKILL_DIR}}`、`{{RULES_DIR}}`
@@ -17,7 +17,7 @@ Recommended `subagent_type`: `general-purpose`。**1 サブエージェント＝
 ## 種類とパス（R4 / R10 厳守）
 - まず種類を判定: **(i) 登録済み Claude サブエージェント**（frontmatter `tools/model/color` あり・名前起動）か、**(ii) プロンプト同梱の指示ファイル**（素の手順）か。
 - (ii) の場合、`references/agents/<name>.md` を**唯一の canonical** にし**ミラーを作らない**（drift 防止）。(i) の場合は元の `.claude/agents/<name>.md` を Claude 名前起動用に残し、ここへは知識コピー（snapshot 注記）。
-- **R10**: この reference は「メインが読んで Task に内容を渡す／Codex はメインが相対で読む」前提。内部のデータパス（`../<other>/...` 等）は skill 相対で書き、Claude Task 実行時はメインが**絶対化して渡す**前提であることを 1 行注記する。
+- **R10**: この reference は「メインが読んでサブエージェントに内容を渡す／Codex はメインが相対で読む」前提。内部のデータパス（`../<other>/...` 等）は skill 相対で書き、Claude Task 実行時はメインが**絶対化して渡す**前提であることを 1 行注記する。
 
 ## 不可侵
 - 元サブエージェントの**指示内容・チェックリスト・採点基準・出力契約を変えない**。プラットフォーム中立な「知識」だけを残す。
@@ -34,8 +34,8 @@ Recommended `subagent_type`: `general-purpose`。**1 サブエージェント＝
    ## 出力契約
    ...
    ```
-   - **Claude**: `Task`（subagent_type: general-purpose）でこの内容をプロンプトとして渡す。
-   - **Codex / Task 無し**: メインがこの内容を逐次インライン実行する。
+   - **Claude**: `Agent` でこの内容をプロンプトとして渡す（`subagent_type` は元 SKILL.md の指定を踏襲）。
+   - **Codex / 委譲できない環境**: メインがこの内容を逐次インライン実行する。
    （上記 2 文を各 reference 末尾に明記し、両対応であることを自己説明させる。）
 4. 既に共有 reference が存在する共通サブエージェント（複数スキル利用）は**重複作成せず**、その旨を返す。
 

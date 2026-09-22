@@ -1,3 +1,4 @@
+<!-- prompt-lint-ignore-file: D002 -->
 # Playful and decorative mods
 
 Recipes for the fun end of the API: recolouring Claude Code's own output,
@@ -6,9 +7,6 @@ band while Claude works. Builds on references/drawing-ui.md — read that
 for `ui.render`, the element tables, `Client` and `Raster` in full.
 
 EARLY ACCESS: runs only under `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`.
-
-
-This is the main use case: making Claude Code's own output look different, drawing pixel art, hosting a small game, or decorating the prompt while Claude works — not building a utility pane. All four sub-sections below build directly on §1–§6; only the new facts (colour strings, tree mutability, the `{type:'engine'}` escape hatch, refusal list) were looked up freshly.
 
 ## Contents
 
@@ -26,9 +24,9 @@ This is the main use case: making Claude Code's own output look different, drawi
 ```ts
 { type: 'engine'; ref: number }   // d.ts:6169-6178
 ```
-Doc: "The component core draws itself, with the props held under `ref`... the number core answered from `next(e)`... `0` draws the original props." When a component's built-in rendering is opaque (core drew it internally, nothing below your hook replaced it with a literal tree), `next(e)` resolves to this **marker**, not a `Box`/`Text` tree — there is nothing to walk or recolour. None of the six mods read for this document ever recieved (or walked) a literal tree back from `next(e)` on a built-in transcript component; every one of them either (a) rewrote `props` and let the engine/next hook re-render with those, or (b) skipped `next(e)` and drew its own small tree from the component's typed props.
+Doc: "The component core draws itself, with the props held under `ref`... the number core answered from `next(e)`... `0` draws the original props." When a component's built-in rendering is opaque (core drew it internally, nothing below your hook replaced it with a literal tree), `next(e)` resolves to this **marker**, not a `Box`/`Text` tree — there is nothing to walk or recolour. None of the six mods read for this document ever received (or walked) a literal tree back from `next(e)` on a built-in transcript component; every one of them either (a) rewrote `props` and let the engine/next hook re-render with those, or (b) skipped `next(e)` and drew its own small tree from the component's typed props.
 
-**The recipe every real mod actually uses: skip `next(e)`, draw from props.** Recolouring in practice means: register on the component, read the plain-data `props` it was handed (the text is already there — `AssistantMessage.text`, `UserMessage.text`, `ToolUse.tool`/`.input`, `CommandOutput.text`, `InfoNotice.text`, …), and return your own small `Box`/`Text` tree built with your own `TextProps`. This is the "wrap" as far as any observed mod goes: you still call `$.ui.resolve(e)` to get real constructors, and you still fall back to `next(e)` when your own guard doesn't apply (see §1's `next` table) — you just never dereference `next(e)`'s result as a tree to walk.
+**The recipe every real mod actually uses: skip `next(e)`, draw from props.** Recolouring in practice means: register on the component, read the plain-data `props` it was handed (the text is already there — `AssistantMessage.text`, `UserMessage.text`, `ToolUse.tool`/`.input`, `CommandOutput.text`, `InfoNotice.text`, …), and return your own small `Box`/`Text` tree built with your own `TextProps`. This is the "wrap" as far as any observed mod goes: you still call `$.ui.resolve(e)` to get real constructors, and you still fall back to `next(e)` when your own guard doesn't apply (see the `next` table in references/drawing-ui.md §1) — you just never dereference `next(e)`'s result as a tree to walk.
 
 ```tsx
 /* @jsx h */
@@ -60,7 +58,7 @@ No ANSI-256 numeric index or `rgb(...)`-function syntax was found stated or used
 
 ### 9.2 Pixel / dot art (`Raster` in depth)
 
-Full `RasterProps` and the wire encoding are in §5 — recap of the parts that matter for drawing art:
+Full `RasterProps` and the wire encoding are in references/client-and-raster.md — recap of the parts that matter for drawing art:
 
 - **Fixed box.** `columns: number` 1–512, `rows: number` 1–256 (`d.ts:5850-5854`); the box size is set at mount and does not change without a redraw ("A resize is a redraw instead," `d.ts:1864`).
 - **Per-cell colour.** Each cell is a `[codePoint, foreground, background]` little-endian `u32` triplet, base64-packed (`d.ts:5855-5864`). A colour is `0x00RRGGBB`, or the single sentinel `0x01000000` (bit 24 set, RGB bits zero) for "the terminal's default." Palette ceiling: "its palette paints 1024 distinct color pairs at once and the rest as their nearest" (`d.ts:5837-5838`).
@@ -121,14 +119,14 @@ export const register = (on) => {
 
 ### 9.3 Games (`Client` as the game-loop host)
 
-Full `ClientModule`/`ClientSurface`/`ClientProps` are in §4. For a game, the pieces that matter:
+Full `ClientModule`/`ClientSurface`/`ClientProps` are in references/client-and-raster.md. For a game, the pieces that matter:
 
 - `surface.state: S | undefined` / `surface.setState(next: S): void` (`d.ts:1071-1076`) — per-instance game state, kept alive by the `key` across the plugin's redraws.
 - `surface.onKey((event: ClientKeyEvent) => void): () => void` (`d.ts:1103`, event shape `d.ts:944-956`: `{ key, ctrl?, shift?, meta? }`, "Escape never arrives: it returns the focus" — `d.ts:942`).
 - `surface.onPointer((event: ClientPointerEvent) => void): () => void` (`d.ts:1098`, event shape `d.ts:976-998`: `{ type: 'down'|'move'|'up'|'enter'|'leave'; x; y; button?; shift?; alt?; ctrl? }`).
 - `surface.every(ms, fn): () => void` (`d.ts:1093`) — the board's own tick clock, independent of `$.ui.invalidate`'s rate cap.
 - **Why no `$` on the drawing thread**: `d.ts:1059` — "No `$` here: the hooks module has it, and `post` is the way to reach it." The surface module "Runs in the plugin's surface environment on the drawing thread, under a time budget per call; a throw or an overrun unmounts the instance and draws one line naming the plugin and the module in its place" (`d.ts:962-964`) — confirmed observed: `cc-arcade/README.md:202`.
-- **`surface.post(data: JsonValue): void`** (`d.ts:1111`) is the only way back to the hooks module — see §4's `ui.message` section for the full round trip.
+- **`surface.post(data: JsonValue): void`** (`d.ts:1111`) is the only way back to the hooks module — see the `ui.message` section of references/client-and-raster.md for the full round trip.
 
 `cc-arcade`'s real pattern (`cc-arcade/hooks/boards/snake.tsx:8-38`):
 ```ts
@@ -154,7 +152,7 @@ const board =
 ```
 Above/alongside the `Client` board, `cc-arcade` draws a plain `Box`/`Button` picker in the **hooks module itself** (not inside the Client), so `Button`'s `hotkey` can drive game selection from the keyboard directly — `ButtonProps.hotkey` (`d.ts:651-658`): "One digit (`\"1\"`) or one lowercase letter (`\"w\"`) that presses it where the site honours one (the `AbovePrompt` band)... A digit presses from an empty composer; a digit or letter presses on keydown while one of the band's Buttons has the focus." This is the keyboard-input mechanism for controls that live in the band's own element tree (menus, pause/quit buttons) as distinct from `onKey` inside a mounted `Client` (in-game movement, etc).
 
-**Limits that matter for games specifically** (see §7 for full detail and sourcing):
+**Limits that matter for games specifically** (see references/drawing-ui.md §7 for full detail and sourcing):
 - Node budget: **not a documented engine constant** — `cc-arcade` tunes its own doom renderer to a working budget of **1500** nodes, divided across rows (`cc-arcade/hooks/boards/doom.tsx:293-295`), described only as "what is left of the engine's node budget for this frame."
 - Band height: observed only, "about half the terminal height" (`cc-arcade/README.md:146,201,209`).
 - Redraw rate: `$.ui.invalidate` is capped at 10/s generally, 30/s for the shown Pane/band (`d.ts:1842-1844`) — but a `Client`'s own `surface.every` tick is independent of this cap: `cc-arcade` boards run their own loop at 10/s, doom at 20/s, turn-based games/pet at 5/s (`cc-arcade/README.md:208`).
@@ -195,7 +193,7 @@ A lower-level alternative exists if you need more than a boolean (e.g. correlati
 | `$.ui.blit` sent with `columns`/`rows` not matching the mounted size, targeting another plugin's Raster, or malformed cells | Refused via `UiBlitResult.deny`, with a reason string | `d.ts:8704`, `8709`, `8719-8728` |
 | A `Client` module (or any hook) throws or overruns its per-call time budget | Instance/hook **unmounted or skipped**; one line names the plugin+module (Client), or the hooks beneath/core run in its place (any hook) | `d.ts:962-964` (observed `cc-arcade/README.md:202`), `d.ts:2821-2823` |
 | `UserMessage.origin`, or a `SessionMode`/`PromptHint`/`AbovePrompt`/`Pane` prop marked read-only, rewritten or dropped by a hook | Refused, "the hook that passed it failing" | `d.ts:6277`, `6563`, `6597`, `6611` |
-| A Client tree with "too many nodes" or "too large serialized size" | **Not documented as a hard number anywhere searched** — only the time-budget overrun path above is specified | see §7 row 3 / Unverified |
+| A Client tree with "too many nodes" or "too large serialized size" | **Not documented as a hard number anywhere searched** — only the time-budget overrun path above is specified | see references/drawing-ui.md §7 row 3 |
 
 ---
 

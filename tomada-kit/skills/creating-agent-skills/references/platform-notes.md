@@ -14,6 +14,7 @@ see `agent-neutral-authoring.md` for why tool names live only here.
 | Single sub-agent spawn | the Task tool / Agent tool | run the work inline in the main context |
 | Barrier-free pipelining across stages | `pipeline()` inside a Workflow script | run stages sequentially in the main context |
 | Per-spawn effort knob (in addition to model) | `agent()`'s `effort` param in a Workflow script | not exposed — only the main context's own effort applies |
+| Selecting a tier (`executor` / `architect`) for a single spawn | Agent tool with `subagent_type: executor` / `architect`; the named agent's frontmatter carries `model` + `effort`. The Agent tool takes `model` but not `effort`, so a spawn naming only `model` runs at the session's per-model `modelSettings` effort | not exposed — the work runs inline at the main context's effort |
 
 ## When to prefer the fan-out runner
 

@@ -1,6 +1,6 @@
 ---
 name: code-analyzer
-description: Review code structure, complexity, and security patterns under a hard read-only guarantee — the editing tools are removed for the turn, so findings can be produced against an untrusted or production checkout without any risk of a write. Use when auditing an unfamiliar codebase, scoping a refactor, or reviewing a branch you must not modify.
+description: Review code structure, complexity, and security patterns under a hard read-only guarantee — the editing tools are removed for the turn, so findings can be produced against an untrusted or production checkout without any risk of a write. Use when auditing an unfamiliar codebase, scoping a refactor, or reviewing a branch that has to stay unmodified.
 allowed-tools: Read, Grep, Glob
 disallowed-tools: Write, Edit, NotebookEdit
 ---

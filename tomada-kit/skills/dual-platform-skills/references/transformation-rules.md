@@ -49,7 +49,7 @@ platform-notes.md 側には対応表を書く:
 ```markdown
 <!-- platform-annex -->
 ## ツール対応
-- 独立調査の並列委譲 → Claude Code: `Task`（`subagent_type: general-purpose`）を並列起動 / Codex: `Task` 相当の機構が無いため、メインが `references/agents/<role>.md` を skill 相対で読み逐次インライン実行
+- 独立調査の並列委譲 → Claude Code: `Agent` を並列起動（`subagent_type` は元スキルの指定を踏襲） / Codex: `Task` 相当の機構が無いため、メインが `references/agents/<role>.md` を skill 相対で読み逐次インライン実行
 ```
 
 - 構造は両対応で維持：**サブエージェントは互いに会話しない・メインが統合**。

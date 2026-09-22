@@ -20,7 +20,7 @@ Anthropic (`poteat`, maintainer) opened #91870 2026-09-03 as a proposal soliciti
 
 Terminology to keep straight: **"Claude Mods"** is the product name; **"function hooks"** is the implementation primitive; a **mod** is an ordinary Claude Code plugin whose `hooks/hooks.json` names a TypeScript module — not a new plugin type. Gate: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` (env var, one-off prefix or `settings.json` `env` key). None of this — the flag, `/plugin-types`, the `$` API — is in the published docs yet; every real mod README in the corpus says so independently.
 
-**Verified on 2.1.273**: a hooks module in a plugin loaded without the flag is **ignored with no warning at all** — no error, no load-failure log entry, exit 0, the mod simply does nothing. This is the first thing to check when a mod "does nothing." `claude plugin validate` is the exception: it statically inventories a module's hooked events and `$` calls **without** the flag, before any mod code runs.
+**Verified on 2.1.273**: without the flag a hooks module is ignored with no warning (the gate section of SKILL.md; transcript in references/authoring-and-testing.md §4).
 
 ## 2. Stale vs live
 

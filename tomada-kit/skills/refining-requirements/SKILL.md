@@ -12,9 +12,7 @@ metadata:
 
 # Requirements Refiner
 
-Clarify ambiguous requirements through structured questioning and produce detailed, implementation-ready specifications.
-
-**After this skill**: Use `designing-wireframes` for UI/UX visualization, then `planning-tickets` for GitHub Issues. See [references/platform-notes.md](references/platform-notes.md).
+**After this skill**: Use `designing-wireframes` for UI/UX visualization, then `planning-tickets` for GitHub Issues. Codex differences: [references/platform-notes.md](references/platform-notes.md).
 
 ## Phase 0: Gather Input (only if no document provided)
 
@@ -25,27 +23,18 @@ If the user hasn't provided a requirements document, gather the basics first —
 - What platform? → Mobile app / Web app / API/Backend / CLI / Other
 - Any constraints? (tech stack, MVP scope, deadline)
 
-## Phase 1: Understand & Classify
+## Phase 1: Classify the platform
 
-1. Read the requirements document (or answers from Phase 0)
-2. Identify the core value proposition and target user
-3. **Determine the platform type** — this controls which checks are required in Phase 2:
-   - **Mobile app** → all sections apply
-   - **Web app** → skip Mobile UX (Thumb-Zone, Haptic), adapt Accessibility to keyboard/focus
-   - **API/Backend** → skip UI sections entirely; focus on Business Logic, Error Handling, Data Contracts
-   - **CLI** → skip UI sections; focus on command interface, error output, exit codes
-4. Note what's already clear — don't ask about things the document already answers
+The platform type controls which question rounds apply in Phase 2:
+
+- **Mobile app** → all rounds apply
+- **Web app** → skip Mobile UX (Thumb-Zone, Haptic); adapt Accessibility to keyboard/focus
+- **API/Backend** → skip UI rounds entirely; focus on Business Logic, Error Handling, Data Contracts
+- **CLI** → skip UI rounds; focus on command interface, error output, exit codes
 
 ## Phase 2: Question Rounds
 
-Clarify ambiguities through batched questions — using the same options-with-recommendation format as Phase 0 (max 4 questions per round). Ask only what's unclear — skip any category where the document is already specific.
-
-### Question Design Principles
-
-1. **Use descriptive headers** — short, scannable labels (max 12 chars)
-2. **Batch related questions** — group by topic area
-
-### Recommended Question Order
+Clarify ambiguities in batched rounds of at most 4 questions, grouped by topic, in the same options-with-recommendation format as Phase 0. Ask only what the document leaves unclear — skip any category where it is already specific.
 
 Ask in this order, skipping rounds that don't apply: Core UI/UX, Mobile UX, Error Handling & Validation, Accessibility, Visual Design, Business Logic, API/Data. Question bank: [references/question-bank.md](references/question-bank.md)
 
@@ -74,8 +63,6 @@ Produce or update the requirements document with detailed specs, edge-case handl
 - Deferred features with rationale
 ```
 
+Section 3 records the decisions from the Error Handling, Accessibility, and Visual Design rounds; `designing-wireframes` later expands them into full specification sections.
+
 Save the document as `requirements.md` in the project root, or update the existing file if one already exists.
-
-## Platform notes
-
-See [references/platform-notes.md](references/platform-notes.md) for details.

@@ -1,7 +1,8 @@
 # Support-file guide — packaging the lead engineer's head for the executor
 
-Support files are how the lead's intent survives the handoff to a fresh, weaker/cheaper executor.
-This guide covers when to create each one and how to write it so the executor never has to guess.
+Support files are how the lead's intent survives the handoff to a fresh executor that has none of
+this conversation. This guide covers when to create each one and how to write it so the executor
+never has to guess.
 
 ## Contents
 
@@ -13,7 +14,6 @@ This guide covers when to create each one and how to write it so the executor ne
 - [checklist.yaml — a machine-checkable work queue](#checklistyaml--a-machine-checkable-work-queue)
 - [decisions.md — pre-answered questions and fallbacks](#decisionsmd--pre-answered-questions-and-fallbacks)
 - [Wiring the bundle into goal.md](#wiring-the-bundle-into-goalmd)
-- [Anti-patterns](#anti-patterns)
 - [Worked example: a design-heavy bundle](#worked-example-a-design-heavy-bundle)
 
 ## The handoff principle
@@ -174,18 +174,6 @@ repo may have moved):
 > final report. If a *design* element turns out impossible as specified, apply the fallback in
 > decisions.md; if none applies, stop and report per STOP RULES — never silently improvise a new design.
 
-## Anti-patterns
-
-| Anti-pattern | Why it fails | Instead |
-|---|---|---|
-| Prose description of code ("use a factory that…") | executor reinvents it differently | paste the code block |
-| Raw research/transcript dump | the load-bearing fact drowns | distilled findings with evidence |
-| Same fact in goal.md and a sibling | drift → contradiction mid-run | goal.md points; the sibling carries |
-| Checklist items without acceptance criteria | ticks become self-graded | command + expected result per item |
-| "See existing code for patterns" | find → read → interpret = three divergence points | verbatim snippet + source path in examples.md |
-| Support files never referenced from goal.md | they are never read | CONTEXT read-first list, absolute paths |
-| Design deferred to the executor ("choose a sensible approach") | a weaker model designs under anti-thrash pressure | decide now; record decision + rationale in design.md |
-
 ## Worked example: a design-heavy bundle
 
 Task: "add per-key rate limiting to the public API" — designed by the authoring session, executed
@@ -194,7 +182,8 @@ unattended. Bundle at
 
 - `goal.md` (~30 lines) — GOAL: middleware live on all /api/v2 routes, tests pass; DONE WHEN tied
   to `GOAL_DONE:` sentinel after `npm test` output; CONTEXT: read-first list above; CONSTRAINTS:
-  scope + anti-cheat + divergence rule; STOP RULES: 40-turn ceiling, degraded terminal for PR push.
+  scope + anti-cheat + divergence rule; TURN ENDINGS; STOP RULES: 40-turn ceiling, degraded
+  terminal for PR push.
 - `design.md` — token-bucket decision D1 (above), the middleware signature as a `ts` block, ASCII
   flow `request → keyExtract → bucket.take() → 429|next`, non-goals ("no per-user limits, no
   admin UI").

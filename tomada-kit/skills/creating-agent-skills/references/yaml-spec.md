@@ -73,23 +73,7 @@ All fields are optional to Claude Code; only `description` is genuinely load-bea
 
 **What it controls in Claude Code:** in a personal or project skill, `name` sets only the display label in skill listings — the command you type still comes from the directory name. In a **plugin** skill, `name` replaces the last segment of the command, so `my-plugin/skills/review/SKILL.md` with `name: fancy` becomes `/my-plugin:fancy`. Keeping `name` equal to the directory name avoids the whole class of confusion.
 
-**Naming convention — gerund form (`-ing`) recommended:**
-
-```yaml
-# Good
-name: processing-pdfs
-name: reviewing-code
-
-# Acceptable
-name: pdf-processing       # noun phrase
-name: process-pdfs         # imperative
-
-# Invalid
-name: API-Docs-Writer      # uppercase
-name: api_docs_writer      # underscores
-name: -api-docs            # leading hyphen
-name: claude-helper        # reserved word
-```
+**Naming convention:** gerund form recommended (`processing-pdfs`, `reviewing-code`); noun phrases (`pdf-processing`) and imperatives (`process-pdfs`) are acceptable. Invalid: `API-Docs-Writer` (uppercase), `api_docs_writer` (underscores), `-api-docs` (leading hyphen), `claude-helper` (reserved word).
 
 ### `description`
 
@@ -124,42 +108,11 @@ description: This skill handles database operations.
 
 Put the most important use case **first** — the text is truncated from the end. See [How the description actually reaches the model](#how-the-description-actually-reaches-the-model).
 
-### `license`
+### `license`, `compatibility`, `metadata`
 
-**Type:** String
-
-License name, or the name of a bundled license file. Keep it short.
-
-```yaml
-license: MIT
-license: Proprietary. LICENSE.txt has complete terms
-```
-
-### `compatibility`
-
-**Type:** String | **Max:** 500 characters
-
-Environment requirements — intended product, required system packages, network access. **Not** a Claude Code version constraint.
-
-```yaml
-compatibility: Designed for Claude Code (or similar products)
-compatibility: Requires git, docker, jq, and access to the internet
-compatibility: Requires Python 3.14+ and uv
-```
-
-Most skills do not need this field.
-
-### `metadata`
-
-**Type:** Map of string to string
-
-Arbitrary properties not defined by the standard. Use reasonably unique key names to avoid collisions between tools.
-
-```yaml
-metadata:
-  author: tomada
-  version: "1.0"
-```
+- `license` — a license name or the name of a bundled license file (`MIT`, `Proprietary. LICENSE.txt has complete terms`).
+- `compatibility` — max 500 characters of environment requirements (system packages, network access, intended product). **Not** a Claude Code version constraint. Most skills do not need it.
+- `metadata` — map of string to string for properties the standard does not define (`author`, `version`, `platforms`). Use reasonably unique keys to avoid collisions between tools.
 
 ### `allowed-tools`
 
@@ -185,7 +138,7 @@ In the Agent Skills standard this field is space-separated and marked experiment
 >
 > If the goal is to actually restrict what the skill can touch, that's [`disallowed-tools`](#disallowed-tools), not this field — it's outside this default.
 
-When one of those reasons applies, common patterns: `Read, Grep, Glob` (read-only analysis) · `Read, Grep, Glob, Write` (docs generation) · `Read, Bash` (validation runs).
+Common combinations are in `patterns-and-structure.md`'s Tool Restrictions (load via SKILL.md).
 
 ---
 
@@ -271,7 +224,7 @@ Main use: autonomous or background skills that must never stop to ask. The field
 
 Model used while the skill is active. The override applies for the rest of the current turn and is not saved; the session model resumes on the next prompt. Use aliases — full dated IDs (`claude-*-YYYYMMDD`) go stale.
 
-> **Default: omit this field.** Skills that involve judgment, review, or writing should inherit the session model. Pin explicitly only to cost-optimize bulk mechanical work (`model: haiku`).
+> **Default: omit this field** so the skill inherits the session model. Cost and depth are tuned with effort and with the tier of any sub-agents the skill spawns, not by pinning the skill's own turn to a different model.
 
 > **Sub-agent models are separate.** This field sets the model for the skill's *own* turn, never for sub-agents the skill spawns. Set those per spawn — see `prompt-authoring.md` and A6 in `orchestration-patterns.md` (both loaded via SKILL.md).
 
@@ -281,7 +234,7 @@ A model excluded by an organization's `availableModels` allowlist is ignored and
 
 **Type:** `low` | `medium` | `high` | `xhigh` | `max` | **Default:** inherits the session
 
-Reasoning effort while the skill is active. Available levels depend on the model. Lowering effort is the first cost lever to try before dropping to a cheaper model.
+Reasoning effort while the skill is active. Available levels depend on the model. Effort is the first cost lever — reach for it before changing models. Usually omitted, like `model`.
 
 ### `context`
 
@@ -289,30 +242,7 @@ Reasoning effort while the skill is active. Available levels depend on the model
 
 Runs the skill in an isolated forked subagent context. The skill content becomes the subagent's prompt; conversation history is not available to it.
 
-**`context: fork` is for Task Contents (active skills), not Reference Contents (passive skills).** A forked agent needs to know *what to do*; a guidelines-only skill leaves it with no objective.
-
-**Correct (Task Contents):**
-```yaml
----
-name: pr-opener
-context: fork
----
-## Your Task
-1. Get the current branch diff: `git diff main...HEAD`
-2. Generate a PR title from the commits
-3. Create the PR: `gh pr create --title "..." --body "..."`
-```
-
-**Incorrect (Reference Contents):**
-```yaml
----
-name: coding-standards
-context: fork
----
-## Guidelines
-- Use TypeScript strict mode
-# No explicit task — the forked agent has nothing to do
-```
+**`context: fork` is for Task Contents (a skill that states its own task), not Reference Contents (guidelines only)** — a forked agent handed guidelines has no objective. Examples of both: `patterns-and-structure.md`'s Skill Content Types (load via SKILL.md).
 
 ### `agent`
 
@@ -432,21 +362,7 @@ Claude Code substitutes these placeholders into the skill body before the model 
 
 **Use `${CLAUDE_SKILL_DIR}` for every bundled script and asset path.** A hardcoded `~/.claude/skills/<name>/…` breaks the moment the skill is installed as a plugin or committed to a project, and it silently invokes the *wrong copy* when both exist.
 
-`${CLAUDE_SKILL_DIR}` and `${CLAUDE_PROJECT_DIR}` are substituted in two places — the markdown body **and** Bash rules in `allowed-tools`. Using the same variable in both lets a skill run its own script with no permission prompt:
-
-````markdown
----
-name: checking-deps
-description: Audits dependency versions against the lockfile.
-allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/check_deps.py:*)
----
-
-Run the dependency check and report what it prints:
-
-```bash
-python3 ${CLAUDE_SKILL_DIR}/scripts/check_deps.py --json
-```
-````
+`${CLAUDE_SKILL_DIR}` and `${CLAUDE_PROJECT_DIR}` are substituted in two places — the markdown body **and** Bash rules in `allowed-tools` — so a skill can pre-approve its own script with the same path it runs it by: `allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/check_deps.py:*)`.
 
 ---
 

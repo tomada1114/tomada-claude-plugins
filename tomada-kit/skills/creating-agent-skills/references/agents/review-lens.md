@@ -5,7 +5,7 @@ One template for every lens in the Improving playbook. Fill the placeholders, th
 | Placeholder | Fill with |
 |---|---|
 | `{{LENS_NAME}}` | `prose` / `neutrality` / `structure` / `scripts` / `orchestration` |
-| `{{LENS_FOCUS}}` | the "Looks for" cell of that lens in SKILL.md |
+| `{{LENS_FOCUS}}` | one line naming what the lens checks, taken from its checklist's item headings |
 | `{{CHECKLIST_PATH}}` | absolute path of the reference holding this lens's `## Review checklist` |
 | `{{SKILL_DIR}}` | absolute path of the skill under review |
 | `{{SCRIPT_FINDINGS}}` | the P0 findings (code, location, message) relevant to this lens, or "none" |

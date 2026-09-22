@@ -10,7 +10,7 @@ description: >-
   phases with Python scripts and bundled sub-agents. Use when porting a skill to Codex,
   dual-platforming a skill, or sharing one skill across both platforms.
 argument-hint: "<skill-name or path> [--scope user|repo]"
-allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task, Skill
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent, Skill
 metadata:
   platforms: claude-code, codex
 ---
@@ -25,7 +25,7 @@ metadata:
 
 1. **Topology A**: 実体は `.claude/skills/<name>/`（Claude がネイティブに読む唯一の正本）。Codex 側（`~/.codex/skills/` or `<repo>/.agents/skills/`）は**そこへの symlink**。Claude は symlink をたどらず、Codex だけが公式サポート済みの追従をする。→ [references/topology.md](references/topology.md) <!-- neutrality-ignore: N2 -->
 2. **ベストエフォート劣化**: 使えない機能は**能力条件つきの中立表現**（「委譲できる環境なら…／できなければ逐次…」）に書き換え、失うものを**コスト種別（所要時間／コンテキスト隔離／保証レベル）付き**で明記。判定軸は製品名ではなく**そのランタイムに公開されている能力**。→ [references/transformation-rules.md](references/transformation-rules.md)
-3. **封入サブエージェント**: 外部 `~/.claude/agents/` に依存せず、サブエージェントの指示を本スキルの [references/agents/](references/agents/) に封入し、`Task`（`subagent_type: general-purpose`/`Explore`）に渡して使う。完全自己完結。 <!-- neutrality-ignore: N1 --> <!-- neutrality-ignore: N2 -->
+3. **封入サブエージェント**: サブエージェントの指示は外部のエージェント定義ではなく本スキルの [references/agents/](references/agents/) に封入し、その本文をサブエージェントに渡して使う。起動方法は [references/platform-notes.md](references/platform-notes.md)。
 
 差分の根拠はすべて [references/platform-diff.md](references/platform-diff.md)。
 
@@ -52,17 +52,14 @@ metadata:
 5. tier A で構文が空なら P1/P2 を簡略化（frontmatter 確認＋相対パス化のみ）してよい。
 
 ### P1. Analyze（サブエージェント 1・読取専用）
-変換プランを作る。
-- **Claude Code**: `Task`（`subagent_type: Explore`）を 1 つ起動。プロンプト = [references/agents/skill-analyzer.md](references/agents/skill-analyzer.md) の本文に `{{TARGET_SKILL_DIR}}`/`{{RULES_DIR}}`/`{{CLASSIFY_JSON}}` を埋めたもの。返り値の JSON（変換プラン）を受け取る。 <!-- neutrality-ignore: N1 -->
-- **Codex / Task 無し**: メインが同ファイルを読み、その手順を**逐次インライン**実行して同じ JSON を自分で作る。
+変換プランを作る。[references/agents/skill-analyzer.md](references/agents/skill-analyzer.md) の本文に `{{TARGET_SKILL_DIR}}`/`{{RULES_DIR}}`/`{{CLASSIFY_JSON}}` を埋め、委譲できる環境なら 1 サブエージェントに渡して変換プラン JSON を受け取る。できなければメインが同じ手順を逐次実行して同じ JSON を作る（コンテキスト隔離を失う）。
 
 ### P2. Transform（並列サブエージェント・書込）
-変換プランを実装する。**rewriter が触るファイル群（SKILL.md + references/・templates/）と各サブエージェント抽出は別ファイルなので並列安全**。
-- **Claude Code**: 次を**並列**起動（各 `subagent_type: general-purpose`）: <!-- neutrality-ignore: N1 -->
-  - rewriter ×1: [references/agents/skill-rewriter.md](references/agents/skill-rewriter.md)（`{{CONVERSION_PLAN}}` を渡す）→ `TARGET/SKILL.md` と `TARGET/references/**/*.md`・`TARGET/templates/**/*.md` を両対応化（完全中立化。ツール名は `platform-notes.md` にのみ残す）。
-  - extractor ×N: [references/agents/subagent-extractor.md](references/agents/subagent-extractor.md) を `subagents_to_extract` の各要素で 1 起動ずつ → `TARGET/references/agents/<name>.md` を生成。
-- **Codex / Task 無し**: メインが rewriter→extractor の順に**逐次インライン**実行（並列性は失われる）。
-- 完了後、メインが結果を統合（重複サブエージェントの共有化を確認）。
+変換プランを実装する。rewriter が触るファイル群（SKILL.md + references/・templates/）と各抽出先は別ファイルなので並列安全。委譲できる環境なら次を並列に委譲し、できなければメインが rewriter→extractor の順に逐次実行する（所要時間増）:
+- rewriter ×1: [references/agents/skill-rewriter.md](references/agents/skill-rewriter.md)（`{{CONVERSION_PLAN}}` を渡す）→ `TARGET/SKILL.md` と `TARGET/references/**/*.md`・`TARGET/templates/**/*.md` を完全中立化（ツール名は `platform-notes.md` にのみ残す）。
+- extractor ×N: [references/agents/subagent-extractor.md](references/agents/subagent-extractor.md) を `subagents_to_extract` の各要素で 1 起動ずつ → `TARGET/references/agents/<name>.md` を生成。
+
+完了後、メインが結果を統合する（重複サブエージェントの共有化を確認）。
 
 ### P3. Bridge & Verify（メイン決定的 ＋ 敵対的サブエージェント 1）
 1. Codex symlink を作成（冪等・実フォルダ上書き拒否）。**データ参照する依存スキルにも同じ codex dir へ bridge** し、`../<other>/...` を両対応に解決させる:
@@ -76,22 +73,20 @@ metadata:
    python3 scripts/neutrality_lint.py <TARGET>                           # 中立性（SKILL.md+references+templates）
    python3 scripts/verify_bridge.py <TARGET> --json                      # 両対応・symlink・codex_runnable
    ```
-3. 敵対的検証:
-   - **Claude Code**: `Task`（`subagent_type: Explore`）で [references/agents/bridge-verifier.md](references/agents/bridge-verifier.md) を起動（`{{VERIFY_JSON}}` を渡す）。`codex_runnable=false` や blockers が出たら P2 に戻して修正。 <!-- neutrality-ignore: N1 -->
-   - **Codex / Task 無し**: メインが同ファイルの観点で自己レビュー。
-4. validate/neutrality_lint/verify のエラーは**ゼロにしてから**完了。
+3. 敵対的検証: [references/agents/bridge-verifier.md](references/agents/bridge-verifier.md)（`{{VERIFY_JSON}}` を渡す）を、委譲できる環境なら別コンテキストのサブエージェントで実行する。できなければメインが同じ観点で自己レビューする（独立性という保証を失う。レポートにその旨を書く）。`codex_runnable=false` か severity high の findings が出たら P2 に戻して修正。
+4. validate/neutrality_lint/verify のエラーは**ゼロにしてから**完了（`codex_runnable: true`）。
 
 ### P4. Report（メイン）
 tier ／適用編集（rule→file→location）／Codex 劣化リスト／作成した symlink ／ validate・neutrality_lint・verify・bridge-verifier 結果を要約。Claude 専用として隔離した節があれば明示。
 
 ## 封入サブエージェント
 
-| role | type | 用途 | prompt |
-|---|---|---|---|
-| skill-analyzer | Explore | 深読み→変換プラン JSON | [references/agents/skill-analyzer.md](references/agents/skill-analyzer.md) |
-| skill-rewriter | general-purpose | SKILL.md + references/・templates/ の両対応書き換え | [references/agents/skill-rewriter.md](references/agents/skill-rewriter.md) |
-| subagent-extractor | general-purpose | 依存サブエージェント知識の抽出 | [references/agents/subagent-extractor.md](references/agents/subagent-extractor.md) |
-| bridge-verifier | Explore | Codex 視点の敵対的検証 | [references/agents/bridge-verifier.md](references/agents/bridge-verifier.md) |
+| role | 用途 | prompt |
+|---|---|---|
+| skill-analyzer | 深読み→変換プラン JSON（読取専用） | [references/agents/skill-analyzer.md](references/agents/skill-analyzer.md) |
+| skill-rewriter | SKILL.md + references/・templates/ の両対応書き換え | [references/agents/skill-rewriter.md](references/agents/skill-rewriter.md) |
+| subagent-extractor | 依存サブエージェント知識の抽出 | [references/agents/subagent-extractor.md](references/agents/subagent-extractor.md) |
+| bridge-verifier | Codex 視点の敵対的検証（読取専用） | [references/agents/bridge-verifier.md](references/agents/bridge-verifier.md) |
 
 ## スクリプト（スキルディレクトリ基準・相対起動）
 
@@ -103,8 +98,6 @@ tier ／適用編集（rule→file→location）／Codex 劣化リスト／作�
 | `scripts/verify_bridge.py <dir> [--codex-link P] [--json]` | symlink 解決・相対リンク・Codex frontmatter・neutrality_lint 統合・`codex_runnable` |
 
 ## Hard rules
-- **正本は常に `.claude/skills/`**。Codex 由来でも実体を Claude 側へ移し、Codex は symlink。
-- **事実・手順・コード・意味を変えない。** 変えるのは配置とプラットフォーム依存表現だけ。
 - **本文（SKILL.md・references/・templates/）はツール名を書かない完全中立が既定**（[neutral-phrasing.md](references/neutral-phrasing.md)、R3/R6）。ツール名の唯一の置き場所は各スキルの `references/platform-notes.md`（`<!-- platform-annex -->` 付き）。代替表現は使用箇所にインラインで書く（R11、末尾注記だけに寄せない）。
 - ハードコード `.claude/` 絶対パスは**スキル内部参照のみ相対化**。cross-skill は **データ参照=相対化（依存も同じ codex dir へまとめて bridge）／実行=抽出・inline・claude-only**（[transformation-rules.md](references/transformation-rules.md) R5）。
 - **永続状態は `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/<skill>/`**（R12）。`~/.claude/<name>/` を独自に発明しない。 <!-- neutrality-ignore: N2 -->
@@ -112,9 +105,8 @@ tier ／適用編集（rule→file→location）／Codex 劣化リスト／作�
 - **git 書き込み系・パッケージマネージャ・テストランナーを回すスキルは、実行環境（sandbox）の失敗と復旧手順を platform-notes.md に必ず書く**（R14、`sandbox_write_op`）。迂回策を本文に書かない。
 - **ホスト組み込みコマンド依存（`/code-review` 等）は bridge 不能**。名前つき劣化モードを定義し、実行記録・最終レポートに出力させる（R15、`builtin_slash_command`）。代替を自作させない。
 - サブエージェント定義は `<skill>/agents/`・`.claude/agents/`・`~/.claude/agents/` の 3 系統＋種類(登録済み/プロンプト同梱)を判定。定義が無い名前参照は claude-only にしユーザー報告。 <!-- neutrality-ignore: N2 -->
-- **`Task` サブエージェントには skill 相対パスを渡さない**（cwd=repo root のため解決しない）。**内容をインライン**か**絶対パス**で渡す（[transformation-rules.md](references/transformation-rules.md) R10）。canonical は `references/agents/<name>.md` 1 つ（ミラー禁止＝drift 防止）。テンプレート内の自スキル絶対パスは `{SKILL_DIR}` プレースホルダで書き、メインが解決する（R13、プラットフォーム環境変数は使わない）。
+- **サブエージェントには skill 相対パスを渡さない**（cwd=repo root のため解決しない）。**内容をインライン**か**絶対パス**で渡す（[transformation-rules.md](references/transformation-rules.md) R10）。canonical は `references/agents/<name>.md` 1 つ（ミラー禁止＝drift 防止）。テンプレート内の自スキル絶対パスは `{SKILL_DIR}` プレースホルダで書き、メインが解決する（R13、プラットフォーム環境変数は使わない）。
 - **実行オーケストレーター（他スキルを `Skill` で回す）は最後に変換**。依存（hub→被呼び出し）を全部先に両対応化＋bridge してから着手（R5/L10）。
 - symlink は **Codex 側だけ**（`~/.claude/skills/` は実フォルダのまま＝マーケットプレイスへの配布同期に無影響）。 <!-- neutrality-ignore: N2 -->
-- 完了前に `validate_skill.py`・`neutrality_lint.py`・`verify_bridge.py` をエラーゼロに（`codex_runnable: true`）。
 
 > Codex で実行する場合の制約と代替手順は `references/platform-notes.md` を参照。

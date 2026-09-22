@@ -86,7 +86,7 @@ Non-interactive analogue (`codex exec`):
 codex exec --approve-for-me "Implement the fix and run the test suite"
 ```
 
-Rationale — read this carefully, it's the crux of the recipe: `approvals_reviewer`
+Rationale: `approvals_reviewer`
 does **not** change what's inside vs. outside the sandbox. The sandbox boundary
 is identical to plain Recipe 1 — same `workspace-write`, same `on-request`
 trigger conditions. What changes is *who* looks at an escalation once one is

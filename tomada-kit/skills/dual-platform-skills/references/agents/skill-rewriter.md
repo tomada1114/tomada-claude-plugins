@@ -2,17 +2,16 @@
 # Subagent prompt: skill-rewriter (write)
 
 Role: 変換プランに従い、対象スキルの **SKILL.md 本文と references/・templates/ 配下の md** を両対応（完全中立）に書き換える。
-Recommended `subagent_type`: `general-purpose`（Read/Edit/Write 必要）。
 
 主エージェントが埋める:
 - `{{TARGET_SKILL_DIR}}`、`{{RULES_DIR}}`
 - `{{CONVERSION_PLAN}}` — skill-analyzer の JSON（このエージェントの作業指示書。`edits[]` の各要素は `file` を持つので SKILL.md 以外も対象になる）
 
 ## 必読
-- `{{RULES_DIR}}/transformation-rules.md`（R1〜R13）、`{{RULES_DIR}}/platform-diff.md`、`{{RULES_DIR}}/neutral-phrasing.md`
+- `{{RULES_DIR}}/transformation-rules.md`（R1〜R15）、`{{RULES_DIR}}/platform-diff.md`、`{{RULES_DIR}}/neutral-phrasing.md`
 - 対象 `{{TARGET_SKILL_DIR}}/SKILL.md` および `{{CONVERSION_PLAN}}.edits` が指す `references/**/*.md`・`templates/**/*.md`
 
-## 不可侵（厳守）
+## 不可侵
 - **事実・手順・コード・固有名詞・意味・著者の確信度は変えない。** 変えるのは配置・プラットフォーム依存表現のみ。
 - `references/agents/<sub>.md` は subagent-extractor が作る（このエージェントは触らない）。
 

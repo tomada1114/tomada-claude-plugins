@@ -155,27 +155,11 @@ Doc (`d.ts:9307-9311`): "JSX over the element table: every tag is a constructor 
 
 `h` calls a function tag with its props (`d.ts:2698-2703`): "`h(Box, { gap: 1 }, ...children)`, and `h` calls a function tag with its props, so the table's constructors are the JSX tags." `h` and `Fragment` are **ambient globals the engine injects** — never imported, never locally declared by the mod.
 
-Suggested tsconfig, quoted in `d.ts:34-44`:
-```
-//     "compilerOptions": {
-//       "target": "es2023", "lib": ["es2023"], "types": [],
-//       "module": "esnext", "moduleResolution": "bundler",
-//       "strict": true, "noUncheckedIndexedAccess": true,
-//       "noEmit": true, "skipLibCheck": true,
-//       "jsx": "react", "jsxFactory": "h", "jsxFragmentFactory": "Fragment"
-//     },
-```
-`lib` should name no DOM (`d.ts:51-52`): "its `Text` would shadow the element."
+The suggested tsconfig (`d.ts:34-44`) is reproduced verbatim in references/authoring-and-testing.md §2; its `lib` names no DOM because "its `Text` would shadow the element" (`d.ts:51-52`).
 
 ### The "local `h`" gotcha — observed by community authors
 
-This is the exact trap the type system cannot catch (since `h` is only an *ambient* global — any local binding named `h` shadows it, and JSX silently compiles to calls against the wrong `h`, breaking every tag in the file). Community mods document it explicitly:
-
-- `cc-arcade/README.md:233`: "Two rules for board files: **never name a local variable `h`**, because every JSX tag compiles to a call of `h` and a local `h` breaks the board at its first draw; and write `Client` module paths as string literals, because the engine reads them off the source."
-- `cc-arcade/hooks/boards/common.tsx:7`: `// Never name a local h in a board file: every JSX tag compiles to a call of h.`
-- `Mindful-Claude/hooks/breathe.tsx:11`: `// Never name a local h here: every JSX tag compiles to a call of h.`
-- `cc-storytime`: not stated locally as a rule, but the pattern is used silently and credited: `cc-storytime/README.md:100`: "The idea of drawing above the prompt with function hooks: sezaakgun's cc-arcade."
-- `claude-mods`: not documented explicitly anywhere in the repo (grepped, no hit) — relies on the same convention silently.
+The type system cannot catch this: `h` is only an *ambient* global, so any local binding named `h` shadows it and JSX silently compiles to calls against the wrong `h`, breaking every tag in the file. `cc-arcade/README.md:233` states it as a rule ("a local `h` breaks the board at its first draw"), and `cc-arcade/hooks/boards/common.tsx:7` and `Mindful-Claude/hooks/breathe.tsx:11` carry the same warning as a comment.
 
 ### tsconfig.json compared across repos
 
@@ -344,17 +328,11 @@ Note the Pane visibility gate: it "waits undrawn below 144 columns (110 once ask
 
 ---
 
-
 ## Unverified
 
-Items the task asked to confirm but that could not be found in any of the searched files (`d.ts`, `diff/`, `flowpane/`, `cc-arcade/`, `Mindful-Claude/`, `cc-storytime/`, `claude-mods/`):
+Not confirmed in any searched source (`d.ts`, `diff/`, `flowpane/`, `cc-arcade/`, `Mindful-Claude/`, `cc-storytime/`, `claude-mods/`), beyond the rows §7 already marks as observed-only or unverified:
 
-1. **Client tree node limit ≈2000 / serialized size ≈100,000 characters** — no such numbers appear anywhere. `cc-arcade`'s own working assumption is 1500 nodes (`doom.tsx:293-295`), explicitly an empirical guess ("what is left of the engine's node budget"), not a cited engine constant.
-2. **`$.ui.resolve` read "loosely" so a build missing `Raster`/`Button` degrades gracefully** — no capability-probing or feature-detection code or comment was found anywhere. `d.ts` describes `resolve` as a precomputed, per-surface/per-component table lookup with no stated fallback for missing keys.
-3. **AbovePrompt band height as a precise numeric fraction** — only a single community author's approximate description ("about half the terminal height," `cc-arcade/README.md:146,201,209`) was found; `d.ts` describes `maxRows` only structurally, with no formula or fraction.
-4. **"`Box` cannot overlap" as an explicit rule in the type declarations** — confirmed only by a community author (`flowpane/docs/engine.md:14-16`, `hooks/tree.ts:122-125`); `d.ts` itself never states this directly, though `BoxProps` has no positioning props consistent with it.
-5. **Whether `WebAssembly` is unconditionally absent** (vs. simply unused by one mod) — `cc-storytime/README.md:77-78` is phrased as "nothing here uses WebAssembly," not "WebAssembly is unavailable"; no other repo or `d.ts` addresses it directly.
-6. **The full enumerated "allowlisted subset of Ink's Box/Text props" referenced at `d.ts:5922-5924`** — assumed to match the `BoxProps`/`TextProps` listed in §2, but not independently cross-checked field-by-field against a separate `ElementProps` allowlist type.
-7. **Generic recolour-by-walking a literal tree returned from `next(e)`** (§9.1) — legal by the `RenderElement` type shape (a tagged union with inspectable `type`/`props`/`children`), but no community mod in this corpus was observed actually doing it; every mod either rewrote `props` via `next({ ...e, props })` or skipped `next(e)` and built its own tree from the component's props. Whether built-in components ever hand back a literal (non-`{type:'engine',ref}`) tree in practice is therefore unconfirmed.
-8. **Full syntax accepted by `color`/`backgroundColor` as a "raw color"** — hex (`#rrggbb`) and Ink/chalk-style named colours (`"yellow"`, `"magentaBright"`) were observed in community code; `d.ts` does not enumerate the grammar. ANSI-256 numeric indices or `rgb(...)` function syntax were not found stated or used anywhere and should be treated as unconfirmed.
-9. **The sprite/pixel-art `Raster` example in §9.2** is assembled from the documented `RasterProps`/`$.ui.blit` API and `flowpane`'s real `Canvas` cell-packing shape (`put`/`encode`) — no repo in this corpus actually draws character/sprite pixel art (flowpane draws graph diagrams, not sprites), so this specific example is reconstructed, not copied from an existing mod.
+1. **The full enumerated "allowlisted subset of Ink's Box/Text props" referenced at `d.ts:5922-5924`** — assumed to match the `BoxProps`/`TextProps` listed in §2, but not independently cross-checked field-by-field against a separate `ElementProps` allowlist type.
+2. **Generic recolour-by-walking a literal tree returned from `next(e)`** (references/playful-mods.md §9.1) — legal by the `RenderElement` type shape (a tagged union with inspectable `type`/`props`/`children`), but no community mod in this corpus was observed actually doing it; every mod either rewrote `props` via `next({ ...e, props })` or skipped `next(e)` and built its own tree from the component's props. Whether built-in components ever hand back a literal (non-`{type:'engine',ref}`) tree in practice is therefore unconfirmed.
+3. **Full syntax accepted by `color`/`backgroundColor` as a "raw color"** — hex (`#rrggbb`) and Ink/chalk-style named colours (`"yellow"`, `"magentaBright"`) were observed in community code; `d.ts` does not enumerate the grammar. ANSI-256 numeric indices or `rgb(...)` function syntax were not found stated or used anywhere and should be treated as unconfirmed.
+4. **The sprite/pixel-art `Raster` example in references/playful-mods.md §9.2** is assembled from the documented `RasterProps`/`$.ui.blit` API and `flowpane`'s real `Canvas` cell-packing shape (`put`/`encode`) — no repo in this corpus actually draws character/sprite pixel art (flowpane draws graph diagrams, not sprites), so this specific example is reconstructed, not copied from an existing mod.

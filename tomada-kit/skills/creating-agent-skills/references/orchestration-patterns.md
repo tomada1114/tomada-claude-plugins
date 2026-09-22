@@ -1,19 +1,18 @@
 # Orchestration Patterns: Subagents and Phase Handoffs in Skills
 
-Patterns for skills that orchestrate sub-agents and chain skills via file artifacts. Use them when a skill must spawn specialists, run independent investigations in parallel, or hand off to a downstream skill. If your skill is a single linear walkthrough, you do not need this file.
+Patterns for skills that spawn specialists, run independent investigations in parallel, or hand off to a downstream skill through file artifacts. A single linear walkthrough does not need this file.
 
-> **Triage first.** For parallel or multi-stage execution, make a deterministic fan-out runner — one with deterministic control flow (loops, branching, fan-out), token-budget awareness, resume, and progress visibility — the first candidate where the host offers one; it suits large decomposable verification-heavy orchestration. The single-spawn patterns in this file are the fallback for when a fan-out runner doesn't fit, or isn't available: steering interactively mid-run, driving a real TUI from outside, and similar. Conversational questions and single trivial edits need neither. Host-specific runner names: `references/platform-notes.md`.
+> **Triage first.** For parallel or multi-stage execution, a deterministic fan-out runner — deterministic control flow (loops, branching, fan-out), token-budget awareness, resume, progress visibility — is the first candidate where the host offers one; it suits large, decomposable, verification-heavy orchestration. The single-spawn patterns here are the fallback when it doesn't fit or isn't available: steering interactively mid-run, driving a real TUI from outside. Conversational questions and single trivial edits need neither. Host-specific runner names: `references/platform-notes.md`.
 
 ## Table of Contents
 
-- [When to reach for these patterns](#when-to-reach-for-these-patterns)
 - [Mental model: parallel within phase, sequential across phase](#mental-model-parallel-within-phase-sequential-across-phase)
 - [A. Subagent invocation patterns](#a-subagent-invocation-patterns)
-  - [A1. Parallel specialist review (3-lens pattern)](#a1-parallel-specialist-review-3-lens-pattern)
+  - [A1. Parallel specialist review](#a1-parallel-specialist-review)
   - [A2. Bootstrap-then-investigate](#a2-bootstrap-then-investigate)
-  - [A3. Parallel domain split (BE/FE, backend/frontend, etc.)](#a3-parallel-domain-split)
-  - [A4. Curated multi-source context](#a4-curated-multi-source-context)
-  - [A5. Synchronous join, no agent-to-agent messaging](#a5-synchronous-join)
+  - [A3. Parallel domain split](#a3-parallel-domain-split)
+  - [A4. Spawn prompt layers](#a4-spawn-prompt-layers)
+  - [A5. Synchronous join](#a5-synchronous-join)
   - [A6. Model and effort per spawn](#a6-model-and-effort-per-spawn)
 - [B. Phase handoff patterns](#b-phase-handoff-patterns)
   - [B1. Artifact-driven handoff](#b1-artifact-driven-handoff)
@@ -25,26 +24,9 @@ Patterns for skills that orchestrate sub-agents and chain skills via file artifa
 
 ---
 
-## When to reach for these patterns
-
-Use this file's patterns when **at least one** of the following is true:
-
-- The work has multiple independent angles that can be investigated in parallel (e.g., backend safety vs. frontend hooks vs. cross-layer parity).
-- A single main-context pass would burn too much context just reading checklists or large reference docs.
-- The skill is one node in a larger pipeline (intake → design → review → implement → test → ship), and needs to read/write structured files that the next skill consumes.
-- Different "lenses" need different specialty checklists, and merging the results is the whole point.
-
-If the skill is a one-shot generator or a simple lookup, skip this file.
-
----
-
 ## Mental model: parallel within phase, sequential across phase
 
-The skills observed in production converge on one structural rule:
-
 > **Parallelism happens inside a single phase. Phases run in strict sequence. Sub-agents never talk to each other directly — the main agent joins their results.**
-
-Concretely:
 
 ```
 Phase 1 ── (spawn N sub-agents in parallel) ── join results
@@ -56,33 +38,27 @@ Phase 2 ── (read Phase 1 outputs, maybe spawn more sub-agents) ── join
 Phase 3 ── (write final artifact)
 ```
 
-This rule matters because it constrains how you write SKILL.md:
+What this means for SKILL.md:
 
-- Each phase becomes a numbered section (`## Phase 1: ...`, `## Phase 2: ...`).
-- Sub-agents receive prompts that are **complete**: the parent extracts what they need to know and embeds it in the prompt. Sub-agents do not "send back" anything other than their final report.
-- The main agent's job between phases is to read, summarize, and decide what to feed into the next phase.
-
-Phase numbering also lets the user (and future-you reading the SKILL) skim the workflow and re-enter at the right step if work was interrupted.
+- Each phase is a numbered section (`## Phase 1: ...`), so a reader can re-enter at the right step after an interruption.
+- Sub-agent prompts are **complete**: the parent extracts what they need and embeds it. Sub-agents return only their final report.
+- Between phases the main agent reads, summarizes, and decides what feeds the next phase.
 
 ---
 
 ## A. Subagent invocation patterns
 
-### A1. Parallel specialist review (3-lens pattern)
+### A1. Parallel specialist review
 
-**Use when**: a single review needs multiple expert lenses applied in parallel, each with its own checklist that would be too heavy to load into the main context.
+**Use when**: one review needs several expert lenses, each with a checklist too heavy to load into the main context alongside the others.
 
-**In practice**: a design-review skill spawns three Explore agents simultaneously:
-- Agent 1: React/hooks specialist, primed with a frontend bug-pattern checklist (RB1–RB8)
-- Agent 2: sibling/impact-analysis specialist, primed with a design-vs-reality checklist
-- Agent 3: backend query-safety specialist, primed with a backend bug-pattern checklist (LB1–LB8) plus cross-layer parity patterns
+**In practice**: a design-review skill spawns three sub-agents at once — a React/hooks specialist with a frontend bug-pattern checklist (RB1–RB8), an impact-analysis specialist with a design-vs-reality checklist, a backend query-safety specialist with a backend checklist (LB1–LB8) plus cross-layer parity patterns. Each checklist is a few hundred lines; keeping them in specialists leaves the main context for synthesis.
 
-**Why it works**: each checklist is a few hundred lines. Loading all three into the main context would crowd out the design book itself. Pushing them into specialist sub-agents keeps the main context focused on synthesis.
-
-**Minimum prompt template** (for each specialist sub-agent):
+**Minimum prompt template** (per specialist):
 
 ```
 You are reviewing <ARTIFACT_NAME> from the lens of <SPECIALTY>.
+Intent: <one sentence — what the parent does with this report>.
 
 Step 1: Read this checklist file completely:
   <ABSOLUTE_PATH_TO_CHECKLIST>
@@ -94,53 +70,48 @@ Step 2: Read these context files (the things being reviewed):
 Step 3: For each numbered item in the checklist (e.g. RB1 ... RB8),
 report PASS / FAIL / N-A with a one-line justification and a file:line citation.
 
-Step 4: At the end, list any FAIL items as actionable findings ranked by severity.
+Step 4: List every FAIL as a finding, including uncertain and low-severity
+ones, each with a confidence and a severity. Ranking happens in the merge.
 
 Output format:
 ## Findings
-- RB3 FAIL: <reason> (<file>:<line>)
+- RB3 FAIL [high/medium]: <reason> (<file>:<line>)
 - ...
 ## Summary
 <one paragraph>
 ```
 
-**Why the numbered checklist format is critical**: when three sub-agents return findings keyed `RB3`, `LB5`, `XL2`, the main agent can deduplicate, group by severity, and merge into a single ranked list mechanically. See "References as numbered checklists" in `patterns-and-structure.md` (load via SKILL.md).
-
-**Parallelism**: spawn all three in a single tool-call message so they execute concurrently.
+Stable IDs (`RB3`, `LB5`, `XL2`) let the main agent deduplicate and merge the three reports mechanically — see "References as Numbered Checklists" in `patterns-and-structure.md` (load via SKILL.md). Spawn all specialists of a phase together so they run concurrently.
 
 ---
 
 ### A2. Bootstrap-then-investigate
 
-**Use when**: a sub-agent needs to understand a large codebase before it can answer the actual question, and the codebase has pre-existing "map" reference docs (whether in the same skill, another skill, or a generated index).
+**Use when**: a sub-agent must understand a large codebase before answering, and "map" reference docs already exist (in this skill, another skill, or a generated index).
 
-**In practice**: a feature-design skill tells its sub-agents to **first** read the mapping references of a companion "map" skill (`routes-and-controllers.md` and friends), **then** dive into actual source. Without the bootstrap, the sub-agent greps blindly and misses domain conventions.
-
-**Pattern shape**:
+**In practice**: a feature-design skill has its sub-agents read a companion map skill's references (`routes-and-controllers.md` and friends) before opening source. Without the bootstrap, the sub-agent greps blindly and misses domain conventions.
 
 ```
-Step 1 (BOOTSTRAP): Read the following reference files in order:
+Step 1 (BOOTSTRAP): Read these reference files in order; they hold the
+domain conventions a blind search would miss:
   1. <skill-A>/references/architecture-overview.md
   2. <skill-A>/references/<domain>-map.md
-These give you the codebase's structure. Do NOT skip this step.
 
-Step 2 (INVESTIGATE): Now answer <THE QUESTION> by reading the
-files identified in Step 1, plus these explicit candidates:
+Step 2 (INVESTIGATE): Answer <THE QUESTION> by reading the files
+identified in Step 1, plus these explicit candidates:
   - <PATH_1>
   - <PATH_2>
 ```
 
-**Cross-skill reuse**: Bootstrap references can live in a different skill from the one spawning the sub-agent. This is how a project ends up with a small number of "map" skills (`*-backend-mapping`, `*-frontend-mapping`, `*-api-bridge`) that everyone else's sub-agents read first. See "Cross-skill reference reuse" in `patterns-and-structure.md` (load via SKILL.md).
+Bootstrap references can live in a different skill from the one spawning — see "Cross-Skill Reference Reuse" in `patterns-and-structure.md` (load via SKILL.md).
 
 ---
 
 ### A3. Parallel domain split
 
-**Use when**: the work cleanly divides along an axis like backend/frontend, server/client, infra/app, model/view. Two sub-agents are usually enough.
+**Use when**: the work divides cleanly along an axis like backend/frontend, server/client, infra/app. Two sub-agents are usually enough.
 
-**In practice**: a ticket-intake skill first identifies a list of BE files and a list of FE files in an earlier step, then spawns two Explore agents in parallel — one per side — embedding the relevant file list in each prompt.
-
-**Key trick**: the parent does the file-list extraction, **not** the sub-agents. By the time a sub-agent starts running, it has a concrete list to investigate, not "go find the relevant files." This makes the sub-agent's work bounded and reproducible.
+**Key trick**: the parent extracts the file list per side in an earlier step, **not** the sub-agents. Each sub-agent starts with a concrete list, which keeps its work bounded and reproducible.
 
 ```
 [BE Agent prompt]
@@ -156,62 +127,44 @@ For each file, capture:
 Report in <300 words.
 ```
 
-```
-[FE Agent prompt]
-Investigate the current behavior of <FEATURE> on the frontend.
-Files to read (in order):
-  - src/pages/foo/FooPage.tsx
-  - src/api/foo.ts
-  - src/hooks/useFoo.ts
-For each file, capture:
-  1. State variables and their lifecycle
-  2. API calls (endpoint, params, response handling)
-  3. Permissions/role gates
-Report in <300 words.
-```
+The FE prompt has the same shape with its own file list and capture items (state lifecycle, API calls, permission gates).
 
 ---
 
-### A4. Curated multi-source context
+### A4. Spawn prompt layers
 
-**Use when**: you want to maximize signal-to-noise in a sub-agent's prompt. This is less a discrete pattern than a discipline applied to all the above.
+Every effective sub-agent prompt carries five layers:
 
-Every effective sub-agent prompt observed in production is composed of **four layers**:
+1. **Intent** — one sentence on why this investigation exists and what the parent will do with the result. The cheapest quality lever in a spawn prompt.
+2. **Bootstrap pointers** — references to read before anything else, by absolute path.
+3. **Concrete paths** — the file list the parent already extracted from diffs, design books, or map references. A sub-agent should not `find` what the parent could have located.
+4. **Embedded slices** — the relevant section of a diff or design doc pasted in, so the sub-agent doesn't re-fetch it.
+5. **Output contract** — the exact return shape (IDs, severity, confidence, citation format), plus an escalation rule: "if a judgment call is needed, report it as unresolved rather than deciding."
 
-1. **Bootstrap pointers** — references the sub-agent must read before doing anything else.
-2. **Concrete file/path lists** — the parent extracts these from diffs, design books, or mapping references. Never `find` or `grep` from inside a sub-agent for things the parent could have located.
-3. **Embedded content slices** — the parent pastes the relevant section of a design book or diff directly into the prompt, so the sub-agent doesn't have to fetch it.
-4. **Output contract** — the exact shape the sub-agent must return (numbered findings, severity, citation format), so merging is mechanical.
-
-The temptation is to write "investigate X" and let the sub-agent figure it out. Resist this. Sub-agents that get under-specified prompts return shallow, generic reports. The parent should do all the orienting work that doesn't require parallelism.
-
-A fifth layer is worth adding to all of the above: **intent** — one sentence on why this investigation exists and what the parent will do with the result. It is the cheapest quality lever in a spawn prompt. See the sub-agent prompt layers in `prompt-authoring.md` (load via SKILL.md), which also lists the phrasings to keep *out* of these prompts.
+"Investigate X" with nothing else returns shallow, generic reports. The parent does all the orienting work that doesn't need parallelism. Phrasings to keep *out* of these prompts: `prompt-authoring.md` (load via SKILL.md).
 
 ---
 
 ### A5. Synchronous join
 
-Sub-agents in this style of skill **never talk to each other**. There is no "Phase 1.5" where Agent A receives Agent B's output mid-flight.
+Sub-agents never talk to each other; there is no "Phase 1.5" where Agent A receives Agent B's output mid-flight.
 
-Why this matters when designing a skill:
+- If Phase 2 needs Phase 1's output, it is a sequential phase, not a parallel one.
+- When a phase fans out, SKILL.md gets a merge step: the main agent deduplicates, ranks, and resolves conflicts — if needed by a tie-breaker spawn in a follow-up phase.
 
-- Don't try to chain sub-agents. If Phase 2 needs Phase 1's output, that's a sequential phase, not a parallel one.
-- The main agent is responsible for deduplication, severity ranking, and conflict resolution. Build a "Phase 1.5: Merge findings" step into SKILL.md whenever you spawn multiple sub-agents.
-- If two sub-agents disagree, the main agent's merge step is where that gets resolved — possibly by spawning a third tie-breaker sub-agent in a follow-up phase.
-
-**Barrier only where the merge needs it.** "No agent-to-agent messaging" does not mean the main agent must sit idle until the slowest sub-agent returns. Block on the whole set only when the next step genuinely needs cross-item context — deduplicating across all findings, ranking a complete list, early-exiting on a zero count. Otherwise let each item flow to its next stage as it completes (pipelining, where the runner supports it), and keep working meanwhile. A needless barrier costs the difference between the fastest and slowest sub-agent, every phase.
+**Barrier only where the merge needs it.** Block on the whole set only when the next step needs cross-item context — deduplicating across all findings, ranking a complete list, early-exiting on a zero count. Otherwise let each item flow to its next stage as it completes (pipelining, where the runner supports it). A needless barrier costs the gap between the fastest and slowest sub-agent, every phase.
 
 ---
 
 ### A6. Model and effort per spawn
 
-Every spawn in a skill should name its tier. Unspecified means the mechanical specialist and the hard one both inherit the session's model and effort — either overpaying for a grep or underpowering a review.
+Every spawn names its tier. Unspecified, the mechanical specialist and the hard one both inherit the session's model and effort — overpaying for a grep or underpowering a review.
 
-Two tiers, assigned by **spec completeness, not task size**: `executor` (Opus 5.5 low) for fully specified, judgment-free work — settled-spec implementation, tests, CI, commit, PR, bulk replace, routine research and enumeration; `architect` (Opus 5.5 high) for complex implementation, design judgment, review and bug-finding, synthesis of scattered findings, and anything with unresolved spec. On Claude Code the Agent tool picks the tier with `subagent_type: executor | architect` (a bare `model` runs at the session's per-model effort); the Workflow tool's `agent()` takes `model` plus `effort`. The criteria live in the `orchestrating-models` skill — point there rather than restating them.
+Two tiers, assigned by **spec completeness, not task size**: `executor` (Opus 5.5 low) for fully specified, judgment-free work — settled-spec implementation, tests, CI, commit, PR, bulk replace, routine research and enumeration; `architect` (Opus 5.5 high) for complex implementation, design judgment, review and bug-finding, synthesis of scattered findings, and anything with unresolved spec. The criteria live in the `orchestrating-models` skill — point there rather than restating them.
 
-A useful shape for a phase is mixed rather than uniform — several `executor` collectors fanned out on disjoint slices, then one `architect` that reconciles their reports. The reconciliation is the part that needs the capable tier; the collection is not.
+A phase is often mixed rather than uniform: several `executor` collectors on disjoint slices, then one `architect` that reconciles their reports.
 
-See `references/platform-notes.md` for which spawn mechanisms take a tier on each host, and `prompt-authoring.md` (load via SKILL.md) for writing the assignment into a skill.
+See `references/platform-notes.md` for how each host selects a tier (effort is what separates them, and not every spawn mechanism takes it), and `prompt-authoring.md` (load via SKILL.md) for writing the assignment into a skill.
 
 ---
 
@@ -221,9 +174,7 @@ See `references/platform-notes.md` for which spawn mechanisms take a tier on eac
 
 **Use when**: a skill is one stop in a multi-skill pipeline, and the next skill needs to know what this one produced.
 
-**In practice**: a whole design pipeline (`ticket-intake → feature-designing → design-review → implementation-review → e2e-testing → mr-description`) is wired together purely through files under one workspace directory. Each skill reads a known set of input files and writes a known set of output files. There is no shared memory, no message bus.
-
-**The contract is the directory layout:**
+**In practice**: a design pipeline (`ticket-intake → feature-designing → design-review → implementation-review → e2e-testing → mr-description`) is wired together purely through files under one workspace directory. No shared memory, no message bus. **The contract is the directory layout:**
 
 ```
 <project>/design/{ticket-no}-{slug}/
@@ -237,29 +188,15 @@ See `references/platform-notes.md` for which spawn mechanisms take a tier on eac
 └── mr-description-fe.md     ← created by mr-description
 ```
 
-Each skill:
-- **Declares its inputs** at the top of SKILL.md (e.g. "Reads `overview.md`, `backend.md`, `frontend.md`").
-- **Declares its outputs** at the top of SKILL.md (e.g. "Writes `mr-description-be.md` and `mr-description-fe.md`").
-- **Treats other files in the directory as opaque** — does not edit files it didn't create unless explicitly designed as a sync skill.
+Each skill declares its inputs and outputs by exact filename in `## Inputs` / `## Outputs` sections at the top of SKILL.md, and treats other files in the directory as opaque — it does not edit files it didn't create unless it is designed as a sync skill. "Writes some markdown to the design dir" is not a contract.
 
-This is the single most important pattern for building chains of skills. The directory becomes the source of truth and the API surface.
-
-**How to apply it to a new pipeline:**
-
-1. Pick a deterministic root path. See `workspace-conventions.md` (load via SKILL.md).
-2. Pick stable filenames. Use kebab-case, prefix with order-hint (`00_`, `01_`) when the user might want to read them in order.
-3. In each skill's SKILL.md, write a "## Inputs" and "## Outputs" section listing exact filenames.
-4. In AGENTS.md (or CLAUDE.md), list the recommended pipeline order so users can follow it sequentially.
+To build a new pipeline: pick a deterministic root path (`workspace-conventions.md`, load via SKILL.md); pick stable kebab-case filenames, prefixed `00_`, `01_` when reading order matters; list the recommended pipeline order in AGENTS.md (or CLAUDE.md).
 
 ---
 
 ### B2. Conditional skip based on prior artifact
 
-**Use when**: a downstream skill might be invoked after the upstream skill has already done some of its work, and re-asking the user the same questions would be rude.
-
-**In practice**: the design skill checks for `00_current-state.md` (produced by the intake skill) and inspects whether its clarification-questions section is already filled in. If it is, the design skill skips those questions and asks only the still-open ones.
-
-**Pattern shape:**
+**Use when**: a downstream skill may run after the upstream one already did part of its work, and re-asking the user would waste their time.
 
 ```markdown
 ## Phase 0: Check for prior artifacts
@@ -271,22 +208,13 @@ This is the single most important pattern for building chains of skills. The dir
 3. If the file does not exist, treat all standard questions as open.
 ```
 
-The artifact gates the scope of the next phase. Without this, you build a chain of skills that re-do each other's work.
+The artifact gates the scope of the next phase; without it, chained skills redo each other's work.
 
 ---
 
 ### B3. Deterministic output paths
 
-**Use when**: any skill that writes files. Default to a deterministic path computed from the user's input — not `/tmp`, not a random UUID.
-
-**Why deterministic, not /tmp**:
-
-- The user can re-enter the workflow days later and find their work.
-- Downstream skills can locate input files without being told the path.
-- Re-running a skill on the same input updates the existing artifacts in place rather than creating duplicates.
-- Failures leave a usable workspace to inspect, not a vanished tmpdir.
-
-**Conventions that work:**
+**Use when**: any skill writes files. Compute the path from the user's input — not `/tmp`, not a random UUID — so the user can re-enter days later, downstream skills find inputs without being told, re-runs update in place instead of duplicating, and failures leave a workspace to inspect.
 
 | Skill class | Path convention |
 |---|---|
@@ -294,9 +222,7 @@ The artifact gates the scope of the next phase. Without this, you build a chain 
 | Verification scratch | `~/Desktop/testing/{YYYYMMDD}_{slug}/` |
 | Single-file outputs | `~/<project>/<deterministic-name>.md` |
 
-**Slug derivation**: take 1–3 keywords from `$ARGUMENTS` or the ticket title, lowercase, kebab-case, ASCII-only. Document the rule in SKILL.md so the user can predict the path.
-
-**Snapshot subdirectory** (for destructive operations): under the workspace, create a `.snapshot/` subdir to hold copies of files you're about to mutate, so you can restore on failure. Full rules in `workspace-conventions.md` (load via SKILL.md).
+Slug rules, snapshot subdirectories for destructive operations, and re-run policy: `workspace-conventions.md` (load via SKILL.md).
 
 ---
 
@@ -306,9 +232,9 @@ The Improving playbook proposes delegation, parallelism, or phase splits for an 
 
 **Warranted when at least one holds:**
 
-1. Two or more independent angles, each needing its own checklist or reference of 100+ lines — a single pass through all of them would crowd out the synthesis work.
-2. A phase reads many files whose contents are not needed afterwards — delegating to a fresh context keeps that reading out of the main thread's budget.
-3. The skill is a node in a pipeline, reading and writing structured files that a separate phase or a separate skill consumes.
+1. Two or more independent angles, each needing its own checklist or reference of 100+ lines — a single pass through all of them would crowd out the synthesis.
+2. A phase reads many files whose contents are not needed afterwards — a fresh context keeps that reading out of the main thread.
+3. The skill is a node in a pipeline, reading and writing structured files that a separate phase or skill consumes.
 4. An autonomous run spans many phases, and a fresh-context verifier at an interval earns its cost against the risk of drift.
 
 **Not warranted:**
@@ -320,51 +246,26 @@ The Improving playbook proposes delegation, parallelism, or phase splits for an 
 **Limits on any proposal:**
 
 - At most one proposal per phase, three per skill.
-- Every proposal names: which condition above justifies it, the model for each spawn (chosen by spec completeness, per the table in A6), the five prompt layers (see `prompt-authoring.md`, load via SKILL.md), and a spawn cap.
-
-An audited skill that tells the model to delegate to sub-agents "whenever helpful," with no bar and no cap, is itself a finding (OR5) — an open-ended delegation nudge produces spawns for work a single tool call would finish.
+- Every proposal names: the condition above that justifies it, the tier for each spawn (A6), the five prompt layers (A4), and a spawn cap.
 
 ---
 
 ## Anti-patterns
 
-These are mistakes the production skills have already paid the price for. Do not repeat them.
+Each is covered above; this is the scan list for a review.
 
-**1. "Investigate the codebase" as a sub-agent prompt.**
-Sub-agents under-specified like this return shallow, generic findings. Always pre-extract concrete file lists in the parent and embed them.
-
-**2. Loading every checklist into the main context.**
-If you find yourself reading three large checklists in SKILL.md and then doing a review in main, you have just used the entire context window for setup. Push each checklist into a sub-agent (A1).
-
-**3. Trying to chain sub-agents directly.**
-Sub-agents complete and return. They don't message each other. If Phase 2 depends on Phase 1's output, write Phase 2 as a separate phase the main agent triggers after the join.
-
-**4. Writing outputs to `/tmp` or random paths.**
-The user loses their work, the next skill in the pipeline can't find the input, and re-runs create orphans. Use B3.
-
-**5. Re-asking questions a previous skill already answered.**
-If your skill is downstream of another, check for the prior artifact and read the answers. See B2.
-
-**6. Implicit file contracts.**
-"This skill writes some markdown to the design dir" is not a contract. Pin down the exact filename and section structure, write it in the skill's "Outputs" section, and treat it as a public API.
-
-**7. Copy-pasting checklists into SKILL.md instead of `references/`.**
-Numbered checklists belong in `references/` so sub-agents can read them in isolation. SKILL.md should reference them by path, not duplicate them.
-
-**8. Forgetting to spawn sub-agents in a single message.**
-Spawning them sequentially defeats the parallelism. All sub-agents for a phase must be invoked in one tool-call message.
-
-**9. Spawning without naming a model.**
-Every sub-agent then inherits the session model regardless of what its job needs. Assign per spawn (A6).
-
-**10. Delegating what the main agent could finish in a few tool calls.**
-Current models reach for sub-agents readily, so an open-ended "use sub-agents when helpful" in SKILL.md produces spawns for work one grep would do. State the bar for delegation and cap the count.
-
-**11. Telling a sub-agent to double-check itself.** <!-- audit-ignore: A006 -->
-Current models self-verify on scoped tasks; instructing it again buys over-verification on every spawn. Ask for the report — commands run and their output — not for an extra verification pass. Fresh-context verifiers earn their keep only on long autonomous runs, at an interval.
-
-**12. Telling a finder sub-agent to report only what matters.**
-"Only high-severity", "be conservative", "skip nits" are followed literally <!-- audit-ignore: A006 -->: the sub-agent investigates just as deeply and then suppresses findings. Ask for full coverage with confidence and severity attached, and filter in the merge phase.
+1. **"Investigate the codebase" as the whole spawn prompt** — pre-extract paths and embed them (A3, A4).
+2. **Loading every checklist into the main context** — push each into a specialist (A1).
+3. **Chaining sub-agents directly** — a dependency is a new phase (A5).
+4. **Outputs in `/tmp` or random paths** — use B3.
+5. **Re-asking questions a previous skill answered** — use B2.
+6. **Implicit file contracts** — declare exact filenames (B1).
+7. **Checklists copy-pasted into SKILL.md** — they belong in `references/`, read by path.
+8. **Spawning a phase's sub-agents one by one** — issue them together so they run concurrently.
+9. **Spawning without naming a tier** — A6.
+10. **Open-ended "use sub-agents when helpful"** — state the bar and cap the count (Proposing orchestration).
+11. **Telling a sub-agent to double-check itself** — ask for commands run and their output instead; fresh-context verifiers belong only on long autonomous runs, at an interval. <!-- audit-ignore: A006 --> <!-- prompt-lint-ignore: P001 -->
+12. **Telling a finder sub-agent to report only what matters** — "only high-severity", "be conservative" are followed literally; ask for full coverage with confidence and severity, filter in the merge. <!-- audit-ignore: A006 --> <!-- prompt-lint-ignore: P002 -->
 
 ---
 
@@ -372,11 +273,11 @@ Current models self-verify on scoped tasks; instructing it again buys over-verif
 
 Used by the Improving playbook's *orchestration* lens.
 
-### OR1: Every spawn names a model
-Chosen by spec completeness (A6), not task size.
+### OR1: Every spawn names a tier
+`executor` or `architect`, chosen by spec completeness (A6), not task size.
 
 ### OR2: Every spawn prompt carries the five layers
-Intent, bootstrap pointers, concrete paths, embedded slices, output contract (A4 + the layers in `prompt-authoring.md`, load via SKILL.md).
+Intent, bootstrap pointers, concrete paths, embedded slices, output contract (A4).
 
 ### OR3: Parallel within a phase, sequential across phases
 No sub-agent chaining; the main agent merges (A5).
@@ -385,13 +286,13 @@ No sub-agent chaining; the main agent merges (A5).
 So merging findings across spawns is mechanical.
 
 ### OR5: Delegation bar and spawn cap are stated
-No open-ended delegation nudge — "delegate when helpful" with no bar and no cap is a FAIL.
+"Delegate when helpful" with no bar and no cap is a FAIL.
 
 ### OR6: Spawn prompts are free of legacy phrasings
-No extra verification pass, no severity self-filtering.
+No extra verification pass, no severity self-filtering (see `prompt-authoring.md`, load via SKILL.md).
 
 ### OR7: Pipeline nodes declare inputs/outputs and use deterministic paths
 See B1 and B3.
 
 ### OR8: Missing orchestration is reported as a proposal
-A phase meeting a condition in "Proposing orchestration" but running inline is a finding — name the condition it meets rather than just flagging the phase.
+A phase meeting a condition in "Proposing orchestration" but running inline is a finding — name the condition it meets.

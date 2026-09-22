@@ -2,8 +2,9 @@
 name: authoring-goal-prompts
 description: >-
   Author a self-contained prompt for Claude Code's /goal command, run unattended in a
-  separate session — a lead-to-staff handoff where this (stronger) session researches,
-  designs, and decides, and a (typically weaker) executor model implements. Drafts a
+  separate session — a lead-to-staff handoff where this session researches, designs, and
+  decides with full context, and a fresh executor session (typically Opus 5.5 at a lower
+  effort, with none of that context) implements. Drafts a
   goal with measurable done-criteria, transcript-verifiable checks, scope + anti-cheat
   constraints, and stop rules; packages design intent, code examples, research findings,
   checklists, and pre-answered decisions as support files in a per-goal state directory
@@ -24,19 +25,22 @@ Produce a ready-to-paste prompt for Claude Code's `/goal` command, which a perso
 **Don't use this skill for:** running or babysitting `/goal` yourself; one-turn tasks that finish
 faster than setting up a goal; subjective goals with no measurable end state ("make the UX nicer").
 
-## Four truths about `/goal` that drive every decision
+## Five truths about `/goal` that drive every decision
 
 1. **No human is reachable mid-run.** Every decision the goal session might otherwise ask about
-   must be pre-decided and encoded as a fallback rule. You cannot rely on a follow-up question.
+   must be pre-decided and encoded as a fallback rule.
 2. **A small evaluator model judges only the transcript** — it runs no commands and reads no files.
    "Done" must be provable by text the goal session prints (an exit code, a sentinel line, `git status`).
 3. **Optimizing the transcript invites cheating.** A model graded on "looks done" may skip/`xfail`
    tests, weaken assertions, or stub implementations. Forbid this explicitly.
 4. **The executor knows nothing you don't write down.** This is a lead-engineer → staff-engineer
-   handoff: this session (typically the stronger model) investigates, designs, and decides; the goal
-   session — fresh, often a smaller model, with zero shared context — executes. Findings, design
-   decisions, and pattern knowledge that stay in this conversation are lost, and the executor
-   re-derives them, possibly differently. Never make the executor redo lead work.
+   handoff: this session investigates, designs, and decides; the goal session — fresh, with zero
+   shared context, typically Opus 5.5 at a lower effort than this one — executes. It is capable,
+   but it spends its effort on execution under a turn ceiling; whatever it has to re-derive costs
+   turns and may come out differently. Never make the executor redo lead work.
+5. **Opus 5.5 ends some long-run turns early** with a text-only progress report. Under `/goal` each
+   one costs an evaluator round and a turn from the ceiling. The goal names the unwanted stops and
+   the wanted ones (template: `TURN ENDINGS`).
 
 ## Workflow
 
@@ -77,8 +81,8 @@ Resolve everything you can here by investigation — only genuine, goal-defining
 `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/<slug>/`
 whenever the run depends on knowledge that currently exists only in this session: design decisions,
 patterns worth showing as code, research findings, a work inventory, predictable ambiguities you've
-pre-answered. Test each piece: *"could a fresh, smaller-model session plausibly get this wrong if it
-had to re-derive it?"* — any yes means that knowledge goes into a support file.
+pre-answered. Test each piece: *"could a fresh session without this conversation plausibly get this
+wrong, or burn turns rediscovering it?"* — any yes means that knowledge goes into a support file.
 
 **Chat-only** stays right for self-contained tasks where the repo plus a short prompt carry
 everything (a scoped test-fix, a mechanical rename): print one copyable fenced block.
@@ -118,6 +122,7 @@ Always bake in — the template carries the wording:
 - **TDD + commit granularity** for coding goals that add or change behavior; omit only when the repo
   has no test infrastructure, and record that omission in `decisions.md`.
 - **Encoded fallbacks**, plus a **degraded terminal state** for endings that can fail environmentally.
+- **Turn-ending rule** naming the early stops to avoid and the stops that are wanted.
 - **Stop ceiling**: roughly 2–3 turns per work item plus ~10 for setup/finish.
 - **When bundled**: `CONTEXT` lists every sibling by absolute path; `CONSTRAINTS` carries the
   divergence rule.
@@ -134,9 +139,9 @@ whether optional items are in scope, or whether the run ends at local commits vs
 
 ## Phase 5: Emit
 
-- **Measure first.** Count the prompt's characters with `wc -m` before printing (write the draft to
-  the scratchpad first if it isn't on disk). It MUST be ≤ 4000 — if over, move bulk into a bundle
-  (only `goal.md` counts) and re-measure. Never emit an over-limit prompt.
+- **Measure first.** `/goal` rejects a condition over 4000 characters, so count with `wc -m` before
+  printing (write the draft to the scratchpad first if it isn't on disk). If over, move bulk into a
+  bundle (only `goal.md` counts) and re-measure.
 - Print the concise prompt in one fenced block, ready to paste after `/goal`.
 - If bundled: write the files, then print the directory path, the sibling list (one line each on
   what it carries), and a one-line note — "In a fresh session run `/goal` with the contents of
@@ -144,21 +149,13 @@ whether optional items are in scope, or whether the run ends at local commits vs
   references the sibling docs by absolute path)."
 - Briefly state which sections you included/omitted and why, plus the baseline you found.
 
-## Self-QA bar (run before emitting — assume a problem exists)
+## Emit bar
 
-- [ ] The goal is reachable from the captured `BASELINE`.
-- [ ] Everything `VERIFY` requires can run in the goal session's environment; artifacts that can't be
-      exercised locally (CI workflows, deploys) have an explicit proxy verification chain.
-- [ ] Staff-engineer test: a fresh, weaker-model session reading only `goal.md` + siblings could
-      reproduce your intended design — no decision, finding, or pattern lives only in this conversation.
-- [ ] The prompt is ≤ 4000 characters, measured with `wc -m`; when bundled, `goal.md` alone is under the cap.
-
-## Supporting files
-
-- [assets/goal-prompt-template.md](assets/goal-prompt-template.md) — the adaptive section scaffold for `goal.md` (clone and fill).
-- [assets/support-file-templates.md](assets/support-file-templates.md) — scaffolds for `design.md`, `examples.md`, `research.md`, `checklist.yaml`, `decisions.md` (clone and fill).
-- [references/goal-authoring-guide.md](references/goal-authoring-guide.md) — evaluator mechanics, failure modes, externalization rule, worked examples (consult while drafting).
-- [references/support-file-guide.md](references/support-file-guide.md) — when to create each support file and the quality rules that make the lead→staff handoff lossless (consult when bundling).
+- The goal is reachable from the captured `BASELINE`.
+- Everything `VERIFY` requires can run in the goal session's environment; artifacts that can't be
+  exercised locally (CI workflows, deploys) have an explicit proxy verification chain.
+- Staff-engineer test: a fresh session reading only `goal.md` + siblings would reproduce your
+  intended design — no decision, finding, or pattern lives only in this conversation.
 
 ## Platform notes
 詳細は [references/platform-notes.md](references/platform-notes.md) を参照。

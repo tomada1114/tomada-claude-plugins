@@ -75,10 +75,6 @@ without prompting — see `references/rules-execpolicy.md` for the mechanism and
 canonical `git` allow-rule. Reaching for `danger-full-access` just to unblock
 `git commit` is unnecessary and overbroad.
 
-This paragraph is the canonical explanation of the `.git`/`.codex`/`.agents`
-protected-path behavior — other reference files in this skill should link here
-rather than re-describing it.
-
 ## approval_policy
 
 ```
@@ -139,19 +135,10 @@ text steering the reviewer subagent's judgment), and the admin allowlist key
 `allowed_approvals_reviewers` (see `requirements.toml` below).
 
 `workspace-write` + `on-request` + `approvals_reviewer = "auto_review"` is the
-closest Codex equivalent to an "auto mode" that still keeps a human in the
-loop for genuinely risky escalations: the sandbox boundary is unchanged, but
-routine on-request prompts route to the reviewer subagent instead of
-interrupting you.
-
-```toml
-sandbox_mode = "workspace-write"
-approval_policy = "on-request"
-approvals_reviewer = "auto_review"
-```
-
-Or per-invocation: `codex -c approvals_reviewer=auto_review`, or (non-interactive)
-`codex exec --approve-for-me`.
+closest Codex equivalent to an "auto mode": the sandbox boundary is unchanged,
+but on-request prompts route to the reviewer subagent instead of interrupting
+you. Config, `-c` and `codex exec --approve-for-me` forms:
+`references/autonomy-recipes.md` Recipe 3.
 
 ## Permission profiles (Beta) — the forward-looking system
 
@@ -165,7 +152,7 @@ Or per-invocation: `codex -c approvals_reviewer=auto_review`, or (non-interactiv
 both."* `sandbox_mode` remains fully supported and is simpler for ordinary
 local use; permission profiles add per-path and per-domain granularity that
 matters more for teams, CI, and anything beyond "workspace read/write,
-network on/off." Pick one system per session — never mix them.
+network on/off."
 
 ### Built-in profiles
 
@@ -245,16 +232,6 @@ deny_read = ["/**/*.env", "~/.ssh"]
 
 In `config.toml`, the equivalent per-profile shape is always
 `[permissions.<name>.filesystem]` — nested under a profile name, not bare.
-
-### codex sandbox / -P flag
-
-```bash
-codex sandbox -P project-edit
-codex sandbox --permission-profile project-edit
-```
-
-`-P, --permission-profile <NAME>` applies a named permission profile from the
-active config stack to the `codex sandbox` invocation.
 
 ### What the desktop app's permission picker actually lists
 
@@ -403,14 +380,9 @@ writable roots, remaining context), `/init` (scaffold AGENTS.md), `/review`
 warning when used, and Codex prefers `--sandbox workspace-write` instead.
 Mention it only as retired, never as a live recommendation.
 
-These flags compose into five named, scenario-driven postures (everyday
-coding, read-only exploration, auto-review, unattended CI, full access) with
-full rationale for each in `references/autonomy-recipes.md` — read that file for "which
-one should I use," this section for the raw flag reference.
-
-`codex doctor` is the health-check command; `codex features list/enable/disable`
-inspects and toggles feature flags. Both covered in depth, with output-field
-meaning and symptom-driven usage, in `references/diagnostics.md`.
+Named postures built from these flags ("which one should I use"):
+`references/autonomy-recipes.md`. `codex doctor` and `codex features`:
+`references/diagnostics.md`.
 
 ## requirements.toml constraints on this layer
 
@@ -418,18 +390,4 @@ An admin-managed `requirements.toml` can constrain the range of
 `sandbox_mode`/`approval_policy`/`approvals_reviewer`/permission-profile
 values a user or project may set — it does not itself set values, and a
 conflicting local value falls back to a compatible one with a notification
-rather than a hard failure. Full mechanics (locations, precedence, the
-`allowed_*` key list, the ≥0.138.0 version gate for permission-profile
-allowlisting, and the `untrusted`-survives-as-a-trust-concept note) are
-covered once, in `references/config-files-and-precedence.md` — read that file rather
-than this section for the details.
-
-## Related references
-
-- `references/config-files-and-precedence.md` — the full `config.toml` precedence chain,
-  the project trust gate, current profile-file mechanics, and
-  `requirements.toml` in depth.
-- `references/rules-execpolicy.md` — `.rules` / `prefix_rule()` mechanics and the
-  headline "let git write" recipe this file only summarizes.
-- `references/autonomy-recipes.md` — the preset combinations above, composed into named,
-  scenario-driven recipes with full rationale.
+rather than a hard failure. Full mechanics: `references/config-files-and-precedence.md`.

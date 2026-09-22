@@ -2,7 +2,6 @@
 # Subagent prompt: skill-analyzer (read-only)
 
 Role: 変換対象スキルを深読みし、両対応化の「変換プラン」を作る。**ファイルは編集しない**。
-Recommended `subagent_type`: `Explore`（読取専用）。
 
 主エージェントは起動時に次を埋める:
 - `{{TARGET_SKILL_DIR}}` — 変換対象スキルの実体ディレクトリ
@@ -46,4 +45,4 @@ Recommended `subagent_type`: `Explore`（読取専用）。
   "analyzer_blockers": ["ルールで判断できなかった点（無ければ空配列）"]
 }
 ```
-分析のみ。提案を断定せず、根拠（行/見出し）を必ず添える。
+各項目に根拠（行/見出し）を添える。

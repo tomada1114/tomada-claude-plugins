@@ -71,7 +71,7 @@ line names the version that wrote the file.
 
 ## Drawing something
 
-The playful end of the API is the reason most people are here. Two moves:
+Two moves:
 
 ```tsx
 // REPLACE: read the component's typed props, draw your own tree.
@@ -147,15 +147,15 @@ worked examples available. The feedback thread is `anthropics/claude-code#91870`
 
 ## Hard rules
 
-- **Never** trust a claim from the feedback thread without checking it against
-  your own version — the thread spans v259–2.1.272 and at least 11 of its claims
+- Treat a claim from the feedback thread as unconfirmed until it holds on your
+  own version — the thread spans v259–2.1.272 and at least 11 of its claims
   were retracted by their own authors. `references/traps-and-ecosystem.md` marks
   which are stale.
-- **Always** use `tool.check` for a guard, never `tool.call` — on `tool.call` the
-  core of the dispatch *is* running the tool, so there is nothing left to refuse.
-- **Never** assume a path guard is safe: `$.fs` still has no realpath, so a
-  symlink into a denied location passes.
-- **Never** mutate a tree returned by `next(e)`. Elements are frozen plain data,
-  and `next(e)` may resolve to an opaque `{ type: 'engine', ref }` marker with
-  nothing to walk. Rebuild by calling a constructor, or rewrite `e.props` and
+- Guard with `tool.check`, not `tool.call` — on `tool.call` the core of the
+  dispatch *is* running the tool, so there is nothing left to refuse.
+- A path guard is not symlink-safe: `$.fs` still has no realpath, so a symlink
+  into a denied location passes.
+- Rebuild rather than mutate a tree returned by `next(e)`. Elements are frozen
+  plain data, and `next(e)` may resolve to an opaque `{ type: 'engine', ref }`
+  marker with nothing to walk. Call a constructor again, or rewrite `e.props` and
   delegate.

@@ -93,8 +93,8 @@ hook, in CI and at a human's terminal.
 Clear wins are adopted by default: list them in one line each so the user can veto,
 rather than asking about each.
 
-Genuinely ambiguous calls go into one batched round of option prompts — bundle them all
-into a single round, recommendation first, tradeoffs stated.
+Genuinely ambiguous calls go into one batched round of option prompts, recommendation
+first, tradeoffs stated.
 
 Where the reference's invariant has no equivalent in the target stack, state the
 invariant rather than the tool, propose the cheapest mechanical enforcement the target
