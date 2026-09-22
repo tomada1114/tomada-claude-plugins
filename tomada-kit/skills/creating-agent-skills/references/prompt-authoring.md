@@ -75,19 +75,20 @@ Keep sub-agent prompts free of the legacy phrasings above. A parent skill that t
 
 A skill that spawns sub-agents should say which model each one runs on. Leaving it unspecified means every specialist — the mechanical one and the hard one alike — runs on whatever the session happens to be.
 
-| Sub-agent's job | Model |
+| Sub-agent's job | Model × effort |
 |---|---|
-| Hard implementation, code review and bug-finding, synthesizing scattered findings, anything with unresolved spec | `opus` |
-| Fully specified work with a clear pass/fail: run the tests, add coverage, make CI green, commit, open the PR, bulk replace, routine collection | `sonnet` |
+| Hard implementation, code review and bug-finding, synthesizing scattered findings, anything with unresolved spec | `fable` medium (Opus medium when the Fable weekly budget is exhausted) |
+| Default executor: everyday implementation and research, and fully specified work with a clear pass/fail (run the tests, add coverage, make CI green, commit, open the PR, bulk replace) | `opus` low |
+| Genuinely simple, judgment-free bulk work: a broad routine survey, read-and-collect over many files | `sonnet` low |
 | Enumerating, formatting, mechanical greps with no judgment | `haiku` |
 
-The dividing line is **spec completeness, not size**. If the sub-agent could plausibly come back asking what you meant, it needed `opus`. This table is a derived copy of the canonical one in `orchestrating-models` §2 — revise there first. <!-- derived from orchestrating-models §2 -->
+The dividing line is **spec completeness, not size**. If the sub-agent could plausibly come back asking what you meant, it needed one tier up. This table is a derived copy of the canonical one in `orchestrating-models` §2 — revise there first. <!-- derived from orchestrating-models §2 -->
 
-`fable` is available as a spawn target too, but it is rarely the right one: it is the orchestrator tier, suited to long-horizon and genuinely ambiguous work. A skill that spawns Fable for a bounded specialist task is usually mis-scoped — tighten the spec and use `opus`.
+`fable` as a spawn target replaces Opus high, not Opus low: on the 2026-09 Artificial Analysis data Fable medium is both smarter and cheaper per task than Opus high, and what rations it is Fable's separate weekly limit. Spawn Fable for the stage you would otherwise raise Opus to high for; keep everyday implementation on `opus` low.
 
 Do not pin a model in SKILL.md frontmatter to control sub-agents — the frontmatter `model:` field sets the model for the skill's own turn and should usually be omitted so it inherits the session. Set the model per spawn instead.
 
-Effort is a separate lever from model. The Workflow tool's `agent()` accepts both `model` and `effort`; the Agent tool accepts `model` only. Use `low` for mechanical stages and `xhigh` only for the hardest verification or judgment stages. Dropping effort is the first cost lever to try on Opus, before dropping to a cheaper model.
+Effort is chosen together with the model, not after it. The Workflow tool's `agent()` accepts both `model` and `effort`; the Agent tool accepts `model` only, so a spawn's effort falls back to the session's per-model `modelSettings`. Tiers: `sonnet` low, `opus` low (medium when Fable is unavailable), `fable` medium, `fable` high only for the hardest stage. Never `sonnet` medium or above (Opus low is +11 Index for +$0.10), never `opus` high/xhigh/max (Fable medium/high beats it, except Opus high as the Fable-budget-exhausted fallback), never `fable` max. Dropping Opus to medium or low is the first cost lever; raising it past medium is not a lever at all — switch to `fable` medium instead.
 
 Two rules of thumb carry most of the value when designing a multi-model skill. **Whether to delegate at all**: delegate for independent parallel tracks, for mechanical bulk work where the round-trip costs less than doing it inline, and for context isolation; do it yourself when judgment and execution are inseparable. **Per-model prompting**: the cheaper the model, the more self-contained the prompt must be — `haiku` and `sonnet` spawns need explicit paths, explicit output shape, and no open questions, while an `opus` spawn can be handed the goal and the constraints. Where the `orchestrating-models` skill is installed, its references cover this in depth.
 

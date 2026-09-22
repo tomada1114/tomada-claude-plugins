@@ -108,7 +108,8 @@ in [references/support-file-guide.md](references/support-file-guide.md). Read
 mechanics, failure modes, and worked examples.
 
 When the main model here is Fable, hand the decisions you already made (design, observations,
-pre-answered questions) to Opus if the spec still has gaps or Sonnet if it is settled, let it write
+pre-answered questions) to a Fable medium sub-agent if the spec still has gaps, or Opus low if it is
+settled, let it write
 `goal.md` and the siblings, and take back only a summary. When the main model is Opus, write them
 yourself. <!-- derived from orchestrating-models §1,§3 -->
 

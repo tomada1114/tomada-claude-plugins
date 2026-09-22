@@ -11,8 +11,9 @@ Anthropic 公式のプロンプトガイド(Fable 5 / Opus 5 / Sonnet 5 / 共通
 - **成果は根拠付きで報告させる**: 「報告する各主張について、このセッションで実行したツール結果を根拠として示せ。未検証なら未検証と書け」。
 - **一時ファイルは片付けさせる**: 反復用のスクリプトやスクラッチを作ったら最後に消させる。
 
-## Fable(メインが Fable のとき、および長時間自走を任せるとき)
+## Fable(メインが Fable のとき、サブとして難所を任せるとき、長時間自走を任せるとき)
 
+- **サブとして呼ぶのは Opus high の代替**: Opus なら high 以上に上げたくなる段(仕様に穴が残る実装、レビュー、散在情報の統合、多段推論の検証)を Fable medium に渡す。ブリーフは Opus と同じく完全な仕様を先に渡す。Fable もサブエージェントを産みやすいので、委譲先には生成上限を書く。日常実装は Opus low で済ませ、Fable の別枠を温存する。
 - **情報が揃ったら動く**: 曖昧なタスクで過剰に計画しがち。「決着済みの決定を蒸し返さない。選ばない選択肢を列挙しない。迷ったら網羅的な比較ではなく推奨を出す」。
 - **高 effort での過剰な片付け**を抑える: 「頼まれていない機能追加・リファクタ・抽象化をしない。バグ修正に周辺の掃除は不要。起こり得ないケースの防御的コードを書かない」。
 - **長時間ランでは検証を仕組みにする**: 自己批評より **fresh context の verifier サブエージェント**が有効。「X 間隔で自分の成果を仕様に対してサブエージェントで検証せよ」と間隔を指定する。
@@ -32,14 +33,14 @@ Anthropic 公式のプロンプトガイド(Fable 5 / Opus 5 / Sonnet 5 / 共通
 - **レビューでは絞らせない**: 「重大なものだけ」「保守的に」と書くと本当に報告数が減る。**網羅を求め、フィルタは別パスに分ける**(下のリレー参照)。リサーチ・知識作業寄りの曲線は平ら（Fable 5 系での実測）なので、low/medium の速いレビューパスに向く。
 - **1M コンテキストを活かす**: 長い文脈でも指示追従とツール呼び出しが安定する。大量の調査結果の統合・整理は Opus の担当に置く。
 
-## Sonnet(確定済み作業の実行主体)
+## Sonnet(low 限定: 判断のない単純作業)
 
 - **字句どおりに解釈する**: 指示を勝手に一般化せず、頼まれていない推論もしない。**曖昧な仕様を渡すと弱い**。渡す前に Fable/Opus で仕様を確定させる。
 - **適用範囲は明示必須**: 「全ファイルに / 最初の 1 件だけでなく全件に」と書かないと、書かれた 1 件だけ処理する。
 - **多段推論が要るなら渡さない**: 浅い推論になるリスクがある。難しい判断が混ざるタスクは Opus に回す。どうしても Sonnet で回すなら「これは多段の推論を要する。答える前に注意深く考えよ」と添える。
 - **レビュー・検出タスクでは絞らせない**: 「重要なものだけ」「nit は避けて」と書くと忠実に絞る。「確信が持てないもの・軽微と思うものも含め、見つけた問題は全件報告せよ。この段階の目的はカバレッジであり、選別は後段で行う。各件に confidence と severity を付けよ」。
 - **フロントエンドはデフォルトの見た目に収束しがち**: 具体的な色・タイポグラフィ・レイアウトを指定するか、先に複数案を出させて選ばせる。「クリーンに」「その色はやめて」のような漠然とした指示は別の固定スタイルに移るだけ。
-- 向いている作業の例: コミット、PR 作成、CI を通す、テストカバレッジの追加、確定した仕様の実装、一括置換、定型的な情報収集。
+- 向いている作業の例(low で): 大量に読んで集めるだけの広範な定型調査、判断のない一括置換・整形。コミット、PR、CI、テスト追加、確定仕様の実装は Opus low に回す(ほぼ同コストで大きく賢い)。
 
 ## Haiku
 
@@ -49,11 +50,16 @@ Anthropic 公式のプロンプトガイド(Fable 5 / Opus 5 / Sonnet 5 / 共通
 
 `effort` はモデル選択と独立したコスト/知性のレバー。**Workflow の `agent()` は `model` と `effort` の両方を取る。Agent ツールは `model` のみ。**
 
-| 段の性質 | effort |
-|---|---|
-| 機械的・スコープが小さい | `low` |
-| コスト重視の通常作業 | `medium` |
-| 既定 | `high` |
-| 最難関の実装・検証・判断 | `xhigh` |
+モデルと effort は組で選ぶ。2026-09 の Artificial Analysis(Intelligence Index v4.3.2 × Cost per Task)では 15 通りのうち 8 通りだけが「同じか安いコストでより賢い選択肢がない」組み合わせで、残り 7 通りは選ぶ理由がない。
 
-コスト削減の第一手はモデルを下げることではなく effort を下げること。Opus は medium なら落ち幅が小さい（Anthropic の実測で SWE-bench Pro 約 2 ポイント減・コスト半分。low は約 8 ポイント減なので下げるのは medium まで。出典: https://platform.claude.com/docs/en/about-claude/models/optimizing-for-cost-and-intelligence ）。逆に Sonnet を low で回すと、やや複雑なタスクで思考不足になりやすい。
+| モデル | 使う effort | 使わない effort |
+|---|---|---|
+| Sonnet | `low` のみ。判断を含まない広範な定型調査・一括処理 | `medium` 以上(Opus low が +$0.10 で Index +11。Sonnet の effort は上げない) |
+| Opus | `low`(実行の既定: 実装・調査・機械的作業)。`medium` は Fable 枠切れ時の大事な作業 | `high` は Fable 枠切れ時の難所のみ。`xhigh` / `max` は使わない(Fable high に負ける) |
+| Fable | `medium`(既定)。`high` は本当に難しいときだけ | `xhigh` は high から Index +2 で約 $2 増える崖。`max` は xhigh と同 Index |
+
+Index のしきい値で見た最安(2026-09): ≥40 なら Opus medium、≥46 なら Fable low、≥48 なら Fable medium、≥50 なら Fable high、≥52 なら Fable xhigh。Sonnet medium → Opus low は Index +11 で +$0.10 なので、Sonnet を使うのは low で済む単純作業だけにし、それ以外は Opus low に替える。
+
+指定先: Agent ツールは `model` のみで、effort は settings.json の `modelSettings`(opus low / sonnet low / fable medium)が既定になる。Workflow の `agent()` は段ごとに `effort` を取る。
+
+コスト削減の第一手はモデルを下げることではなく effort を下げること。Opus は medium なら落ち幅が小さい（Anthropic の実測で SWE-bench Pro 約 2 ポイント減・コスト半分。low は約 8 ポイント減。出典: https://platform.claude.com/docs/en/about-claude/models/optimizing-for-cost-and-intelligence ）。Sonnet low はやや複雑なタスクで思考不足になるので、判断のない単純作業に限る。数値は API 価格ベースの Cost per Task で、Max プランでは消費量の目安として使う。出典ノート: `~/ghq/github.com/tomada1114/iobsidian/Content/_material/claude-model-effort-cost-performance.md`。

@@ -58,7 +58,7 @@ metadata:
 
 対象プロジェクトの実態でプロンプトの**向き**が変わるときだけ調査する。汎用的な相談はスキップ。
 
-この調査は、委譲できる環境では Sonnet の worker（読むだけなら Explore）に委譲する
+この調査は、委譲できる環境では Sonnet low の worker（読むだけなら Explore）に委譲する
 <!-- derived from orchestrating-models §2 -->。委譲できない環境では逐次インラインで行う
 （[references/platform-notes.md](references/platform-notes.md)）。
 

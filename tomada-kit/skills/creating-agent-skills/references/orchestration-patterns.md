@@ -207,11 +207,11 @@ Why this matters when designing a skill:
 
 Every spawn in a skill should name its model. Unspecified means the mechanical specialist and the hard one both inherit the session model — either overpaying for a grep or underpowering a review.
 
-Assign by **spec completeness, not task size**: `opus` for hard implementation, review and bug-finding, synthesis of scattered findings, and anything with unresolved spec; `sonnet` for fully specified work with a clear pass/fail (run tests, add coverage, make CI green, commit, open a PR, bulk replace); `haiku` for judgment-free enumeration and formatting. Derived from the canonical table in `orchestrating-models` §2 — revise there first. <!-- derived from orchestrating-models §2 -->
+Assign by **spec completeness, not task size**: `fable` medium for hard implementation, review and bug-finding, synthesis of scattered findings, and anything with unresolved spec (Opus medium when the Fable weekly budget is exhausted); `opus` low as the default executor for everyday implementation, research and fully specified work with a clear pass/fail (run tests, add coverage, make CI green, commit, open a PR, bulk replace); `sonnet` low for genuinely simple judgment-free bulk work such as a broad routine survey; `haiku` for judgment-free enumeration and formatting. Derived from the canonical table in `orchestrating-models` §2 — revise there first. <!-- derived from orchestrating-models §2 -->
 
-A useful shape for a phase is mixed rather than uniform — several cheap collectors fanned out on disjoint slices, then one `opus` agent that reconciles their reports. The reconciliation is the part that needs the capable model; the collection is not.
+A useful shape for a phase is mixed rather than uniform — several cheap collectors fanned out on disjoint slices, then one `fable` medium agent that reconciles their reports. The reconciliation is the part that needs the capable model; the collection is not.
 
-Effort is a separate lever, where the host exposes one — see `references/platform-notes.md` for which spawn mechanisms take it. Lowering effort on `opus` is usually a better first cost cut than dropping to `sonnet`. Full treatment in `prompt-authoring.md` (load via SKILL.md).
+Effort is chosen with the model, where the host exposes it — see `references/platform-notes.md` for which spawn mechanisms take it. Lowering `opus` to medium or low is the first cost cut; raising `opus` past medium is never one, because Fable medium is smarter and cheaper per task than Opus high. Full treatment in `prompt-authoring.md` (load via SKILL.md).
 
 ---
 
