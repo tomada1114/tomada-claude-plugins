@@ -4,7 +4,7 @@ description: >-
   Polish a rough instruction (often dictated by voice) into a precise prompt that can be
   handed straight to another agentic coding session (Claude Code, Codex CLI, etc.), and
   print it in the CLI as a single code block (no file is saved). Runs a light scouting
-  pass with a Sonnet sub-agent only when needed, and questions the user only when
+  pass with an executor sub-agent only when needed, and questions the user only when
   needed; the investigating and the thinking are deliberately left as work for the
   receiving session. When the user wants a /goal prompt for an unattended run, use
   authoring-goal-prompts instead. Use when asked to write, tidy up, or sharpen a prompt
@@ -58,8 +58,8 @@ metadata:
 
 対象プロジェクトの実態でプロンプトの**向き**が変わるときだけ調査する。汎用的な相談はスキップ。
 
-この調査は、委譲できる環境では Sonnet low の worker（読むだけなら Explore）に委譲する
-<!-- derived from orchestrating-models §2 -->。委譲できない環境では逐次インラインで行う
+この調査は、委譲できる環境では `executor` サブエージェントに委譲する（段の選び方は
+`orchestrating-models` スキル）。委譲できない環境では逐次インラインで行う
 （[references/platform-notes.md](references/platform-notes.md)）。
 
 いずれの場合も、受け取る（残す）のは要約だけ: 関連パス、現状の挙動・エラー、既存の慣習。

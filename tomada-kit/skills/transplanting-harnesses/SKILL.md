@@ -62,7 +62,7 @@ Inventory each repo against [references/rubric.md](references/rubric.md), every 
 with `file:line` evidence.
 
 Delegate this to two surveyor sub-agents in parallel — one per repo, disjoint reads,
-model `sonnet` each, prompt from
+as `executor` each (tier choice: the `orchestrating-models` skill), prompt from
 [references/agents/repo-surveyor.md](references/agents/repo-surveyor.md) with its
 placeholders filled in as absolute paths. They write `inventory-reference.md` and
 `inventory-target.md` and return a summary only. Where the environment has no
@@ -110,7 +110,7 @@ Write `plan.json` and one body file per issue, following
 [references/sequencing.md](references/sequencing.md) for priorities and dependency
 edges, and the schema in
 [references/github-mechanics.md](references/github-mechanics.md) for the plan. With more
-than 8 issues, delegate the body writing to one `sonnet` sub-agent using
+than 8 issues, delegate the body writing to one `executor` sub-agent using
 [references/agents/issue-writer.md](references/agents/issue-writer.md); the spec is
 settled by then, so the work is transcription. Three sub-agent spawns per run is the
 cap.

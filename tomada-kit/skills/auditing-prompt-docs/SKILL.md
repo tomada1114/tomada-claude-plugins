@@ -5,7 +5,7 @@ description: >-
   command definitions, reference files, whole repositories — against Anthropic's
   published prompting guidance for current Claude models, proposing edits for approval
   before writing anything. Also answers how to prompt a specific model: holds the per-
-  model guidance for Claude Fable 5.1, Claude Opus 5, and Claude Sonnet 5 alongside the
+  model guidance for Claude Fable 5.1, Claude Opus 5.5, and Claude Sonnet 5 alongside the
   cross-model practices. Use when reviewing or slimming an instruction file, when
   instructions are ignored or fire too often, when migrating a prompt to a newer model,
   or when refreshing this guidance after a model release.
@@ -66,7 +66,7 @@ Expect the proposal to remove more than it adds. Length is a recurring cost:
 every line of a memory file or a skill body is re-read on each run.
 
 Above ten documents, split this reading across parallel workers where the
-environment supports it (one `sonnet` worker per group of documents, at most
+environment supports it (one `architect` worker per group of documents, at most
 four; otherwise read them in sequence). Give each worker the document paths, the
 linter output for them, and the two reference files, and ask for findings in the
 same shape as the linter's — file, line, what is wrong, proposed replacement.
@@ -107,8 +107,8 @@ compose: run its structural pass, this skill's wording pass.
   the judgment items no pattern can catch. Read before proposing changes.
 - [references/model-fable-5-1.md](references/model-fable-5-1.md) — Claude Fable 5.1 and Mythos 5.1: progress
   updates, batching, append-only history, writing density, task completion.
-- [references/model-opus-5.md](references/model-opus-5.md) — Claude Opus 5: verbosity, over-verification,
-  scope, subagent caps, thinking disabled.
+- [references/model-opus-5-5.md](references/model-opus-5-5.md) — Claude Opus 5.5: effort calibration, thinking
+  always on, unattended runs, progress updates, pasted text, plus carried-over Opus 5 items.
 - [references/model-sonnet-5.md](references/model-sonnet-5.md) — Claude Sonnet 5: effort ladder, literal
   instruction following, review-harness recall, sampling parameters.
 - [references/sources.md](references/sources.md) — which source page and model version each reference

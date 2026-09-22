@@ -53,7 +53,7 @@ verification step", "before responding, confirm ...".
 
 Current models verify and self-correct their own work by default. An added
 verification instruction compounds with that: the model runs the extra pass,
-spends the tokens, and the result does not improve. On Opus 5 the guidance is
+spends the tokens, and the result does not improve. On Opus 5 (and so Opus 5.5) the guidance is
 explicit — when migrating a prompt, remove these instructions rather than
 rewriting them, along with any harness scaffolding that adds a separate
 verification step.
@@ -70,7 +70,7 @@ against the spec. That is a workflow stage, not a sentence in a prompt.
 **Fires on:** "only report high-severity issues", "be conservative", "don't
 nitpick", "skip minor issues".
 
-This is the highest-value rule in the catalog. Sonnet 5 and Opus 5 follow the
+This is the highest-value rule in the catalog. Sonnet 5 and Opus 5 / 5.5 follow the
 instruction literally: they investigate the code just as deeply, find the same
 bugs, then decline to report the ones below your stated bar. Measured recall
 falls while the model's actual bug-finding ability is unchanged, so the harness
@@ -178,7 +178,7 @@ rule across every task it is a cost with no ceiling.
 **Fires on:** "use subagents whenever ...", "delegate liberally", "spawn
 multiple agents".
 
-Opus 5 and Fable-class models delegate readily without being asked. An
+Opus 5.5 and Fable-class models delegate readily without being asked. An
 open-ended nudge produces sub-agents for work a single search would finish, and
 each spawn multiplies cost and wall-clock time.
 

@@ -1,6 +1,6 @@
 # Sub-agent prompt: issue body writer
 
-One spawn, `sonnet`, used only when the plan holds more than 8 issues. Below that the
+One `executor` spawn, used only when the plan holds more than 8 issues. Below that the
 bodies are quicker to write inline than to specify. By the time this runs the spec is
 settled — the gap table is decided, the priorities and dependency edges are fixed — so
 the work is transcription into a fixed skeleton, not judgment.

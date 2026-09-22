@@ -205,13 +205,13 @@ Why this matters when designing a skill:
 
 ### A6. Model and effort per spawn
 
-Every spawn in a skill should name its model. Unspecified means the mechanical specialist and the hard one both inherit the session model — either overpaying for a grep or underpowering a review.
+Every spawn in a skill should name its tier. Unspecified means the mechanical specialist and the hard one both inherit the session's model and effort — either overpaying for a grep or underpowering a review.
 
-Assign by **spec completeness, not task size**: `fable` medium for hard implementation, review and bug-finding, synthesis of scattered findings, and anything with unresolved spec (Opus medium when the Fable weekly budget is exhausted); `opus` low as the default executor for everyday implementation, research and fully specified work with a clear pass/fail (run tests, add coverage, make CI green, commit, open a PR, bulk replace); `sonnet` low for genuinely simple judgment-free bulk work such as a broad routine survey; `haiku` for judgment-free enumeration and formatting. Derived from the canonical table in `orchestrating-models` §2 — revise there first. <!-- derived from orchestrating-models §2 -->
+Two tiers, assigned by **spec completeness, not task size**: `executor` (Opus 5.5 low) for fully specified, judgment-free work — settled-spec implementation, tests, CI, commit, PR, bulk replace, routine research and enumeration; `architect` (Opus 5.5 high) for complex implementation, design judgment, review and bug-finding, synthesis of scattered findings, and anything with unresolved spec. On Claude Code the Agent tool picks the tier with `subagent_type: executor | architect` (a bare `model` runs at the session's per-model effort); the Workflow tool's `agent()` takes `model` plus `effort`. The criteria live in the `orchestrating-models` skill — point there rather than restating them.
 
-A useful shape for a phase is mixed rather than uniform — several cheap collectors fanned out on disjoint slices, then one `fable` medium agent that reconciles their reports. The reconciliation is the part that needs the capable model; the collection is not.
+A useful shape for a phase is mixed rather than uniform — several `executor` collectors fanned out on disjoint slices, then one `architect` that reconciles their reports. The reconciliation is the part that needs the capable tier; the collection is not.
 
-Effort is chosen with the model, where the host exposes it — see `references/platform-notes.md` for which spawn mechanisms take it. Lowering `opus` to medium or low is the first cost cut; raising `opus` past medium is never one, because Fable medium is smarter and cheaper per task than Opus high. Full treatment in `prompt-authoring.md` (load via SKILL.md).
+See `references/platform-notes.md` for which spawn mechanisms take a tier on each host, and `prompt-authoring.md` (load via SKILL.md) for writing the assignment into a skill.
 
 ---
 

@@ -1,6 +1,6 @@
 # Sub-agent prompt: repository surveyor
 
-Two surveyors run per transplant, one per repository, on `sonnet`. Fill every
+Two surveyors run per transplant, one per repository, as `executor`. Fill every
 placeholder with an absolute path before sending — a spawned context does not resolve
 paths relative to this skill — and send both spawns together so they run at the same
 time. Where the environment has no sub-agents, work through the same instructions inline,

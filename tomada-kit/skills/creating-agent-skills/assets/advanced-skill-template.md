@@ -39,7 +39,7 @@ metadata:
 
 ## Phase 2: [Name]
 
-[Phases run in strict sequence; parallelism happens inside a phase. If this phase spawns sub-agents, name the model for each — `opus` where the sub-agent could come back asking what you meant, `sonnet` for fully specified pass/fail work, `haiku` for judgment-free enumeration. Give each spawn a self-contained prompt with an explicit output path; sub-agents never talk to each other.]
+[Phases run in strict sequence; parallelism happens inside a phase. If this phase spawns sub-agents, name the tier for each — `architect` where the sub-agent could come back asking what you meant, `executor` for fully specified pass/fail work and judgment-free enumeration (criteria: the `orchestrating-models` skill). Give each spawn a self-contained prompt with an explicit output path; sub-agents never talk to each other.]
 
 ## Resources
 

@@ -38,6 +38,13 @@ Run `/plugin` to browse interactively.
 |---|---|
 | **smart-commit** | Analyze the working tree, group related changes, and create commits at a sensible granularity |
 
+## Agents
+
+| Agent | Description |
+|---|---|
+| **architect** | Opus 5.5 high の難所担当。 |
+| **executor** | Opus 5.5 low の実行役。 |
+
 ## Requirements
 
 - Claude Code CLI

@@ -80,13 +80,13 @@ Read the `profile` block of `audit.json` — it decides the lens set below. See 
 
 **P1. Lenses (parallel, fresh context each).** Each fills [references/agents/review-lens.md](references/agents/review-lens.md) with one reference's checklist and writes `$AUDIT_DIR/lens-<name>.md`.
 
-| Lens | Checklist | Model | Runs when |
+| Lens | Checklist | Tier | Runs when |
 |---|---|---|---|
-| prose | [prompt-authoring.md](references/prompt-authoring.md#review-checklist) (`PA`) | `opus` | always |
-| neutrality | [agent-neutral-authoring.md](references/agent-neutral-authoring.md#review-checklist) (`AN`) | `sonnet` | always |
-| structure | [patterns-and-structure.md](references/patterns-and-structure.md#review-checklist) (`ST`) | `sonnet` | always |
-| scripts | [scripts-guide.md](references/scripts-guide.md#review-checklist) (`SC`) | `sonnet` | `scripts/` exists, or a code block in SKILL.md |
-| orchestration | [orchestration-patterns.md](references/orchestration-patterns.md#review-checklist) (`OR`) | `opus` | spawns sub-agents, has phases, or body > 150 lines |
+| prose | [prompt-authoring.md](references/prompt-authoring.md#review-checklist) (`PA`) | `architect` | always |
+| neutrality | [agent-neutral-authoring.md](references/agent-neutral-authoring.md#review-checklist) (`AN`) | `executor` | always |
+| structure | [patterns-and-structure.md](references/patterns-and-structure.md#review-checklist) (`ST`) | `executor` | always |
+| scripts | [scripts-guide.md](references/scripts-guide.md#review-checklist) (`SC`) | `executor` | `scripts/` exists, or a code block in SKILL.md |
+| orchestration | [orchestration-patterns.md](references/orchestration-patterns.md#review-checklist) (`OR`) | `architect` | spawns sub-agents, has phases, or body > 150 lines |
 
 **Gate:** if SKILL.md is under 100 lines with no `references/` or `scripts/`, spawn nothing — run the always-on lenses inline. Never more than the five lenses above. Lenses report full coverage with confidence and severity; filtering happens in P2, not the lens.
 

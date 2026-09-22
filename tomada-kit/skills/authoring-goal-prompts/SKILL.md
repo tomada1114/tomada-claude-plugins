@@ -65,8 +65,8 @@ unless the user names another. Gather, in order:
 5. **Design** — when the task involves choices (architecture, interfaces, naming, approach, library),
    make them now and record decision + rationale + rejected alternative. The lead designs; the executor executes.
 
-For a broad/uncertain scope, run items 1 and 3 in parallel as `Explore` (sonnet) sub-agents
-<!-- derived from orchestrating-models §2 -->; where that isn't available, read them sequentially in
+For a broad/uncertain scope, run items 1 and 3 in parallel as `executor` sub-agents (tier choice:
+the `orchestrating-models` skill); where that isn't available, read them sequentially in
 the main context — same result, more time (see [references/platform-notes.md](references/platform-notes.md)).
 
 Resolve everything you can here by investigation — only genuine, goal-defining unknowns reach Phase 4.
@@ -107,11 +107,10 @@ in [references/support-file-guide.md](references/support-file-guide.md). Read
 [references/goal-authoring-guide.md](references/goal-authoring-guide.md) while drafting for the
 mechanics, failure modes, and worked examples.
 
-When the main model here is Fable, hand the decisions you already made (design, observations,
-pre-answered questions) to a Fable medium sub-agent if the spec still has gaps, or Opus low if it is
-settled, let it write
-`goal.md` and the siblings, and take back only a summary. When the main model is Opus, write them
-yourself. <!-- derived from orchestrating-models §1,§3 -->
+Write `goal.md` and the siblings yourself. Hand the write-out to an `executor` sub-agent only when
+every decision (design, observations, pre-answered questions) is already settled and the files are
+long enough that the brief is shorter than the write-out; take back only a summary. When to delegate
+and to which tier: the `orchestrating-models` skill.
 
 Always bake in — the template carries the wording:
 - **Success sentinel**, readable off the transcript by the evaluator.

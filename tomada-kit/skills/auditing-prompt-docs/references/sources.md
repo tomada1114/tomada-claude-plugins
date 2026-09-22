@@ -8,15 +8,15 @@ they tell a reader how far the per-model files can be trusted.
 
 | Reference file | Source page | Model versions covered | Collected |
 |---|---|---|---|
-| `general-practices.md`, `rules.md` | [Prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices) | cross-model reference for the current generation | 2026-09-05 |
+| `general-practices.md`, `rules.md` | [Prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices) | cross-model reference for the current generation | 2026-09-05 (model list re-checked 2026-09-22) |
 | `general-practices.md` | [Prompt engineering overview](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview) | — | 2026-09-05 |
 | `model-fable-5-1.md` | [Prompting Claude Fable 5.1](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1) | Claude Fable 5.1, Claude Mythos 5.1 | 2026-09-05 |
-| `model-opus-5.md` | [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5) | Claude Opus 5 | 2026-09-05 |
+| `model-opus-5-5.md` | [Prompting Claude Opus 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5); "Carried over" section from [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5) | Claude Opus 5.5 | 2026-09-22 |
 | `model-sonnet-5.md` | [Prompting Claude Sonnet 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5) | Claude Sonnet 5 | 2026-09-05 |
 
 Models named in the best-practices reference at collection time, so a model
 absent from this list is newer than the files: Fable 5.1, Mythos 5.1, Fable 5,
-Mythos 5, Opus 5, Opus 4.8, Opus 4.7, Opus 4.6, Sonnet 5, Sonnet 4.6, Haiku 4.5.
+Mythos 5, Opus 5.5, Opus 5, Opus 4.8, Opus 4.7, Opus 4.6, Sonnet 5, Sonnet 4.6, Haiku 4.5.
 
 ## Refreshing after a model release
 
@@ -40,3 +40,6 @@ The user triggers this; the skill does not check for new releases on its own.
    test in the same change, then run the suite from the skill directory.
 7. Retire a model file when its model leaves the best-practices reference's
    model table. Delete it and its row rather than keeping it as history.
+   Within a model family, the skill tracks only the newest model the user runs:
+   when a successor ships, replace the file and carry forward, in a clearly
+   labelled section, only the predecessor items the new page says still apply.

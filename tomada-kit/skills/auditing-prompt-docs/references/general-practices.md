@@ -26,18 +26,18 @@ divergences that decide which model file to open next.
 The single table worth consulting during an audit. Open the per-model file when
 the document targets one model specifically.
 
-| Behavior | Fable 5.1 | Opus 5 | Sonnet 5 |
+| Behavior | Fable 5.1 | Opus 5.5 | Sonnet 5 |
 |---|---|---|---|
-| Conversational length | dense prose; asks for shorter sentences, not less structure | longer than prior Opus; needs an explicit conciseness instruction | calibrated to task complexity |
+| Conversational length | dense prose; asks for shorter sentences, not less structure | reports plainly; Opus 5's length problem not restated — re-test before adding conciseness text | calibrated to task complexity |
 | Formatting in chat | under-formats; anti-formatting blocks must go | standard | standard |
-| Progress updates during tool chains | fewer than expected; ask for them | narrates readily; tune down | well calibrated; remove scaffolding |
-| Self-verification | standard | strong — remove verification instructions | standard |
-| Subagent delegation | delegates readily; let the lead keep working | delegates readily; cap it | standard |
-| Instruction literalism | standard | high on review-bar wording | high — state scope explicitly |
-| Thinking | always on, adaptive only | on by default; disable only at ≤ `high` effort | on by default (change from 4.6) |
-| Effort default | `high` | `high`; `low`/`medium` are the primary cost lever | `high`; `xhigh` for hardest work |
+| Progress updates during tool chains | fewer than expected; ask for them | writes them by default, as `thinking` blocks (`display: "updates"`); may end unattended turns early with a report — name the unwanted stops | well calibrated; remove scaffolding |
+| Self-verification | standard | strong — remove verification instructions (measured on Opus 5) | standard |
+| Subagent delegation | delegates readily; let the lead keep working | delegates readily; cap it; responds to elapsed-time budgets | standard |
+| Instruction literalism | standard | high on review-bar wording (measured on Opus 5) | high — state scope explicitly |
+| Thinking | always on, adaptive only | always on; remove "think carefully" and write-out-your-reasoning lines | on by default (change from 4.6) |
+| Effort default | `high` | `medium` (≈ Opus 5 `high`); thinks more per level — re-sweep | `high`; `xhigh` for hardest work |
 
-Detail: `model-fable-5-1.md`, `model-opus-5.md`, `model-sonnet-5.md`.
+Detail: `model-fable-5-1.md`, `model-opus-5-5.md`, `model-sonnet-5.md`.
 
 ## Clarity
 

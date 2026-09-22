@@ -28,7 +28,7 @@ Step 4 is what makes the Phase 1 prompts concrete. Fetching once and writing to 
 
 ## Phase 1: Parallel specialists
 
-Spawn both in a single message so they run concurrently. Both run on `opus` — each returns a judgment call about whether a finding is real, which is the line that requires it. Each prompt is complete on its own; a sub-agent that has to ask the parent a follow-up was under-specified.
+Spawn both in a single message so they run concurrently. Both spawn as `architect` — each returns a judgment call about whether a finding is real, which is the line that requires it. Each prompt is complete on its own; a sub-agent that has to ask the parent a follow-up was under-specified.
 
 `${CLAUDE_SKILL_DIR}` expands to an absolute path before the model sees it. Never hand a sub-agent a path relative to the skill directory — it has no idea where that is.
 
