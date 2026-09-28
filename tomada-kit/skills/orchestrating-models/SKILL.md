@@ -8,7 +8,7 @@ description: >-
   the named agents `executor` (Opus 5.5 low: settled spec, mechanical work,
   judgment-free research) and `architect` (Opus 5.5 high: complex implementation,
   design judgment, review, synthesis); no medium sub-agent. Covers why other
-  models are dominated, how effort reaches a spawn, delegation prompts, relay
+  models are not used, how effort reaches a spawn, delegation prompts, relay
   formations, Opus 5.5 quirks, spawn cache cost, and surfacing unknowns. The
   canonical source other skills point to for model assignment. Use when
   starting a large task, when deciding whether to delegate, when choosing an
@@ -35,7 +35,7 @@ metadata:
 
 **サブエージェントは low と high の 2 段だけ。** メインが medium なので、委譲を決めた時点で「仕様確定済み・機械的なら low、複雑・設計判断を含む・レビューなら high」の二択で足りる。medium のサブを作るくらいならメインがやる。
 
-**Fable 5.1・Opus 5・Sonnet 5・Haiku は使わない。** Artificial Analysis Intelligence Index v4.3.2 × Cost per Task(2026-09-22 取得)でパレート最適なのは Sonnet 5 low と Opus 5.5 の low / medium / high / xhigh / max の 6 つだけで、Fable 5.1 と Opus 5 は全段が劣位。Sonnet 5 low は Opus 5.5 low より $0.04 安いだけで Index が 24 対 42 なので、残す理由がない。Fable の利用枠は Max プランの同一リミットの内数で、別枠ではない。数値の詳細は [references/model-playbooks.md](references/model-playbooks.md#effort-とコスト) と出典ノート `~/ghq/github.com/tomada1114/iobsidian/Content/_material/claude-model-effort-cost-performance.md`。
+**Sonnet 5.5・Fable 5.1・Opus 5・Sonnet 5・Haiku は使わない。** Artificial Analysis Intelligence Index × Cost per Task(2026-09-28 取得)でパレート最適なのは Opus 5.5 の low / medium / high / xhigh / max と Sonnet 5.5 の low / high の 7 つで、Fable 5.1・Opus 5・Sonnet 5 は全段が劣位。Sonnet 5.5 はどの段も、同じか安いコストで Opus 5.5 を上回らない。low(36 / $0.41)は Opus 5.5 low より $0.14 安い代わりに Index が 6 低く、high(47 / $1.08)は Opus 5.5 の low と medium を使い分ける線より下にある。加えて Sonnet 5.5 は low で検証を省いたり途中で確認に戻ったりするので、executor に向かない。Fable の利用枠は Max プランの同一リミットの内数で、別枠ではない。数値の詳細は [references/model-playbooks.md](references/model-playbooks.md#effort-とコスト) と出典ノート `~/ghq/github.com/tomada1114/iobsidian/Content/_material/claude-model-effort-cost-performance.md`。
 
 姿勢の根拠、委譲する理由ごとの判断、executor と architect の分水嶺は [references/delegation-triage.md](references/delegation-triage.md) を読む。
 
@@ -52,7 +52,7 @@ metadata:
 **選ばない組み合わせ:**
 
 - Fable 5.1 の全段、Opus 5 の全段: 同じか安いコストで Opus 5.5 がより賢い(例: Fable xhigh 53 / $5.98 は Opus 5.5 max 58 / $5.98 と同額で Index が 5 低く、Opus 5.5 high 54 / $1.82 にも負ける)
-- Sonnet 5 の全段: low も含めて使わない(上記)。Haiku も同様に使わない
+- Sonnet 5.5 の全段: low と high はパレート最適だが使わない(上記)。medium / xhigh / max は Opus 5.5 の low / high / xhigh に劣位。Sonnet 5・Haiku も使わない
 - サブエージェントの medium: 2 段構成の設計上作らない
 - サブエージェントの xhigh / max: high → xhigh は +2pt に +$1.64、xhigh → max は +2pt に +$2.52 の崖。high までの限界コスト($0.16/pt)の 5〜8 倍になる
 

@@ -27,6 +27,8 @@ is prompting (`<!-- prompt-lint-ignore-file: P002,P003 -->` at the top, or
 - [P011 sampling-params](#p011-sampling-params)
 - [P012 negative-formatting-rule](#p012-negative-formatting-rule)
 - [P013 narration-suppression](#p013-narration-suppression)
+- [P014 forced-tool-choice](#p014-forced-tool-choice)
+- [P015 tool-discouragement](#p015-tool-discouragement)
 - [D001 doc-size-budget](#d001-doc-size-budget)
 - [D002 duplicate-directive](#d002-duplicate-directive)
 - [What the linter cannot see](#what-the-linter-cannot-see)
@@ -65,6 +67,11 @@ The one place a verification step still earns its cost is an autonomous run
 spanning many phases, where a *separate* context checks the finished work
 against the spec. That is a workflow stage, not a sentence in a prompt.
 
+Not this rule: an instruction to run a real check that exercises a code change
+(tests, type-checker, build) and to say which check was skipped and why. Sonnet
+5.5 at `low` effort sometimes reports changes done without one, and its guide
+recommends exactly that instruction (`model-sonnet-5-5.md#verification-on-coding-tasks`).
+
 ## P002 severity-self-filtering
 
 **Fires on:** "only report high-severity issues", "be conservative", "don't
@@ -96,8 +103,9 @@ preferences."
 out your thought process", "think out loud".
 
 Asking the model to reproduce its own internal reasoning can trip the
-`reasoning_extraction` refusal category on Fable-class models and force a
-fallback to another model. The request also buys little: the visible narration
+`reasoning_extraction` refusal category — on Fable-class models, Opus 5.5, and
+Sonnet 5.5. On Opus 5.5 and Sonnet 5.5, server-side fallback does not retry that
+category, so the decline reaches the caller. The request also buys little: the visible narration
 is a reconstruction, not the reasoning itself.
 
 **Rewrite:** ask for evidence. `file:line` citations, the command and its
@@ -131,8 +139,10 @@ covered.
 "Use the search tool when it would improve your understanding of the problem."
 
 Note the opposite failure exists and is not this rule: at `low` effort some
-models call search and retrieval tools less often. The fix there is to raise
-effort for those turns, or to say *why* verification matters for that class of
+models call search and retrieval tools less often, and Sonnet 5.5 sometimes
+answers chat and knowledge-work questions from training knowledge. The fix there
+is to raise effort for those turns, remove tool-discouraging text ("minimize tool
+calls"; `P015` flags it), or say *why* verification matters for that class of
 query — not to reinstate a blanket default.
 
 ## P006 fixed-progress-scaffolding
@@ -195,15 +205,22 @@ Pair it with a hard cap where the harness supports one.
 
 ## P010 legacy-api
 
-**Fires on:** `budget_tokens`, `thinking: {type: "enabled"}`, "assistant
+**Fires on:** `budget_tokens`, `thinking: {type: "enabled"}`,
+`thinking: {type: "disabled"}` (and SDK `ThinkingConfigDisabled`), "assistant
 prefill", "prefilled response".
 
-Both patterns are removed, not merely discouraged. Manual extended thinking with
+These patterns are removed, not merely discouraged. Manual extended thinking with
 `budget_tokens` returns 400 on current models; a prefilled assistant message on
-the final turn returns 400 from the 4.6 generation onward.
+the final turn returns 400 from the 4.6 generation onward. Thinking cannot be
+turned off on any model this skill tracks: Fable 5.1 is adaptive only, Opus 5.5
+does not accept `disabled`, and Sonnet 5.5 returns 400 with a message pointing
+to `between_tools`.
 
 **Rewrite:** adaptive thinking (`thinking: {type: "adaptive"}`) with the
-`effort` parameter, and `max_tokens` as the hard ceiling. For prefills: use
+`effort` parameter, and `max_tokens` as the hard ceiling. For less thinking,
+lower effort; on Sonnet 5.5, `thinking: {type: "between_tools"}` is the lowest
+setting (accepted at `high` effort or below). Drop any "do not think"
+instruction that accompanied `disabled`. For prefills: use
 structured outputs for schemas, tool enums for classification, and a direct
 instruction ("Respond directly without preamble") for preamble suppression.
 
@@ -211,8 +228,9 @@ instruction ("Respond directly without preamble") for preamble suppression.
 
 **Fires on:** `temperature:`, `top_p:`, `top_k:` with a value.
 
-Setting any of these to a non-default value returns 400 on Sonnet 5. Prompts
-that relied on temperature for stylistic variety need a different lever.
+Setting any of these to a non-default value returns 400 on Sonnet 5 and
+Sonnet 5.5. Prompts that relied on temperature for stylistic variety need a
+different lever.
 
 **Rewrite:** remove the parameter. For variety, ask the model to propose several
 distinct directions and pick one; for tone, describe the voice in the prompt.
@@ -238,12 +256,44 @@ progress updates", "no running commentary".
 
 Written for models that over-narrated. Fable 5.1 writes *fewer* user-facing
 updates during long tool chains than its predecessor, so inherited suppression
-produces a run that goes silent for minutes.
+produces a run that goes silent for minutes. The Sonnet 5.5 guide names "hold
+all findings for the final response" as an instruction to remove.
 
 **Rewrite:** remove the suppression first, then check whether you still need
 anything. If you do, say when you want text and what it should contain: "Say in
 one line what you're about to do; give a brief update when you find something
 important or change direction; close with a recap that stands on its own."
+
+## P014 forced-tool-choice
+
+**Fires on:** `tool_choice` with type `any` or `tool`, and SDK
+`ToolChoiceAny` / `ToolChoiceTool`.
+
+Sonnet 5.5 rejects forced tool use with a 400, including on the token-counting
+endpoint; earlier models accepted it. `auto` (the default) and `none` still
+work. Severity is `warn` rather than `error` because the call is valid on other
+models — confirm the document targets Sonnet 5.5.
+
+**Rewrite:** `tool_choice: {"type": "auto"}` plus `strict: true` on the tool for
+schema-valid input (on Amazon Bedrock, `auto` alone). The model can now answer
+without the tool, so say in the prompt when to call it.
+
+## P015 tool-discouragement
+
+**Fires on:** "only use tools when strictly necessary", "minimize tool calls",
+"use tools sparingly", "avoid using tools unless".
+
+The reverse of P005. Sonnet 5.5 sometimes answers chat and knowledge-work
+questions from training knowledge when a search would catch details that have
+changed, and Fable 5.1 searches less at `low` effort. A standing instruction to
+hold back on tools makes that worse. The Sonnet 5.5 guide names exactly these
+phrases as the first thing to remove.
+
+**Rewrite:** delete the line. If the product has a search tool, name what to
+check: "Use the search tool to check specifics that may have changed since your
+training, such as what is allowed, required or charged, even when you feel
+confident." Where cost is the real concern, lower effort or cap the budget
+instead of discouraging tools in prose.
 
 ## D001 doc-size-budget
 

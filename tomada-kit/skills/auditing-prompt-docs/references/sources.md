@@ -8,15 +8,16 @@ they tell a reader how far the per-model files can be trusted.
 
 | Reference file | Source page | Model versions covered | Collected |
 |---|---|---|---|
-| `general-practices.md`, `rules.md` | [Prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices) | cross-model reference for the current generation | 2026-09-05 (model list re-checked 2026-09-22) |
+| `general-practices.md`, `rules.md` | [Prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices) | cross-model reference for the current generation | 2026-09-05 (model list re-checked 2026-09-28) |
 | `general-practices.md` | [Prompt engineering overview](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview) | — | 2026-09-05 |
 | `model-fable-5-1.md` | [Prompting Claude Fable 5.1](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1) | Claude Fable 5.1, Claude Mythos 5.1 | 2026-09-05 |
 | `model-opus-5-5.md` | [Prompting Claude Opus 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5); "Carried over" section from [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5) | Claude Opus 5.5 | 2026-09-22 |
-| `model-sonnet-5.md` | [Prompting Claude Sonnet 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5) | Claude Sonnet 5 | 2026-09-05 |
+| `model-sonnet-5-5.md` | [Prompting Claude Sonnet 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5-5); API changes from [What's new in Claude Sonnet 5.5](https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5) and the [Sonnet 5.5 migration guide](https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide); "Carried over" section from [Prompting Claude Sonnet 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5) (collected 2026-09-05) | Claude Sonnet 5.5 | 2026-09-28 |
 
 Models named in the best-practices reference at collection time, so a model
 absent from this list is newer than the files: Fable 5.1, Mythos 5.1, Fable 5,
-Mythos 5, Opus 5.5, Opus 5, Opus 4.8, Opus 4.7, Opus 4.6, Sonnet 5, Sonnet 4.6, Haiku 4.5.
+Mythos 5, Opus 5.5, Opus 5, Opus 4.8, Opus 4.7, Opus 4.6, Sonnet 5.5, Sonnet 5, Sonnet 4.6,
+Haiku 4.5.
 
 ## Refreshing after a model release
 
@@ -30,7 +31,7 @@ The user triggers this; the skill does not check for new releases on its own.
 3. Rewrite the affected `model-*.md` files. Replace rather than append: a
    per-model file describes one model's current behavior, and stacking
    generations makes it unreadable.
-4. Update the divergence table in `general-practices.md#where-the-three-models-diverge`
+4. Update the divergence table in `general-practices.md#where-the-models-diverge`
    and the row set in the table above.
 5. Review `rules.md` against the new pages. A rule survives only while the
    behavior it guards against is still real; a behavior that reversed (a model

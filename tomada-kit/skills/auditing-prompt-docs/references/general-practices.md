@@ -8,7 +8,7 @@ divergences that decide which model file to open next.
 
 ## Table of Contents
 
-- [Where the three models diverge](#where-the-three-models-diverge)
+- [Where the models diverge](#where-the-models-diverge)
 - [Clarity](#clarity)
 - [Examples](#examples)
 - [Structure](#structure)
@@ -21,23 +21,25 @@ divergences that decide which model file to open next.
 
 ---
 
-## Where the three models diverge
+## Where the models diverge
 
 The single table worth consulting during an audit. Open the per-model file when
 the document targets one model specifically.
 
-| Behavior | Fable 5.1 | Opus 5.5 | Sonnet 5 |
+| Behavior | Fable 5.1 | Opus 5.5 | Sonnet 5.5 |
 |---|---|---|---|
-| Conversational length | dense prose; asks for shorter sentences, not less structure | reports plainly; Opus 5's length problem not restated — re-test before adding conciseness text | calibrated to task complexity |
+| Conversational length | dense prose; asks for shorter sentences, not less structure | reports plainly; Opus 5's length problem not restated — re-test before adding conciseness text | not restated; carried over from Sonnet 5: calibrated to task complexity |
 | Formatting in chat | under-formats; anti-formatting blocks must go | standard | standard |
-| Progress updates during tool chains | fewer than expected; ask for them | writes them by default, as `thinking` blocks (`display: "updates"`); may end unattended turns early with a report — name the unwanted stops | well calibrated; remove scaffolding |
-| Self-verification | standard | strong — remove verification instructions (measured on Opus 5) | standard |
-| Subagent delegation | delegates readily; let the lead keep working | delegates readily; cap it; responds to elapsed-time budgets | standard |
-| Instruction literalism | standard | high on review-bar wording (measured on Opus 5) | high — state scope explicitly |
-| Thinking | always on, adaptive only | always on; remove "think carefully" and write-out-your-reasoning lines | on by default (change from 4.6) |
-| Effort default | `high` | `medium` (≈ Opus 5 `high`); thinks more per level — re-sweep | `high`; `xhigh` for hardest work |
+| Progress updates during tool chains | fewer than expected; ask for them | writes them by default, as `thinking` blocks (`display: "updates"`); may end unattended turns early with a report — name the unwanted stops | writes them; longer notes as `thinking` blocks (`display: "updates"`, or `between_tools`); remove hold-findings text; harness reminder after ~5 silent steps |
+| Initiative and scope | may stop to ask or describe next steps instead of doing them; extends scope on open-ended feature work | expands scope on narrow tasks (measured on Opus 5) | checks in early at `low`/`medium`; adds tests and docs at every level; own review rounds at `xhigh`/`max` |
+| Self-verification | standard | strong — remove verification instructions (measured on Opus 5) | checks its work, but at `low` may report done without a real check — keep a concrete check instruction |
+| Search in chat and knowledge work | searches less at `low` | may miss context the request did not point to in multi-app work | answers from training knowledge where a search would catch changes — remove tool-discouraging text |
+| Subagent delegation | delegates readily; let the lead keep working | delegates readily; cap it; responds to elapsed-time budgets | may launch reviewer subagents at `xhigh`/`max` unprompted |
+| Instruction literalism | standard | high on review-bar wording (measured on Opus 5) | not restated; carried over from Sonnet 5: high — state scope explicitly |
+| Thinking | always on, adaptive only | always on; remove "think carefully" and write-out-your-reasoning lines | on by default; lowest setting `between_tools` (`disabled` returns 400); asking to think less is unreliable |
+| Effort default | `high` | `medium` (≈ Opus 5 `high`); thinks more per level — re-sweep | `high`, recalibrated — agentic coding from `medium`, chat `medium`/`low`; re-sweep |
 
-Detail: `model-fable-5-1.md`, `model-opus-5-5.md`, `model-sonnet-5.md`.
+Detail: `model-fable-5-1.md`, `model-opus-5-5.md`, `model-sonnet-5-5.md`.
 
 ## Clarity
 
@@ -164,6 +166,9 @@ Thinking adds latency and should only be used when it will meaningfully improve
 answer quality — typically for problems that require multistep reasoning. When
 in doubt, respond directly.
 ```
+
+On Opus 5.5 and Sonnet 5.5, lowering effort beats this instruction; on Sonnet
+5.5, asking to think less does not reliably reduce thinking.
 
 To improve use of it after tool calls: "After receiving tool results, reflect on
 their quality and determine the best next step before proceeding."

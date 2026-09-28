@@ -5,10 +5,10 @@ description: >-
   command definitions, reference files, whole repositories — against Anthropic's
   published prompting guidance for current Claude models, proposing edits for approval
   before writing anything. Also answers how to prompt a specific model: holds the per-
-  model guidance for Claude Fable 5.1, Claude Opus 5.5, and Claude Sonnet 5 alongside the
-  cross-model practices. Use when reviewing or slimming an instruction file, when
-  instructions are ignored or fire too often, when migrating a prompt to a newer model,
-  or when refreshing this guidance after a model release.
+  model guidance for Claude Fable 5.1, Claude Opus 5.5, and Claude Sonnet 5.5
+  alongside the cross-model practices. Use when reviewing or slimming an
+  instruction file, when instructions are ignored or fire too often, when migrating a
+  prompt to a newer model, or when refreshing this guidance after a model release.
 metadata:
   platforms: claude-code, codex
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/lint_prompt_doc.py:*)
@@ -33,7 +33,7 @@ then edits to the target — only after the user approves them.
 ## Path A: answer a prompting question
 
 Read [references/general-practices.md](references/general-practices.md) first; it holds the cross-model practices
-and the table of where the three models diverge. Open the file for the model in
+and the table of where the models diverge. Open the file for the model in
 question when the answer turns on that model's behavior. Answer from those files
 rather than from memory, and say which model a claim is measured on — guidance
 for one model is not automatically true of another.
@@ -108,8 +108,10 @@ compose: run its structural pass, this skill's wording pass.
   updates, batching, append-only history, writing density, task completion.
 - [references/model-opus-5-5.md](references/model-opus-5-5.md) — Claude Opus 5.5: effort calibration, thinking
   always on, unattended runs, progress updates, pasted text, plus carried-over Opus 5 items.
-- [references/model-sonnet-5.md](references/model-sonnet-5.md) — Claude Sonnet 5: effort ladder, literal
-  instruction following, review-harness recall, sampling parameters.
+- [references/model-sonnet-5-5.md](references/model-sonnet-5-5.md) — Claude Sonnet 5.5: API changes from
+  Sonnet 5, recalibrated effort, initiative and scope, `between_tools`, JSON on
+  reasoning tasks, progress updates, mid-turn messages, coding verification,
+  plus carried-over Sonnet 5 items.
 - [references/sources.md](references/sources.md) — which source page and model version each reference
   was collected from, and the refresh procedure to run after a model release.
 - `scripts/lint_prompt_doc.py` — run it; do not read it. `--json` for parsing,

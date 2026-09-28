@@ -1,5 +1,5 @@
 <!-- audit-ignore-file: A006 -->
-<!-- prompt-lint-ignore-file: P001,P002,P004,P008,P009 -->
+<!-- prompt-lint-ignore-file: P001,P002,P004,P008,P009,P010 -->
 # Prompting Claude Opus 5.5
 
 Strongest on multistep work in a real repository and on long unattended runs.

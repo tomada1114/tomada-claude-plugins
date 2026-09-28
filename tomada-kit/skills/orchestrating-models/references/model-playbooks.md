@@ -52,18 +52,21 @@ high は思考量が多く、スコープを広げやすい。**ゴールと制�
 
 ## effort とコスト
 
-Artificial Analysis Intelligence Index v4.3.2 × Cost per Task(2026-09-22 取得)でパレート最適な組み合わせ:
+Artificial Analysis Intelligence Index × Cost per Task(2026-09-28 取得)でパレート最適な組み合わせ:
 
 | 組み合わせ | Index | Cost/Task | 限界コスト | この構成での役 |
 |---|---|---|---|---|
-| Sonnet 5 low | 24 | $0.51 | — | 使わない(Opus 5.5 low と $0.04 差で Index 24 対 42) |
-| Opus 5.5 low | 42 | $0.55 | $0.002/pt | `executor` |
-| Opus 5.5 medium | 51 | $1.34 | $0.088/pt | メインセッション |
+| Sonnet 5.5 low | 36 | $0.41 | — | 使わない(Opus 5.5 low より $0.14 安いだけで Index 36 対 42) |
+| Opus 5.5 low | 42 | $0.55 | $0.023/pt | `executor` |
+| Sonnet 5.5 high | 47 | $1.08 | $0.106/pt | 使わない(下記) |
+| Opus 5.5 medium | 51 | $1.34 | $0.065/pt(low からは $0.088/pt) | メインセッション |
 | Opus 5.5 high | 54 | $1.82 | $0.160/pt | `architect` |
 | Opus 5.5 xhigh | 56 | $3.46 | $0.820/pt | 既定にしない(品質差を実測した作業だけ、メインの `/effort` で) |
 | Opus 5.5 max | 58 | $5.98 | $1.260/pt | 同上 |
 
-Fable 5.1 と Opus 5 はどの effort でも劣位で、同じか安いコストでより賢い Opus 5.5 の段がある(Fable high 51 / $3.91 は Opus 5.5 medium 51 / $1.34 と同 Index、Opus 5 max 51 / $5.86 も同じ)。Fable の利用枠は Max プランの同一リミットの内数で、別枠ではない。
+Sonnet 5.5 high は表の上ではパレート最適だが、Opus 5.5 low → medium の限界コスト($0.088/pt)より高い $0.106/pt で low から上がり、その先の medium へは $0.065/pt と安くなる。つまり Opus 5.5 の low と medium を結ぶ線より下にあり($1.08 なら線上は Index 約 48)、段として挟む価値がない。Sonnet 5.5 の medium(41 / $0.59)・xhigh(52 / $2.74)・max(56 / $7.60)は、それぞれ Opus 5.5 の low・high・xhigh に劣位。公式のプロンプトガイドによれば Sonnet 5.5 は low で変更の検証を省くことがあり、low / medium では長いエージェント作業の途中で確認に戻りやすい。executor の役(確定仕様を最後まで走らせて自分で確かめる)と噛み合わない。
+
+Fable 5.1・Opus 5・Sonnet 5 はどの effort でも劣位で、同じか安いコストでより賢い Opus 5.5 の段がある(Fable high 51 / $3.91 は Opus 5.5 medium 51 / $1.34 と同 Index、Opus 5 max 51 / $5.86 も同じ)。Fable の利用枠は Max プランの同一リミットの内数で、別枠ではない。
 
 Opus 5.5 の effort 名は Opus 5 と比べられない。Opus 5.5 medium ≈ Opus 5 high で、low もいくつかのコーディング評価でそれに迫る。
 

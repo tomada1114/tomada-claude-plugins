@@ -100,6 +100,34 @@ class LineRuleTests(unittest.TestCase):
         self.assertIn("P010", rules_in("Set budget_tokens to 10000."))
         self.assertIn("P010", rules_in("Use an assistant prefill to force JSON."))
 
+    def test_legacy_api_thinking_disabled(self):
+        self.assertIn("P010", rules_in('thinking: {"type": "disabled"}'))
+        self.assertIn("P010", rules_in("thinking={'type': 'disabled'},"))
+        self.assertIn("P010", rules_in("--thinking '{type: disabled}'"))
+        self.assertIn("P010", rules_in("Thinking = new ThinkingConfigDisabled(),"))
+
+    def test_between_tools_is_not_legacy(self):
+        self.assertNotIn("P010", rules_in('thinking: {"type": "between_tools"}'))
+        self.assertNotIn("P010", rules_in('thinking: {"type": "adaptive"}'))
+
+    def test_forced_tool_choice(self):
+        self.assertIn("P014", rules_in('tool_choice: {"type": "any"}'))
+        self.assertIn("P014", rules_in('tool_choice={"type": "tool", "name": "get_weather"},'))
+        self.assertIn("P014", rules_in("tool_choice: Anthropic::ToolChoiceTool.new(name: 'x'),"))
+
+    def test_auto_and_none_tool_choice_are_not_flagged(self):
+        self.assertNotIn("P014", rules_in('tool_choice: {"type": "auto"}'))
+        self.assertNotIn("P014", rules_in('tool_choice={"type": "none"}'))
+
+    def test_tool_discouragement(self):
+        self.assertIn("P015", rules_in("Only use tools when strictly necessary."))
+        self.assertIn("P015", rules_in("Minimize tool calls to save time."))
+        self.assertIn("P015", rules_in("Minimize the number of tool calls."))
+        self.assertIn("P015", rules_in("Use tools sparingly."))
+
+    def test_conditioned_tool_use_is_not_discouragement(self):
+        self.assertNotIn("P015", rules_in("Use the search tool to check specifics that may have changed."))
+
     def test_sampling_params(self):
         self.assertIn("P011", rules_in("temperature: 0.7"))
 

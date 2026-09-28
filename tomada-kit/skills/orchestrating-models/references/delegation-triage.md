@@ -17,7 +17,7 @@ SKILL.md のトリアージ表で判断がつかないとき、または構成�
 
 ## なぜ Opus 5.5 一本で、段が 3 つなのか
 
-Opus 5.5 の low / medium / high は、それぞれの Index 帯で最安になる(しきい値 ≥25〜42 なら low、≥43〜51 なら medium、≥52〜54 なら high)。Fable 5.1 と Opus 5 はどの effort でも、同じか安いコストでより賢い Opus 5.5 の段がある。だからモデルを替えて段を作る理由がなく、effort だけで段を作る。
+Opus 5.5 の low / medium / high / xhigh / max はすべてパレート最適で、Fable 5.1・Opus 5・Sonnet 5 はどの effort でも、同じか安いコストでより賢い Opus 5.5 の段がある。Sonnet 5.5 の low(36 / $0.41)と high(47 / $1.08)もパレート最適ではあるが、どちらも「Opus 5.5 より安いが賢くない」点で、同じか安いコストで Opus 5.5 を上回る段は Sonnet 5.5 にない。low は $0.14 の節約に Index 6 を手放し、high は Opus 5.5 low と medium を結ぶ線より下にある。だからモデルを替えて段を作る理由がなく、effort だけで段を作る。詳細は [model-playbooks.md](model-playbooks.md#effort-とコスト)。
 
 メインを medium に置くのは、判断と実行の両方を担う段として、low からの +9pt を $0.088/pt で買え、high 以上に上げるより上積みが安いから。サブを low と high の 2 段に絞るのは、メインが medium である以上、medium のサブに渡すものはメインがやっても同じ品質・同じ単価で、委譲の固定費だけが余分にかかるから。委譲する価値があるのは、メインより**安く済む**段(low)か、メインより**賢い**段(high)だけ。
 
