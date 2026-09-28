@@ -75,7 +75,7 @@ def create_response(number: int, id_: int, url: str) -> str:
     return json.dumps({"number": number, "id": id_, "html_url": url})
 
 
-# --- mirrors of shipping-issues/scripts/issue_digest.py's regex shapes ---
+# --- mirrors of the downstream shipping tooling's regex shapes ---
 # Copied, not imported (skills do not share code across scripts/ trees) —
 # see references/ship-contract.md. Used only to prove this script's output
 # is readable by the consumer that actually parses it.

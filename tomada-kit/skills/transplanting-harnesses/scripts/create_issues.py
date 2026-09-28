@@ -59,8 +59,7 @@ PRIORITY_ORDER = ["P0", "P1", "P2", "P3"]
 
 # Default colors/descriptions for the labels this script may need to create
 # on a repo that does not already define them. Deliberately independent of
-# any sibling skill's copy of the same idea (shipping-issues/scripts/issue_digest.py
-# defines its own) — nothing here is imported across skills.
+# any downstream tool's copy of the same idea — nothing here is imported across skills.
 PRIORITY_LABELS: dict[str, tuple[str, str, str]] = {
     "P0": ("priority: P0", "b60205", "Ship now"),
     "P1": ("priority: P1", "d93f0b", "Do next"),
@@ -78,11 +77,11 @@ PLACEHOLDER_RE = re.compile(r"\{\{#([a-zA-Z0-9_-]+)\}\}")
 # Reserved-content detection: a body this script will own must not already
 # carry a hand-written copy of what pass 2 appends.
 DEPENDENCIES_HEADING_RE = re.compile(r"(?im)^##\s+Dependencies\s*$")
-# Same shape as shipping-issues/scripts/issue_digest.py's SHIP_CONTRACT_RE —
-# kept in sync by hand since a script never imports a sibling skill's code.
+# Same shape as the downstream shipping tooling's SHIP_CONTRACT_RE —
+# kept in sync by hand since a script never imports external code.
 SHIP_CONTRACT_RE = re.compile(r"<!--\s*ship\s*:(.*?)-->", re.DOTALL | re.IGNORECASE)
 RESERVED_MARKER_RE = re.compile(r"<!--\s*harness-transplant\s*:.*?-->", re.DOTALL | re.IGNORECASE)
-# Downstream tooling (shipping-issues' issue_digest.py) scrapes dependency edges out
+# Downstream shipping tooling scrapes dependency edges out
 # of prose with phrasings like these and unions them with the declared ones, so
 # "after {{#x}}" in a sentence becomes a real blocker. Mirrors its DEP_PATTERNS, with
 # the placeholder standing in for the number that does not exist yet.

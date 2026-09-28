@@ -1,8 +1,7 @@
 """_fakegh.py — Shared helper: install a fake `gh` on PATH for scripts/ tests.
 
-Adapted from shipping-issues/scripts/tests/_fakegh.py for this skill (copied,
-not imported — skills do not share code across their own scripts/ trees).
-One addition beyond the original: a response may be a *list* of stdout
+Installs a fake `gh` for this skill's tests.
+One addition beyond a plain fake: a response may be a *list* of stdout
 strings instead of one string, consumed in call order — create_issues.py
 issues several structurally-identical `gh api .../issues --method POST`
 calls (tracking, then each issue) that must return different `number`/`id`

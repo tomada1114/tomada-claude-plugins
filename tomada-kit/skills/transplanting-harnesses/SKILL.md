@@ -142,8 +142,7 @@ or unclear. Pushing a branch and opening a PR is an external write: confirm it f
 bodies cite paths that must exist on the default branch, and a pull request is not
 something a dependency edge can point at, so merge order is the only guard.
 
-**(c) Report** the tracking issue URL and offer to continue with the `shipping-issues`
-skill in `all` mode.
+**(c) Report** the tracking issue URL and the order the plan printed.
 
 ## Resources
 

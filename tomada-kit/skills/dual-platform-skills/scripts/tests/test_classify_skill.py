@@ -295,7 +295,7 @@ class TestBuiltinSlashCommand(unittest.TestCase):
     def test_templated_path_segment_does_not_fire(self):
         skill = write_skill(
             self.root,
-            skill_md=FM + "\n`${AGENT_SKILL_STATE_DIR}/shipping-issues/<owner>__<repo>/run.md`\n",
+            skill_md=FM + "\n`${AGENT_SKILL_STATE_DIR}/some-skill/<owner>__<repo>/run.md`\n",
         )
         c = cs.classify(skill)
         self.assertNotIn("builtin_slash_command", c.constructs)
