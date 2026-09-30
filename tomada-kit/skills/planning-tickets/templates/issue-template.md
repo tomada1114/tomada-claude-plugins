@@ -1,85 +1,90 @@
-# GitHub Issue Template
+# Issue body template
 
-`gh issue create --body-file` に渡す Issue 本文の SSOT(原則は SKILL.md を参照)。
+The skeleton for `gh issue create --body-file`. A repository's own conventions
+(`triaging-issues`, issue forms, a `shipping-issues` ship contract) are added to it and
+win where they differ. Domain-specific requirement groups (UI, API, schema) extend
+Functional Requirements as extra tables of the same shape — no separate template.
 
-セクション構成は下のスケルトンが正。ドメイン固有の要件群(UI 仕様、API 仕様、DB スキーマ仕様など)が必要な場合は、Functional Requirements の下に同形式の表を追加して拡張する — 別テンプレートは作らない。
+## Fallback title prefixes
 
-## Issue body skeleton
+Only when the repository has no title convention of its own.
+
+| Prefix | Meaning |
+|---|---|
+| `[Foundation]` | Must land before the parallel work |
+| `[Parallel]` | Independent; can run alongside others |
+| `[Parallel/worktree:<name>]` | Independent, with a suggested worktree branch |
+| `[Depends]` | Has open dependencies |
+| `[Sequential]` | Must follow a specific order |
+
+## Skeleton
 
 ````markdown
 ## User Story
 
-**As a** [user type]
-**I want** [goal]
-**So that** [benefit]
+**As a** [user type] **I want** [goal] **so that** [benefit].
 
 ## Background & Context
 
-[このチケットが全体のどこに位置するか 2〜3 行。実装者が参照すべき
-要件・設計文書のセクション番号を明記する(例: REQUIREMENTS.md §3.1, DESIGN.md §3.2)]
+Where this sits in the whole, in 2–3 lines, and the document sections the implementer
+reads (e.g. `docs/product/requirements.md §3.1`, ADR-0003).
 
 | Item | Value | Source |
 |------|-------|--------|
-| [要件由来の具体値をすべて列挙] | [実値] | [文書名 §x.x] |
+| [every concrete value the work needs] | [real value] | [doc §x.x] |
 
 ## Functional Requirements (EARS)
 
 | ID | Requirement | Verification |
 |----|-------------|--------------|
-| REQ-001 | **When** [trigger], the system shall [action]. | [検証方法] |
-| REQ-002 | **While** [state], the system shall [behavior]. | [検証方法] |
-| REQ-003 | **If** [error condition], **then** the system shall [recovery]. | [検証方法] |
+| REQ-001 | **When** [trigger], the system shall [action]. | [test or command] |
+| REQ-002 | **While** [state], the system shall [behavior]. | [test or command] |
+| REQ-003 | **If** [error condition], **then** the system shall [recovery]. | [test or command] |
 
 ## Boundary Conditions
 
-| Condition | EARS Requirement |
+| Condition | EARS requirement |
 |-----------|------------------|
-| Minimum / Maximum / Empty / Over-limit / Null | **When** [境界値], the system shall [振る舞い]. |
+| Minimum / maximum / empty / over-limit / null | **When** [boundary], the system shall [behavior]. |
 
 ## Concrete Examples
 
-<!-- 最低 3 つ: happy path / boundary / error。すべて実値で書く -->
-
-### Example 1: Happy Path — [scenario]
+At least three — happy path, boundary, error — all with real values.
 
 ```
-Trigger:      [具体的な操作・入力]
-Pre-state:    [実値]
-Action:       [実値]
-Post-state:   [実値]
-Verification: [確認手順]
+Trigger:      [concrete input]
+Pre-state:    [real values]
+Post-state:   [real values]
+Verification: [how to check]
 ```
 
 ## Acceptance Criteria
 
-<!-- 全 REQ-* を網羅し、ID を対応させる。実値のない条件は書かない -->
-
-- [ ] REQ-001: [実値つきの検証可能な条件]
-- [ ] Boundary: [境界の振る舞いを検証]
-- [ ] [lint / type check / test コマンド] passes
+- [ ] REQ-001: [checkable condition with real values]
+- [ ] Boundary: [boundary behavior verified]
+- [ ] [the repository's check command] passes
 
 ## Not In Scope
 
-<!-- 必須。除外先の所在(別チケット番号 or 理由)を書く -->
-
-- NOT implementing: [除外事項] → #XX が担当
-- NOT handling: [エッジケース] → [将来対応。理由]
+- Not implementing: [excluded work] → #N owns it
+- Not handling: [edge case] → [why it waits]
 
 ## Dependencies
 
-<!-- 表記は必ず "Depends on #N" / "Blocks #N" — 自動化ツールが正規表現で読む。なければ "None" -->
+One per line, exactly `Depends on #N` / `Blocks #N` / `Part of #N` (or the repository's
+own spelling) — automation parses these. `None` when there are none.
 
-- Depends on #XX — [必要なもの: 型 / 関数 / コンポーネント]
-- Blocks #YY — [このチケットの完了を待つもの]
-
-## Worktree (if parallel)
-
-```bash
-git worktree add ../[project]-[area] feature/issue-XX-[slug]
-```
+- Depends on #N — [what it needs from it: a type, a function, a component]
+- Blocks #N — [what waits on this]
 ````
 
-## バリアント(スケルトンからの差分だけ)
+## Variants
 
-- **【基盤】チケット**: Functional Requirements を型・定数・スキーマの仕様表(名前 / フィールド / 制約 / 値と出典)にする。Concrete Examples は使用例コードで代替してよい。作成時点では下流の番号が未確定なので、`Blocks #N` は全チケット作成後に埋め戻す([reference.md](../reference.md) の作成順序)
-- **【依存あり】統合チケット**: Background に統合フロー(A → 変換 → B)を書く。Depends on には「マージ済みであること」を明記し、Not In Scope に「接続対象コンポーネントの内部ロジックは変更しない」を含める
+- **Foundation:** Functional Requirements become specification tables of the types,
+  constants, or schema (name, fields, constraints, values with source); usage code may
+  replace Concrete Examples. `Blocks #N` is backfilled after all issues exist.
+- **Integration:** Background describes the flow being connected (A → transform → B);
+  Depends on lists the merged stream issues; Not In Scope includes "no change to the
+  internals of the connected components".
+- **Tracking parent:** only a goal line, a "done when", and a checklist `- [ ] #N` of
+  its sub-issues; the repository's `tracking` label (or the fallback one) and no tier.

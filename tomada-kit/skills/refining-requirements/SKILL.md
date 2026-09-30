@@ -1,68 +1,77 @@
 ---
 name: refining-requirements
 description: >-
-  Clarify ambiguous requirements through structured questioning and produce detailed,
-  implementation-ready specifications. Acts as PdM to identify unclear points and
-  resolve them through structured questioning. Use when asked to refine or detail a
-  spec, PRD, or app idea. Also trigger when the user is about to start implementing from
-  a vague or incomplete spec, even without an explicit request to refine.
+  Turn a vague app idea or an incomplete spec into a signed-off, implementation-ready
+  requirements document through repeated rounds of structured questioning, acting as
+  the PdM while the user plays the client. Each round also scrutinizes the draft —
+  contradictions, missing flows, unstated edge cases, MVP bloat, conflicts with the
+  template or stack — and turns what it finds into the next questions, until the user
+  signs off. Produces features with concrete values, an explicit MVP / Later /
+  Non-goals split, and cross-cutting rules. Use when asked to refine or detail a spec,
+  PRD, or app idea, when someone describes an app they want built, when implementation
+  is about to start from a vague or incomplete spec, or as stage 1 of kicking-off-apps.
+argument-hint: "[idea or path to spec] [--out path]"
 metadata:
-  platforms: claude-code, codex
+  platforms: claude-code
 ---
 
-# Requirements Refiner
+# Refining Requirements
 
-**After this skill**: Use `designing-wireframes` for UI/UX visualization, then `planning-tickets` for GitHub Issues. Codex differences: [references/platform-notes.md](references/platform-notes.md).
+**Next:** `designing-wireframes` for screens and flows, `ui-ux-designing` for app-wide UX
+policy, then `planning-tickets` for issues — or all of it through `kicking-off-apps`.
 
-## Phase 0: Gather Input (only if no document provided)
+## Modes and output
 
-If the user hasn't provided a requirements document, gather the basics first — present 2-4 options with tradeoffs and a recommendation, wait for the reply — then proceed to Phase 1 using the answers as input:
+- **Hearing** — the input is an idea in the user's words ("an app that…"). Build the
+  document from nothing; the user answers as a client who knows the problem but not
+  the spec.
+- **Refinement** — the input is an existing document. Ask only what it leaves unclear.
 
-- What is the product/feature? (one-line description)
-- Who is the target user and what pain does it solve?
-- What platform? → Mobile app / Web app / API/Backend / CLI / Other
-- Any constraints? (tech stack, MVP scope, deadline)
+Write to the path the caller names (`--out`, or the path `kicking-off-apps` passes);
+otherwise update an existing requirements document in place; otherwise create
+`docs/product/requirements.md`. Structure: [templates/requirements-document.md](templates/requirements-document.md),
+one section per feature from [templates/requirements-section.md](templates/requirements-section.md).
 
-## Phase 1: Classify the platform
+## Before the first question
 
-The platform type controls which question rounds apply in Phase 2:
+Read what already constrains the answer: the repository's or template's `AGENTS.md` /
+`CLAUDE.md` and `README.md`. A template fixes the platform and stack, and its sample
+shows what the app is built from — do not ask about anything they settle, and keep the
+constraints in mind as scrutiny material ("this feature needs a server; the template is
+local-only").
 
-- **Mobile app** → all rounds apply
-- **Web app** → skip Mobile UX (Thumb-Zone, Haptic); adapt Accessibility to keyboard/focus
-- **API/Backend** → skip UI rounds entirely; focus on Business Logic, Error Handling, Data Contracts
-- **CLI** → skip UI rounds; focus on command interface, error output, exit codes
+Classify the platform — desktop (macOS), web, mobile, API/backend, CLI — because it
+decides which question rounds apply ([references/question-bank.md](references/question-bank.md)).
 
-## Phase 2: Question Rounds
+## The loop
 
-Clarify ambiguities in batched rounds of at most 4 questions, grouped by topic, in the same options-with-recommendation format as Phase 0. Ask only what the document leaves unclear — skip any category where it is already specific.
+Repeat until the user signs off:
 
-Ask in this order, skipping rounds that don't apply: Core UI/UX, Mobile UX, Error Handling & Validation, Accessibility, Visual Design, Business Logic, API/Data. Question bank: [references/question-bank.md](references/question-bank.md)
+1. **Ask** one batch through AskUserQuestion — at most 4 questions, grouped by topic,
+   2–4 options each with its trade-off, one marked recommended when there is a real
+   recommendation. Hearing mode starts with the Product and scope round; open
+   questions are fine there when options would put words in the client's mouth.
+2. **Update the document** with the answers: concrete values, defaults, limits,
+   validation rules, edge cases. Record each decision in the Decision log with the
+   rejected alternative.
+3. **Scrutinize the draft** against [references/scrutiny-checklist.md](references/scrutiny-checklist.md).
+   Every finding becomes either a question for the next batch or an explicit entry
+   under Open questions — never a silent assumption.
+4. **Show the delta**: what changed, what the scrutiny found, what the next batch will
+   ask. Ask the user whether to continue or sign off once the checklist finds nothing
+   that changes scope or behavior.
 
-### After Questions: Update the Document
+Scope is part of every round, not the last one. Each MVP feature must trace to the core
+interaction; anything that does not is proposed for Later. Non-goals are written as
+deliberately as goals — what the app will not do even where it would be easy — because
+the next reader will treat an unlisted non-goal as a feature.
 
-Produce or update the requirements document with detailed specs, edge-case handling, default values, and validation rules for each feature, using the [requirements-section.md](templates/requirements-section.md) template. The full document uses this top-level structure:
+When a UX or visual stage follows (the kickoff runs one), skip the question rounds the
+question bank marks as belonging to it; this document records product behavior, not
+styling.
 
-```markdown
-# [Product/Feature Name] — Requirements
+## Sign-off
 
-## 1. Overview
-- Product summary
-- Target user and pain point
-- Platform and tech stack
-
-## 2. Features
-(one section per feature, using requirements-section.md template)
-
-## 3. Cross-Cutting Concerns
-- Error handling strategy
-- Accessibility requirements
-- Loading & feedback patterns
-- Form validation rules
-
-## 4. Out of Scope (MVP)
-- Deferred features with rationale
-```
-
-Section 3 records the decisions from the Error Handling, Accessibility, and Visual Design rounds; `designing-wireframes` later expands them into full specification sections.
-
-Save the document as `requirements.md` in the project root, or update the existing file if one already exists.
+Sign-off is the user saying so, not the loop running out of questions. Set the
+document's status line to `Signed off YYYY-MM-DD`, and leave any remaining Open
+questions with what would settle them.

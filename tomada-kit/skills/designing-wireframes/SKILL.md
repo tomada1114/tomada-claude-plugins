@@ -1,39 +1,55 @@
 ---
 name: designing-wireframes
 description: >-
-  Create ASCII wireframes, user flow diagrams, and cross-cutting specifications for
-  UI/UX visualization. Use when asked for a wireframe, screen layout, screen design, or
-  user flow, or to visualize screens before implementation.
+  Create ASCII wireframes for every screen and window, user flow diagrams, and
+  per-screen states (empty, loading, error) from a requirements document, for desktop
+  (macOS windows, menu-bar popovers, settings), web (responsive app shells), and mobile.
+  Writes into the requirements document in place, or into a separate file the caller
+  names. Use when asked for a wireframe, screen layout, screen design, window layout,
+  or user flow, to visualize screens before implementation, or as the UX stage of
+  kicking-off-apps.
+argument-hint: "[requirements path] [--out path]"
 metadata:
-  platforms: claude-code, codex
+  platforms: claude-code
 ---
 
-# Wireframe Designer
+# Designing Wireframes
 
-**Before this skill**: Use `refining-requirements` to clarify ambiguous requirements.
-**After this skill**: Use `planning-tickets` for GitHub Issues creation.
+**Before:** `refining-requirements`. **Alongside:** `ui-ux-designing` owns app-wide UX
+policy (navigation model, state rules, validation, motion, accessibility targets); this
+skill owns what each screen looks like and how a user moves between them.
+**After:** `planning-tickets`.
 
-Input is a detailed requirements document; output is that same document with wireframes, user flows, and cross-cutting sections added. Edit it in place, section by section, rather than creating a separate file.
+## Input and output
 
-## Step 1: Create ASCII Wireframes
+Input is a requirements document. Output goes to the path the caller names (the kickoff
+passes a separate `ux-flows.md`); with no path, add the wireframes to the requirements
+document in place, section by section.
 
-Create text wireframes (ASCII or box-drawing characters) for each screen in the requirements. Primary actions belong in the reachable bottom zone; destructive or rare actions (settings) go higher up.
+## 1. Screen inventory
 
-[templates/wireframe-patterns.md](templates/wireframe-patterns.md) holds the thumb-zone diagram and example layouts: screen structures, components (progress bars, button grids, lists, settings), modals and overlays, onboarding, toasts, swipe actions, empty states.
+List every screen, window, sheet, and popover the MVP features need, with the feature
+section each serves. Show the list to the user before drawing: a missing or extra
+screen is cheaper to catch here than after twenty diagrams.
 
-## Step 2: Document User Flows
+## 2. Wireframes
 
-Document user flows with numbered steps:
+Draw each screen with ASCII or box-drawing characters, following the platform's
+conventions:
 
-```
-1. User taps button
-2. Bottom Sheet appears with options
-3. User selects option
-4. Record saved -> Toast notification
-5. UI updates with new data
-```
+- **Desktop / web:** [templates/desktop-web-patterns.md](templates/desktop-web-patterns.md) —
+  minimum window size and what collapses first, the shortcut for every primary action,
+  menu-bar placement of every command on macOS, breakpoints on the web.
+- **Mobile:** [templates/mobile-patterns.md](templates/mobile-patterns.md) — primary
+  actions in the reachable bottom zone, destructive and rare actions higher up.
 
-### Flow Diagram Format
+Annotate with real values from the requirements (labels, limits, sizes), and draw the
+empty, loading, and error variants of each screen that has them.
+
+## 3. Flows
+
+One flow per core task, as numbered steps and a diagram that includes the failure
+branch:
 
 ```
 [Start] -> [Screen A] -> [Action] -> [Screen B]
@@ -42,13 +58,14 @@ Document user flows with numbered steps:
            [Error] -> [Retry]
 ```
 
-## Step 3: Add Cross-Cutting Sections (for mobile apps)
+## 4. Cross-cutting behavior
 
-Add all four sections from [templates/cross-cutting-sections.md](templates/cross-cutting-sections.md) — error handling, accessibility, loading and feedback, form validation — filling in the app's real messages, timings, and field rules from the decisions made in `refining-requirements`.
+When a UX guidelines document exists (`docs/design/ux-guidelines.md`, or the one the
+kickoff produced), cite its rules per screen rather than restating them. Without one,
+add the four sections of [templates/cross-cutting-sections.md](templates/cross-cutting-sections.md) —
+error handling, accessibility, loading and feedback, form validation — filled with the
+app's real messages, timings, and field rules.
 
-## Notes
-
-- Annotate wireframes with arrows or comments where the flow isn't obvious from the layout, and cover empty and error states, not only the happy path.
-- Where the requirements leave a UI decision open, default to platform conventions (iOS/Android) and ask the user about decisions that change the layout.
-
-> Codex での両対応に関する補足は [references/platform-notes.md](references/platform-notes.md) を参照。
+Where the requirements leave a layout decision open, default to the platform's
+conventions and ask the user (AskUserQuestion, batched) only about decisions that
+change the layout.

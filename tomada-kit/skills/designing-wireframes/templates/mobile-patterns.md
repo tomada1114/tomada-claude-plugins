@@ -1,6 +1,6 @@
-# Wireframe Patterns
+# Mobile wireframe patterns
 
-Common UI patterns for ASCII wireframes.
+Patterns for phone apps. Desktop and web layouts: desktop-web-patterns.md.
 
 ## Thumb-Zone Design
 

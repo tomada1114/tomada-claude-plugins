@@ -3,12 +3,13 @@
 
 Purpose
 -------
-Design-concept documents produced by the ui-ux-designing skill used to carry
-hand-written contrast ratios that were sometimes wrong (e.g. #71717A on
-#0A0A0B was once listed as 4.6:1; the real value is 4.09:1). This script
-makes the check deterministic: once a palette is chosen, run every
+Design documents used to carry hand-written contrast ratios that were
+sometimes wrong (e.g. #71717A on #0A0A0B was once listed as 4.6:1; the real
+value is 4.09:1). This script makes the check deterministic: once a palette
+is chosen -- by whatever skill or person owns it -- run every
 foreground/background pair through it and paste the result into the
-document instead of computing ratios by hand.
+document instead of computing ratios by hand. It is the contrast pass of
+the ui-ux-designing skill.
 
 Supported color formats
 ------------------------

@@ -1,250 +1,220 @@
-# 汎用の質問データ（Phase 3 / Phase 4）
+# Core question bank (Rounds 1–3)
 
-質問設計の原則（選択肢の数、トレードオフ、`（推奨）`、1ラウンドの問数）は `../SKILL.md` の「質問設計の原則」を参照する。このファイルは Phase 3・Phase 4 で使う質問データ本体。アプリタイプ固有の追加質問は `questions-app-type.md` にある。
+Question data for the app-wide UX rounds. The rules for asking (option count, trade-offs, one `(Recommended)`, batch size) are in SKILL.md § Asking questions. App-type questions for Round 4 are in `questions-app-type.md`.
 
-## 目次
+Every JSON block is an AskUserQuestion question as-is. Translate `question`, `label`, and `description` into the user's language at runtime when the conversation is in another language; keep the meaning and the trade-off in each description. Move `(Recommended)` to a different option when the product's inputs point elsewhere, and drop it when nothing is clearly better.
 
-- [平文で提示する場合](#平文で提示する場合)
-- [Phase 3: 方向性の質問（汎用・必須）](#phase-3-方向性の質問汎用必須)
-- [Phase 4: 詳細の質問（汎用・必須）](#phase-4-詳細の質問汎用必須)
-- [質問ラウンドの組み立て](#質問ラウンドの組み立て)
+## Contents
 
-## 平文で提示する場合
+- [Round plan](#round-plan)
+- [Round 1 — Structure](#round-1--structure)
+- [Round 2 — States and feedback](#round-2--states-and-feedback)
+- [Round 3 — Input, motion, language, accessibility](#round-3--input-motion-language-accessibility)
 
-以下の質問はすべて JSON で書いてある。選択肢提示の仕組みを持たないホストでは、`question` を質問文、`options[].label` + `description` を番号付き行、推奨があれば末尾に「（推奨: N）」として平文化する。変換例は1つだけ示す。以降の JSON に平文版は用意しない。
+## Round plan
 
-```
-テーマ（ライト/ダーク）の方針はどうしますか？
-1. 両対応 + OS連動 — color-scheme と light-dark() で最初から両モードを設計する。後付けは全トークンの見直しになる
-2. 両対応 + アプリ内トグル — OS連動に加えて手動切替。設定の永続化と、切替時のちらつき対策が要る
-3. 片方のみ（ライト固定 / ダーク固定） — 検証すべき組み合わせが半分になるが、後から両対応にする際のコストが大きい
-（推奨: 1）
-```
-
-## Phase 3: 方向性の質問（汎用・必須）
-
-### ブランドパーソナリティ
-
-粒度の粗い「プロフェッショナル / フレンドリー」の3択ではなく、形容詞ペアの軸で聞く。理由: 軸ごとにどのトークンへ効くかが決まるので、回答がそのまま実装値に落ちる。各軸で寄っている側を選ばせ、選ばれなかった軸は中央として扱う。
-
-```json
-{
-  "question": "ブランドの性格を決めます。各軸で寄っている側を選んでください（複数選択）",
-  "header": "性格",
-  "options": [
-    { "label": "静か ↔ 主張が強い", "description": "彩度・コントラスト・見出しサイズに効く。主張側は目を引くが、長時間の利用では疲れやすい" },
-    { "label": "端正 ↔ 遊びがある", "description": "--radius の大きさ、イラストの有無、モーション量に効く。遊び側は親しみが出るが、業務文脈では軽く見える" },
-    { "label": "密 ↔ ゆとり", "description": "--space スケールの基準値と1画面の情報量に効く。密側は一覧性が高いが、認知負荷も上がる" },
-    { "label": "伝統的 ↔ 実験的", "description": "既存パターンに従うか独自パターンを作るか。実験側は差別化できるが、学習コストと実装コストを負う" }
-  ],
-  "multiSelect": true
-}
-```
-
-### デザインシステムのベースライン
-
-Phase 1 で確認した技術スタックから下敷きを推論し、確認を1問で済ませる。理由: ゼロから体系を発明するより既存システムのトークンを差し替えるほうが速く、後続の実装セッションにとって「何に準拠するか」が最も強い指示になる。`（推奨）` は推論した選択肢へ付け替えて提示する。
-
-```json
-{
-  "question": "下敷きにするデザインシステム/コンポーネント基盤はどれにしますか？（技術スタックから推定済み。確認してください）",
-  "header": "基盤",
-  "options": [
-    { "label": "shadcn/ui + Radix + Tailwind v4（推奨）", "description": "Web/React 向け。コードを自リポジトリに持つ方式で、アクセシビリティは Radix が担保する。トークンは CSS カスタムプロパティで差し替え自由だが、更新は手動で追従する" },
-    { "label": "Material 3 Expressive", "description": "Android/クロスプラットフォーム向け。動的カラー・モーション・形状の体系が完成していて判断コストが小さいが、既定のままだと Google 製品らしさが出る" },
-    { "label": "Apple HIG（Liquid Glass）", "description": "iOS/macOS ネイティブ向け。OS に馴染むが、iOS 26 以降の半透明素材が前提で、ガラス面上のテキストはコントラストを個別に検証する必要がある" },
-    { "label": "独自", "description": "既存のブランドガイドがある場合のみ。プリミティブ層から設計するので工数が最大になる" }
-  ]
-}
-```
-
-### テーマ方針
-
-```json
-{
-  "question": "テーマ（ライト/ダーク）の方針はどうしますか？",
-  "header": "テーマ",
-  "options": [
-    { "label": "両対応 + OS連動（推奨）", "description": "color-scheme: light dark と light-dark() で最初から両モードを設計する。Baseline に入っており追加コストは小さいが、後付けは全トークンの見直しになる" },
-    { "label": "両対応 + アプリ内トグル", "description": "OS連動に加えて手動切替を提供する。[data-theme] で color-scheme を上書きする。設定の永続化と初回描画のちらつき対策が要る" },
-    { "label": "片方のみ（ライト固定 / ダーク固定）", "description": "検証すべき組み合わせが半分になるが、後から両対応にするコストが大きい。ブランド上の理由がある場合に限り、その理由を記録する" }
-  ]
-}
-```
-
-片方のみを選んだ場合は、理由を design-concept に明記する。理由: 記録が無いと後続セッションが単なる実装漏れと判断して勝手に両対応化する。
-
-### アクセントカラー
-
-```json
-{
-  "question": "アクセントカラーの色相はどれにしますか？（「性格」で選んだ軸と整合させる）",
-  "header": "アクセント",
-  "options": [
-    { "label": "ブルー〜シアン系", "description": "「静か」「伝統的」寄りに合う。信頼感が出るが、テック製品で最も飽和した色域なので差別化はしにくい" },
-    { "label": "グリーン〜ティール系", "description": "「静か」「端正」寄り。成長・完了の含意がある。--color-success と色相が近いと状態色と混同されるので、色相を30度以上離す" },
-    { "label": "パープル〜バイオレット系", "description": "「実験的」「遊びがある」寄り。差別化しやすいが、暗い背景では彩度を落とさないと滲んで見える" },
-    { "label": "オレンジ〜レッド系", "description": "「主張が強い」寄り。注意を引くが、--color-danger と衝突しやすいので色相を離し、破壊的操作と見分けられるようにする" }
-  ]
-}
-```
-
-### 情報密度
-
-```json
-{
-  "question": "1画面あたりの情報密度はどれにしますか？（「密 ↔ ゆとり」軸の具体化）",
-  "header": "密度",
-  "options": [
-    { "label": "コンパクト", "description": "行の最小高さ32px前後、--space-2 主体。一覧で多くの行を見せられるが、タップ標的が小さくモバイルで誤タップが増える" },
-    { "label": "標準（推奨）", "description": "行の最小高さ40px前後、--space-3 主体。主要UIライブラリの既定値に近く、両方向へ調整する余地が残る" },
-    { "label": "ゆったり", "description": "行の最小高さ48px以上、--space-4〜6 主体。読み物や初心者向けに向くが、スクロール量が増えて全体像を掴みにくい" }
-  ]
-}
-```
-
-## Phase 4: 詳細の質問（汎用・必須）
-
-### ナビゲーションモデル
-
-```json
-{
-  "question": "主要ナビゲーションの構造はどれにしますか？",
-  "header": "ナビ",
-  "options": [
-    { "label": "ボトムタブ（3〜5）", "description": "モバイル前提。片手操作に強いが、主要機能が5つを超えると入りきらず「その他」タブが必要になる" },
-    { "label": "左サイドバー", "description": "デスクトップ/情報量が多い場合。階層とフィルタを常時見せられるが、横幅を常に消費しモバイルでは折りたたみが要る" },
-    { "label": "ハブ&スポーク（ホーム起点）", "description": "機能が疎で、都度ホームへ戻る前提のとき。画面間の移動が2ステップになる" },
-    { "label": "コマンドパレット中心", "description": "習熟ユーザー向けツール。キーボード駆動で速いが、GUIを補助に落とすと初見ユーザーが機能を発見できない" }
-  ]
-}
-```
-
-### モーション量
-
-```json
-{
-  "question": "アニメーション/マイクロインタラクションの量はどうしますか？",
-  "header": "モーション",
-  "options": [
-    { "label": "控えめ（推奨）", "description": "画面遷移と状態変化のみ。--motion-duration-fast/base に収める。低スペック端末でも破綻しないが、体験の記憶に残りにくい" },
-    { "label": "適度", "description": "ボタン押下、数値カウントアップ、リスト項目の入退場を追加する。実装量と検証対象が増える" },
-    { "label": "積極的", "description": "画面遷移の演出や共有要素トランジションまで作り込む。差別化できるが、フレーム落ちが目立つと逆効果になる" }
-  ]
-}
-```
-
-どれを選んでも `prefers-reduced-motion: reduce` での代替（透明度のみ、または即時切替）を design-system に書く。理由: 前庭障害のあるユーザーには動き自体が症状を誘発する。
-
-### プラットフォーム規約
-
-```json
-{
-  "question": "対象プラットフォームはどれですか？（複数選択）",
-  "header": "PF",
-  "options": [
-    { "label": "Web（レスポンシブ）", "description": "ブラウザの戻る操作とURLが状態を持つ前提。モーダルの深い入れ子は履歴と噛み合わなくなる" },
-    { "label": "iOS", "description": "Apple HIG に従う。エッジスワイプの戻る、セーフエリア、Dynamic Type への追従が必須要件になる" },
-    { "label": "Android", "description": "Material 3 に従う。予測型戻るジェスチャ、エッジツーエッジ描画、多様な画面比への対応が要る" },
-    { "label": "デスクトップアプリ", "description": "キーボードショートカット、複数ウィンドウ、メニューバーが期待される。Web版と同じUIを流用すると操作が遅く感じられる" }
-  ],
-  "multiSelect": true
-}
-```
-
-### デバイス優先度
-
-```json
-{
-  "question": "設計の起点はどのデバイス幅にしますか？",
-  "header": "デバイス",
-  "options": [
-    { "label": "モバイルファースト", "description": "狭い幅から設計し、広い幅へ拡張する。優先順位付けが強制されるが、デスクトップで余白が間延びしやすい" },
-    { "label": "デスクトップファースト", "description": "情報量の多い画面から設計する。業務ツール向き。モバイルへの縮退で機能を削る判断が後回しになりがち" },
-    { "label": "同等", "description": "両方の主要画面を並行して設計する。品質は高いが、Phase 5 の成果物量が倍になる" }
-  ]
-}
-```
-
-### 状態設計（空・読み込み・エラー・オフライン・権限拒否）
-
-「初回でデータ無し / 検索結果ゼロ / フィルタ結果ゼロ / 取得失敗 / オフライン / 権限なし」は別物として個別に設計する。理由: 同じ「何も無い画面」に見えても、ユーザーが次に取るべき行動が全部違う。
-
-```json
-{
-  "question": "空状態（データが無い画面）の方針はどうしますか？",
-  "header": "空状態",
-  "options": [
-    { "label": "オンボーディング型（推奨）", "description": "何ができるかの説明 + 最初のアクションのCTA。初回体験を兼ねられるが、2回目以降も同じ画面が出ると冗長に感じる" },
-    { "label": "簡素", "description": "短い一文のみ。既に使い方を知っているユーザーには速いが、初見では手詰まりになる" },
-    { "label": "サンプルデータ", "description": "ダミー行を薄く表示して形を見せる。完成像が伝わるが、実データと誤認して操作されるリスクがある" }
-  ]
-}
-```
-
-```json
-{
-  "question": "読み込み中の表示はどうしますか？",
-  "header": "読み込み",
-  "options": [
-    { "label": "スケルトン（推奨）", "description": "確定するレイアウトの形をプレースホルダで見せる。描画後のガタつきが無いが、実レイアウトと形を合わせる保守が要る" },
-    { "label": "スピナー", "description": "実装が最も軽い。ただし完了時にレイアウトが跳ねやすく、長い待ちでは進捗が分からない" },
-    { "label": "プログレスバー", "description": "残り時間が推定できる処理向け。推定できない処理に使うと止まって見えて不信を招く" }
-  ]
-}
-```
-
-```json
-{
-  "question": "エラー・オフライン・権限拒否の伝え方はどうしますか？",
-  "header": "エラー",
-  "options": [
-    { "label": "重大度で使い分け（推奨）", "description": "入力エラーはインライン、一時的な失敗はToast、続行不能な状態は画面全体で伝える。設計する型は増えるが、ユーザーの操作を止める回数が最小になる" },
-    { "label": "Toastに統一", "description": "実装が単純。ただし自動で消えるため、再操作が必要なエラーを見落とす" },
-    { "label": "モーダルに統一", "description": "見落とされないが、軽微なエラーでも操作を中断させるため頻発すると強く嫌われる" }
-  ]
-}
-```
-
-### UI言語と国際化
-
-```json
-{
-  "question": "UIの表示言語はどこまで対応しますか？",
-  "header": "UI言語",
-  "options": [
-    { "label": "単一言語（固定）", "description": "レイアウトを実測値で詰められる。ただし後から言語を足すとボタン幅と行折り返しの作り直しが発生する" },
-    { "label": "複数言語（LTRのみ）", "description": "言語切替UIと文字列外部化が要る。文字列伸長を見込んで固定幅のボタンを作らない（日本語→ドイツ語で+35%、日本語→英語で+50%を想定する）" },
-    { "label": "複数言語（RTLを含む）", "description": "左右の概念が反転するため、margin-inline-start などの論理プロパティで全レイアウトを書き、アイコンの向きも反転対象を選別する。検証コストが最も高い" }
-  ]
-}
-```
-
-どれを選んでも、数値・日付・通貨は `Intl` に委ね、UIに生の書式を書かない。理由: 単一言語のつもりでも地域設定は端末側で変わる。
-
-### ゲスト状態とログイン前後の画面
-
-認証方式そのもの（プロバイダ、必須か任意か）は要件定義の領分なので聞かない。ここで確認するのは、設計すべき画面が増えるかどうかだけ。
-
-```json
-{
-  "question": "ログイン状態によって見せる画面は変わりますか？",
-  "header": "ゲスト状態",
-  "options": [
-    { "label": "ゲストで主要機能まで試せる", "description": "未ログインでも動く画面を一通り作る。導入の障壁は最も低いが、各画面に保存・同期を促す導線と、ログイン後のデータ引き継ぎ表現が要る" },
-    { "label": "閲覧はゲスト、書き込みでログイン", "description": "書き込み操作の直前にログインを挟む。中断からの復帰（元の操作へ戻す）を設計する必要がある" },
-    { "label": "全画面がログイン後", "description": "ログイン前はサインイン画面のみ。設計する画面は最小だが、初回訪問者に価値を伝える面が別途要る" }
-  ]
-}
-```
-
-## 質問ラウンドの組み立て
-
-| ラウンド | 質問 | ねらい |
+| Round | Questions | What it settles |
 |---|---|---|
-| 1（方向性） | ブランドパーソナリティ / デザインシステムのベースライン / テーマ方針 / アクセントカラー | トークンの値域を確定させる |
-| 2（骨格） | 情報密度 / ナビゲーションモデル / プラットフォーム規約 / デバイス優先度 | 画面の器と余白スケールを確定させる |
-| 3（振る舞い） | モーション量 / 空状態 / 読み込み / エラー・オフライン・権限拒否 | 実装時に判断が割れる箇所を潰す |
-| 4（該当時のみ） | UI言語と国際化 / ゲスト状態 + `questions-app-type.md` の該当タイプ | プロダクトに該当するものだけを聞く |
+| 1 Structure | Navigation model / Platform conventions / Device priority / Signed-out states | The container every screen lives in |
+| 2 States and feedback | Empty states / Loading / Errors, offline, permission denied / Action feedback | The places implementation sessions otherwise improvise |
+| 3 Input, motion, language, a11y | Form validation / Motion amount / UI language / Accessibility target | Rules every form, transition, and string follows |
+| 4 App type (when it applies) | From `questions-app-type.md` or built from the app-type pattern files | Type-specific behavior |
 
-ラウンド4は、プロダクトに関係しない項目を落として3問以下にしてよい。理由: 該当しない質問を聞くと、回答が実装上の意味を持たないまま design-concept に残る。
+Drop any question whose answer is already in the inputs (requirements, UX flows, template constraints) or that does not apply — a round of two questions is fine. Why: an answer that changes no implementation value still lands in the document and reads as a decision.
+
+## Round 1 — Structure
+
+### Navigation model
+
+```json
+{
+  "question": "What structure should primary navigation use?",
+  "header": "Navigation",
+  "options": [
+    { "label": "Bottom tabs (3–5)", "description": "Mobile-first and strong for one-handed use. Past five top-level features it needs a 'More' tab that hides things." },
+    { "label": "Left sidebar", "description": "Desktop or information-heavy apps. Hierarchy and filters stay visible, but it always costs width and must collapse on mobile." },
+    { "label": "Hub and spoke (home first)", "description": "Sparse features where users return home between tasks. Moving between features takes two steps." },
+    { "label": "Command palette first", "description": "Tools for practiced users: fast and keyboard-driven. If the GUI becomes secondary, first-time users cannot discover features." }
+  ]
+}
+```
+
+### Platform conventions
+
+```json
+{
+  "question": "Which platforms does the app target? (multi-select)",
+  "header": "Platforms",
+  "options": [
+    { "label": "Web (responsive)", "description": "Browser back and the URL carry state. Deeply nested modals stop matching history." },
+    { "label": "iOS / iPadOS", "description": "Apple HIG: edge-swipe back, safe areas, and Dynamic Type become hard requirements." },
+    { "label": "Android", "description": "Material conventions: predictive back, edge-to-edge drawing, many aspect ratios." },
+    { "label": "macOS desktop", "description": "Apple HIG for Mac: menu bar with every command, keyboard shortcuts, multiple windows, Settings on Cmd+,. A web UI reused as-is feels slow here." }
+  ],
+  "multiSelect": true
+}
+```
+
+Write the per-platform consequences into the document (back behavior, shortcut set, window model, safe areas, text scaling), not only the platform names.
+
+### Device priority
+
+```json
+{
+  "question": "Which width should design start from?",
+  "header": "Device",
+  "options": [
+    { "label": "Mobile first", "description": "Design narrow, then expand. Forces prioritization, but desktop layouts tend to feel stretched." },
+    { "label": "Desktop first", "description": "Start from the information-heavy view; suits work tools. Decisions about what to cut on mobile get postponed." },
+    { "label": "Equal weight", "description": "Design the key screens at both widths in parallel. Highest quality, twice the specification work." }
+  ]
+}
+```
+
+Skip this for single-platform native apps.
+
+### Signed-out states
+
+The authentication method itself (providers, required or optional) belongs to requirements; ask only whether it adds screens.
+
+```json
+{
+  "question": "Does what the user sees depend on being signed in?",
+  "header": "Guest",
+  "options": [
+    { "label": "Guests can try core features", "description": "Every core screen works signed out. Lowest barrier, but each screen needs a prompt to save or sync and a story for carrying data over after sign-in." },
+    { "label": "Browse as guest, sign in to write", "description": "Sign-in interrupts the first write action. The interrupted action must resume after sign-in." },
+    { "label": "Everything after sign-in", "description": "Only a sign-in screen before login. Fewest screens, but first-time visitors need a separate surface that explains the value." }
+  ]
+}
+```
+
+Skip when the app has no accounts.
+
+## Round 2 — States and feedback
+
+Design these as separate states: first-run empty, no search results, filtered to zero, load failed, offline, and permission denied (OS permission and authorization). Why: each looks like "nothing here", but the next action differs in every case.
+
+### Empty states
+
+```json
+{
+  "question": "How should screens with no data look?",
+  "header": "Empty",
+  "options": [
+    { "label": "Onboarding style (Recommended)", "description": "Explain what the screen is for plus one call to action. Doubles as first-run guidance, but feels repetitive if it shows every time." },
+    { "label": "Minimal", "description": "One short sentence. Fast for users who know the app; a dead end for first-time users." },
+    { "label": "Sample data", "description": "Faint placeholder rows show the shape of the result. Communicates the end state, but risks being mistaken for real data." }
+  ]
+}
+```
+
+### Loading
+
+```json
+{
+  "question": "How should loading be shown?",
+  "header": "Loading",
+  "options": [
+    { "label": "Skeletons (Recommended)", "description": "Placeholders in the final layout's shape; no layout jump on arrival. The skeleton must be kept in sync with the real layout." },
+    { "label": "Spinner", "description": "Lightest to build. The layout tends to jump on completion and long waits show no progress." },
+    { "label": "Progress bar", "description": "For work whose remaining time can be estimated. On work that cannot, it looks stalled and erodes trust." }
+  ]
+}
+```
+
+Whatever the choice, record the timing thresholds (defaults: show nothing for waits under 300 ms, show the indicator after 300 ms and keep it at least 500 ms once shown, add a text explanation or cancel after 10 s).
+
+### Errors, offline, permission denied
+
+```json
+{
+  "question": "How should errors, offline, and permission-denied states be communicated?",
+  "header": "Errors",
+  "options": [
+    { "label": "By severity (Recommended)", "description": "Input errors inline, transient failures as a toast, blocking states full-screen. More patterns to design, fewest interruptions for the user." },
+    { "label": "Toast for everything", "description": "Simple to build. Toasts disappear, so errors that need the user to act again get missed." },
+    { "label": "Modal for everything", "description": "Never missed, but interrupts even for minor errors and is strongly disliked when frequent." }
+  ]
+}
+```
+
+### Action feedback
+
+```json
+{
+  "question": "How should the app respond when the user changes or deletes something?",
+  "header": "Feedback",
+  "options": [
+    { "label": "Optimistic + undo (Recommended)", "description": "Apply immediately, roll back with a message on failure; destructive actions show an undo toast instead of a confirm dialog. Fast, but every mutation needs a rollback path. Irreversible actions (payment, publish, permanent delete) still confirm." },
+    { "label": "Wait for the server", "description": "Show a pending state until the server confirms. Simplest to reason about; feels slow on poor networks." },
+    { "label": "Confirm dialogs", "description": "Ask before every destructive action. Easy to build, but users learn to click through and the dialog stops protecting them." }
+  ]
+}
+```
+
+## Round 3 — Input, motion, language, accessibility
+
+### Form validation
+
+```json
+{
+  "question": "When should form fields be validated?",
+  "header": "Validation",
+  "options": [
+    { "label": "On blur, then live (Recommended)", "description": "Validate a field when the user leaves it; once it shows an error, re-validate on each keystroke so the error clears as soon as it is fixed. Submit validates everything. Balanced, slightly more state per field." },
+    { "label": "On submit only", "description": "Nothing interrupts typing. Long forms return a batch of errors at the end." },
+    { "label": "Live while typing", "description": "Immediate feedback, but shows errors before the user has finished (an email is 'invalid' until the @)." }
+  ]
+}
+```
+
+Whatever the choice, record: where errors appear (below the field, linked with `aria-describedby`), what happens on a failed submit (focus moves to the first invalid field or an error summary), how required and optional fields are marked, that the submit button stays enabled, and that input is never cleared on error.
+
+### Motion amount
+
+```json
+{
+  "question": "How much animation and micro-interaction should the app have?",
+  "header": "Motion",
+  "options": [
+    { "label": "Restrained (Recommended)", "description": "Screen transitions and state changes only, within 100–200 ms. Never breaks on low-end devices; less memorable." },
+    { "label": "Moderate", "description": "Adds press feedback, count-ups, list item enter/exit. More to build and to test." },
+    { "label": "Expressive", "description": "Choreographed transitions and shared-element animation. Distinctive, but dropped frames make it worse than none." }
+  ]
+}
+```
+
+Whatever the choice, record the reduced-motion substitute (fade or instant change) for every animation. Why: for users with vestibular disorders, the motion itself triggers symptoms.
+
+### UI language and i18n
+
+```json
+{
+  "question": "Which UI languages should the app support?",
+  "header": "Language",
+  "options": [
+    { "label": "One fixed language", "description": "Layouts can be tuned to measured text. Adding a language later means reworking button widths and line wrapping." },
+    { "label": "Several languages, LTR only", "description": "Needs a language switcher and externalized strings. No fixed-width buttons: budget +35% (to German) and +50% (Japanese to English) text expansion." },
+    { "label": "Several languages including RTL", "description": "Left and right flip: all layout in logical properties (margin-inline-start), and icons chosen per whether they mirror. Highest test cost." }
+  ]
+}
+```
+
+Whatever the choice, numbers, dates, and currency go through `Intl` (or the platform formatter), never hand-written formats. Why: the device locale changes formatting even in a single-language app. Also settle the UI copy register and the glossary (see the template's UI copy section).
+
+### Accessibility target
+
+```json
+{
+  "question": "Which accessibility target should the app commit to?",
+  "header": "A11y target",
+  "options": [
+    { "label": "AA + focus ring (Recommended)", "description": "WCAG 2.2 AA — the legal floor (EAA, JIS X 8341-3) — plus the AAA focus-ring rule 2.4.13, which is cheap if decided now and inconsistent if added later." },
+    { "label": "AA only", "description": "WCAG 2.2 AA. Meets audits. Focus rings may end up differing per component." },
+    { "label": "AA + selected AAA", "description": "For public-sector, health, or education audiences. Adds 7:1 body-text contrast and stricter focus visibility; constrains the palette owner." }
+  ]
+}
+```
+
+After this answer, fill the accessibility targets table from `accessibility.md` with concrete values (focus ring width and offset, minimum target size, keyboard rules, live-region policy, color-vision rule).

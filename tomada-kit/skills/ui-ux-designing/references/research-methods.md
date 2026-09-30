@@ -1,173 +1,139 @@
-# 競合/人気アプリ調査手法
+# Competitor UX research
 
-Phase 2 の調査手順。目的は「良さそうなアプリを列挙する」ことではなく、**Phase 3 の方向性選択肢を組み立てられる材料**を作ること。出力の「調査サマリー」はそのままユーザーにも共有する。
+How to research competitors' flows, navigation, and state handling. The goal is not a list of nice-looking apps but the material the question rounds are built from. Visual style research (palettes, typography, look and feel) is out of scope: `refero-design` does it.
 
-調査をサブエージェントに委譲する場合、このファイルが委譲先の作業手順と出力契約になる。委譲プロンプトの雛形は `agents/research-competitors.md`。
+When research is delegated, this file is the sub-agent's procedure and output contract; the prompt template is `agents/research-competitors.md`.
 
-## 目次
+## Contents
 
-- [調査の3段構成](#調査の3段構成)
-- [検索クエリパターン](#検索クエリパターン)
-- [調査対象の選び方](#調査対象の選び方)
-- [調査結果のユーザーへの共有](#調査結果のユーザーへの共有)
-- [参考リソース](#参考リソース)
-
----
-
-## 調査の3段構成
-
-順番を守る。理由: 競合を先に見ると、競合のUIがそのまま要件になってしまう。
-
-### Step 1: Jobs to Be Done を言語化する（競合を見る前）
-
-対象ユーザーについて「[状況]のとき、[動機]したいので、[期待する結果]を得たい」の形で3〜5個書く。以降の評価はすべて「そのJobが片付くか」で判定する。
-
-```markdown
-### Jobs to Be Done
-1. [通勤中に片手で]、[今日やることを確認したい]ので、[開いて3秒で次の1件が分かる]
-2. ...
-```
-
-Phase 1 で確定した対象ユーザー像から書く。ここで書けないなら、調査ではなく要件確認に戻る。
-
-### Step 2: 同じ3〜4フローを競合横断で比較する
-
-Step 1 のJobに対応する主要フローを3〜4本選び、**全競合で同じフロー**を辿る。比較単位は画面単体ではなく、フロー全体のステップ数と、各ステップで何をしているか。
-
-フローの選び方: 「初回登録→最初の成果」は必ず入れる。残りは Job の上位2〜3個に対応するもの（例: 検索→比較→決定、作成→共有）。
-
-| フロー | ステップ数 | 競合A | 競合B | 競合C | 示唆 |
-|--------|-----------|-------|-------|-------|------|
-| 初回登録→最初の成果 | A:5 / B:3 / C:7 | 各ステップで何を要求/提示しているか | | | 自プロダクトはどうするか |
-| （主要タスク） | | | | | |
-
-各ステップについて記録するもの: 画面数 / 入力を求める項目 / 離脱しやすい地点（許可要求・登録・決済）/ 戻れるか。
-
-実機で辿れる場合は実機を優先する。記事だけで書いた行は、その旨を明記する。理由: レビュー記事の多くは実際のUIを見ずに書かれている。
-
-### Step 3: 固定ルーブリックでヒューリスティック評価する
-
-各競合を6観点 × 1〜5点で採点する。ユーザー調査なしで実施でき、主観の羅列を比較可能な形に変える。観点は増やさない。理由: 観点が増えるほど採点が雑になり、比較に使えなくなる。
-
-| 観点 | 1点の状態 | 5点の状態 |
-|------|----------|----------|
-| ナビゲーションの明快さ | 現在地が分からない | 常に現在地と戻り先が分かる |
-| 情報構造とラベル | 用語が画面ごとに違う | 一貫した語彙、推測が要らない |
-| フィードバックと状態表示 | 操作の結果が分からない | 進行中・完了・失敗が即座に分かる |
-| エラー処理と回復 | エラー文だけで手が止まる | 原因と次の行動が書かれている |
-| 空状態と初回体験 | 空白のまま放置される | 次に何をするかが書かれている |
-| アクセシビリティと信頼の手がかり | 色のみの区別、料金や条件が不明 | 色以外の手がかり、条件の事前提示 |
-
-```markdown
-| 観点 | 競合A | 競合B | 競合C | 自プロダクトの方針 |
-|------|-------|-------|-------|------------------|
-| ナビゲーションの明快さ | 4 | 2 | 3 | ... |
-```
-
-点数だけを書かない。各セルに「なぜその点か」を1行添える。
+- [Three steps](#three-steps)
+- [Choosing what to study](#choosing-what-to-study)
+- [Search queries](#search-queries)
+- [Summary format](#summary-format)
+- [Sources](#sources)
 
 ---
 
-## 検索クエリパターン
+## Three steps
 
-`{現在の年}` は実行時の西暦に置き換える。`[App Name]` `[app type]` も同様に埋める。
+Keep the order. Why: looking at competitors first turns their UI into the requirements.
 
-### アプリ固有
+### Step 1: Jobs to be done (before looking at competitors)
+
+Write 3–5 jobs for the target user in the form "When [situation], I want to [motivation], so I can [expected outcome]". Judge everything after this by whether the job gets done.
+
+```markdown
+### Jobs to be done
+1. When [commuting, one hand free], I want to [see what's next today], so I can [know the next item within 3 seconds of opening]
+```
+
+Write them from the confirmed target user. If they cannot be written, the gap is in requirements, not research — stop and say so.
+
+### Step 2: The same 3–4 flows across every competitor
+
+Pick 3–4 flows that serve the jobs and walk **the same flows in every competitor**. The unit of comparison is the whole flow — step count and what each step does — not individual screens.
+
+Always include "first launch → first success". The rest map to the top 2–3 jobs (e.g. search → compare → decide, create → share).
+
+| Flow | Steps | Competitor A | Competitor B | Competitor C | Implication |
+|---|---|---|---|---|---|
+| First launch → first success | A:5 / B:3 / C:7 | What each step asks for or shows | | | What this product does |
+
+Record per step: screen count / fields requested / likely drop-off points (permission prompts, sign-up, payment) / whether the user can go back.
+
+Prefer hands-on use. Mark rows written only from articles or screenshots. Why: many reviews are written without using the UI.
+
+### Step 3: Heuristic scoring on a fixed rubric
+
+Score each competitor 1–5 on six criteria. Do not add criteria. Why: more criteria make the scoring sloppier and the comparison useless.
+
+| Criterion | 1 | 5 |
+|---|---|---|
+| Navigation clarity | Current location unclear | Location and way back always clear |
+| Information structure and labels | Terms change between screens | Consistent vocabulary, no guessing |
+| Feedback and status | Result of an action unclear | In progress / done / failed visible at once |
+| Error handling and recovery | Error text stops the user | Cause and next action stated |
+| Empty states and first run | Blank screen | Says what to do next |
+| Accessibility and trust cues | Color-only distinctions, unclear pricing or terms | Non-color cues, terms shown up front |
+
+Give every score a one-line reason.
+
+---
+
+## Choosing what to study
+
+The main session picks at least three products; the sub-agent never swaps them. Candidates come from the "Reference products" tables in `app-type-ux-patterns.md` / `app-type-ux-patterns-verticals.md`, plus real products close to the target user. Products marked as observed anti-examples are studied for what to avoid.
+
+---
+
+## Search queries
+
+Replace `{year}` with the current year at run time; fill `[App Name]` and `[app type]`.
 
 ```
-"[App Name] UI UX design review {現在の年}"
 "[App Name] onboarding flow screens"
-"[App Name] user experience critique"
-"[App Name] app design case study"
-```
-
-### アプリタイプ
-
-```
-"best [app type] app UX patterns {現在の年}"
+"[App Name] user experience critique {year}"
+"[App Name] app UX case study"
 "[app type] onboarding flow comparison"
-"[app type] interface design best practices"
-```
-
-### 競合比較
-
-```
+"best [app type] app UX patterns {year}"
 "[App A] vs [App B] UX comparison"
-"alternatives to [App Name] better UX"
 ```
 
-### 記事の採否
-
-ヒットした記事は公開日を確認する。**2年以上前の「トレンド」記事は根拠として採用しない**（原則・ガイドラインの一次情報はこの制限の対象外）。理由: トレンド記事は当時の流行を書いたもので、現在の実装水準とずれる。
-
-日付が無い記事、実際の画面に触れていない記事、アフィリエイト目的の一覧記事は、根拠に使わない。
+Check each article's date. Do not use "trend" articles older than two years as evidence (primary guidelines are exempt). Do not use undated articles, articles that never show the actual UI, or affiliate listicles.
 
 ---
 
-## 調査対象の選び方
+## Summary format
 
-Phase 2 の対象は本体セッション側で3つ以上選ぶ。候補は `app-type-ux-patterns.md` / `app-type-ux-patterns-verticals.md` の各節にある「参考プロダクト」表から取るか、対象ユーザーに近い実プロダクトを足す。「観察対象」と書かれたものは手本ではなく回避例として見る。
-
----
-
-## 調査結果のユーザーへの共有
-
-調査の成果物は次の1ドキュメントに集約する。**節名と順序はこのとおりにする**。理由: Phase 3 がこの節名で参照し、委譲した場合の出力契約にもなる。
+Everything goes into one summary with **these section names in this order** — the main session and the delegation contract both depend on them.
 
 ```markdown
-## 調査サマリー
+## UX research summary
 
-### 対象と前提
-- プロダクト概要 / 対象ユーザー / アプリタイプ / 調査した競合3つ以上
-- 実機で確認したもの、記事のみで判断したものを区別して書く
+### Scope and assumptions
+- Product / target user / app type / competitors studied (3+)
+- Which were used hands-on and which were judged from articles only
 
-### Jobs to Be Done
-1. [状況]のとき、[動機]したいので、[期待する結果]を得たい
-（3〜5個）
+### Jobs to be done
+1. When [situation], I want to [motivation], so I can [outcome]
 
-### フロー比較
-| フロー | ステップ数 | 競合A | 競合B | 競合C | 示唆 |
-|--------|-----------|-------|-------|-------|------|
+### Flow comparison
+| Flow | Steps | Competitor A | Competitor B | Competitor C | Implication |
 
-### ヒューリスティック評価
-| 観点 | 競合A | 競合B | 競合C | 自プロダクトの方針 |
-|------|-------|-------|-------|------------------|
-（6観点すべて。点数に1行の理由を添える）
+### Heuristic scores
+| Criterion | Competitor A | Competitor B | Competitor C | Direction for this product |
+(all six criteria, each score with a one-line reason)
 
-### 避けるべきパターン
-| パターン | 問題点 | 代替案 | 観測元 |
-|---------|--------|--------|--------|
+### Patterns to avoid
+| Pattern | Problem | Alternative | Seen in |
 
-### 自プロダクトへの示唆
-- 採用する: [パターン] — 理由と、どのJobに効くか
-- 採用しない: [パターン] — 理由
-- 判断が割れる点: [論点] — 選択肢AとB（Phase 3 で確認する）
+### Implications
+- Adopt: [pattern] — why, and which job it serves
+- Reject: [pattern] — why
+- Split decisions: [point] — option A vs B (asked in the question rounds)
 
-### 参照ソース
-- [タイトル](URL) — 公開日 / この調査で何に使ったか
+### Sources
+- [Title](URL) — date / what it was used for
 ```
 
-主張には出典を付ける。実機で確認した内容は「実機確認」と書く。出典の無い断定は書かない。
+Every claim has a source or says "hands-on". Anything unverified is marked "Unverified".
 
 ---
 
-## 参考リソース
+## Sources
 
-### 一次情報（優先）
+Primary, preferred:
 
-- [Apple Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/) — iOS/macOS のプラットフォーム規約
-- [Material Design 3](https://m3.material.io/) — Android のコンポーネントとトークン設計
-- [Nielsen Norman Group](https://www.nngroup.com/articles/) — ユーザビリティ調査に基づく原則
-- [Baymard Institute](https://baymard.com/research) — EC・チェックアウトの実測調査（Eコマース案件では最優先）
-- [W3C WAI: WCAG 2.2 Understanding](https://www.w3.org/WAI/WCAG22/Understanding/) — 達成基準の解釈
-- [web.dev](https://web.dev/) / [MDN](https://developer.mozilla.org/) — 実装可能性と Baseline の確認
+- [Apple Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/) — iOS and macOS conventions
+- [Material Design 3](https://m3.material.io/) — Android conventions
+- [Nielsen Norman Group](https://www.nngroup.com/articles/) — research-based usability principles
+- [Baymard Institute](https://baymard.com/research) — measured e-commerce and checkout research (first choice for commerce)
+- [WCAG 2.2 Understanding](https://www.w3.org/WAI/WCAG22/Understanding/) — what each criterion means
 
-### 実プロダクトの画面フロー
+Real product flows:
 
-- [Mobbin](https://mobbin.com/) — 実アプリの画面をフロー単位で辿れる。Step 2 の比較に直接使える
-- 対象アプリを実際にインストールして主要フローを自分で通す（可能なら最優先）
+- Refero flows (`refero:refero_search_flows`, `refero:refero_get_flow`) when the Refero MCP server is connected — multi-step journeys of real products, directly usable for Step 2
+- [Mobbin](https://mobbin.com/) — real app screens organized by flow
+- Installing the product and walking the flows yourself — best when possible
 
-### 使い方に注意するもの
-
-- Dribbble・Behance の作品はコンセプトアートであり、状態設計・アクセシビリティ・実データ量を考慮していないものが多い。ビジュアルの語彙を借りる目的にのみ使い、UXの判断根拠にはしない
-- 個人ブログ・SEO目的の一覧記事は、一次情報への参照がある場合に限って引用する
+Use with care: Dribbble and Behance shots are concept art that ignore states, accessibility, and real data volume — never UX evidence. SEO listicles and personal blogs only when they cite a primary source.

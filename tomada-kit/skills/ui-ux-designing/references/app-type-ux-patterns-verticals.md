@@ -1,288 +1,288 @@
-# アプリタイプ別UXパターン（業種・専門領域）
+# UX patterns by app type (verticals and specialist domains)
 
-`app-type-ux-patterns.md` と同じ「参考プロダクト / ベストプラクティス / 避けるべきパターン」の形式で、業種寄りのタイプを扱う。汎用の5タイプ（会話/音声、Eコマース、ダッシュボード、SNS、学習/教育）はそちらを見る。
+Covers industry-leaning app types in the same "Reference products / Best practices / Patterns to avoid" format as `app-type-ux-patterns.md`. For the five general types (conversation/voice, e-commerce, dashboard, social, learning/education), see that file.
 
-該当するタイプが複数あるときは両方読む。例: AIコードレビューツールは「AIアシスタント/エージェントUI」と「開発者ツール」の両方に当たる。
+When several types apply, read all of them. Example: an AI code-review tool falls under both "AI assistant / agent UI" and "Developer tools".
 
-## 目次
+## Table of contents
 
-- [AIアシスタント/エージェントUI](#aiアシスタントエージェントui)
-- [生産性・ノート/タスク](#生産性ノートタスク)
-- [フィンテック](#フィンテック)
-- [ヘルスケア](#ヘルスケア)
-- [開発者ツール](#開発者ツール)
-- [予約/マーケットプレイス](#予約マーケットプレイス)
-
----
-
-## AIアシスタント/エージェントUI
-
-### 参考プロダクト
-
-| プロダクト | 見るべき点 | 注意 |
-|-----------|-----------|------|
-| **Claude / ChatGPT** | ストリーミング表示、停止・再生成、添付の扱い | |
-| **Cursor** | 差分プレビューと適用の分離、コンテキストの明示 | |
-| **Perplexity** | 出典の提示位置と粒度 | |
-| **Linear の AI 機能** | 既存GUIへの埋め込み方（チャットに寄せない） | |
-
-### ベストプラクティス
-
-#### ストリーミング表示とレイアウト安定性
-
-```
-- トークン単位で逐次描画し、コードブロックは閉じるまで描画を遅延させる（壊れた途中形を見せない）
-- 生成中に高さが暴れないよう領域を予約する（最小高さ・スケルトン）
-- 自動スクロールはユーザーが上に動かした時点で止め、「最新へ」ボタンに切り替える
-- 逐次更新は aria-live="polite" で伝えるが、トークンごとには読ませない（段落単位でまとめる）
-```
-
-#### 作業の可視化と計画レイヤー
-
-```
-- 使ったツール・検索クエリ・読んだファイルを、結果が出た後ではなく実行中に見せる。
-  理由: 待ち時間の体感は「何が起きているか分かるか」で決まる
-- 各ステップは 実行中 / 完了 / 失敗 の3状態を持ち、失敗は理由を残す
-- 詳細は折りたたみに入れ、既定は1行の要約だけを出す
-- 複数ステップの作業は手順一覧と現在位置を出し、介入できる地点を明示する
-```
-
-#### 出典と信頼の手がかり
-
-```
-- 生成文にクリック可能な出典リンクを付け、どの文がどの出典かを対応させる
-- 確信度は語の強さや色で補助的に示す。数値スコアだけを出さない。
-  理由: 数値は根拠なく信用され、過信を招く
-- 情報が無いときは推測で埋めず、無いと書く
-```
-
-#### 制御と適用
-
-```
-- 停止 / やり直し / 直前の入力を編集して再送 の3つを常設する
-- 生成結果は提案として提示し、採用前に編集・却下できる
-- 外部への反映（ファイル書き込み・送信・公開）は差分プレビューと明示的な適用を挟む
-```
-
-### 避けるべきパターン
-
-| パターン | 問題点 | 代替案 |
-|---------|--------|--------|
-| 完了までスピナーだけ | 待ち時間が体感で倍になる | 進行中の作業内容を流す |
-| 中断できない生成 | 制御を奪われた感覚になる | 停止とやり直しを常設 |
-| 出典なしの断定 | 検証できず、信頼を損なう | 出典リンクと不確かさの明示 |
-| チャットに全機能を寄せる | 何ができるか発見できない | 主要操作はGUI、チャットは補助 |
-| 生成物を即座に本番反映 | 取り返しがつかない | 差分プレビュー + 明示的な適用 |
-| 生成中に高さが動き続ける | 読めず、誤タップを誘う | 領域の予約と自動スクロールの停止条件 |
+- [AI assistant / agent UI](#ai-assistant--agent-ui)
+- [Productivity (notes / tasks)](#productivity-notes--tasks)
+- [Fintech](#fintech)
+- [Healthcare](#healthcare)
+- [Developer tools](#developer-tools)
+- [Booking / marketplace](#booking--marketplace)
 
 ---
 
-## 生産性・ノート/タスク
+## AI assistant / agent UI
 
-### 参考プロダクト
+### Reference products
 
-| プロダクト | 見るべき点 | 注意 |
-|-----------|-----------|------|
-| **Linear** | キーボード優先、楽観的更新、状態遷移の速さ | |
-| **Notion** | ブロック編集、ビューの切り替え | 機能量に対する発見性の低さは反面教師 |
-| **Obsidian** | ローカル保存、リンク構造 | 設定の露出量は一般向けには過剰 |
-| **Things** | 日次ビューの絞り込み、追加操作の短さ | |
+| Product | What to study | Caveats |
+|---------|---------------|---------|
+| **Claude / ChatGPT** | Streaming output, stop and regenerate, attachment handling | |
+| **Cursor** | Separating diff preview from apply; making context explicit | |
+| **Perplexity** | Placement and granularity of citations | |
+| **Linear's AI features** | Embedding AI in an existing GUI instead of funneling into chat | |
 
-### ベストプラクティス
+### Best practices
 
-#### 入力と反映
-
-```
-- 追加操作はどの画面からも1キー/1タップで開ける。理由: 追加の手間がそのまま記録量を決める
-- コマンドパレット（キーボードのみで全機能に到達）を用意し、各項目にショートカットを併記する
-- 編集は楽観的更新で即座に反映し、失敗時のみ元に戻して理由を出す
-- 保存状態の表示は 保存済み / 保存中 / オフライン（ローカル保持） の3つに限る
-```
-
-#### 履歴・オフライン・取り消し
+#### Streaming output and layout stability
 
 ```
-- 削除・移動・一括変更は取り消し可能にし、直後のトーストに取り消し導線を置く
-- オフライン編集は破棄せずキューに積み、復帰時に競合したら両版を残して選ばせる
-- 版履歴は「いつ・誰が・どこを」で表示し、差分を見てから復元させる
+- Render token by token, but hold code blocks until they close (never show a broken half-state)
+- Reserve space so height does not jump during generation (min height, skeleton)
+- Stop auto-scroll as soon as the user scrolls up, and switch to a "Jump to latest" button
+- Announce incremental updates with aria-live="polite", but not per token (batch by paragraph)
 ```
 
-### 避けるべきパターン
+#### Showing work and the plan layer
 
-| パターン | 問題点 | 代替案 |
-|---------|--------|--------|
-| 保存ボタンが必要 | 保存忘れでデータを失う | 自動保存 + 保存状態の表示 |
-| 削除に確認ダイアログだけ | 読み飛ばして消す | 取り消し可能な削除 + ゴミ箱 |
-| ショートカットが非公開 | 常用ユーザーが速くならない | 一覧画面とメニュー内に併記 |
-| 同期状態が不明 | 消えたのか未同期なのか分からない | 明示的な同期状態と最終同期時刻 |
+```
+- Show tools used, search queries, and files read while they run, not after the result.
+  Why: perceived wait time depends on whether the user can tell what is happening
+- Each step has three states: running / done / failed; a failure keeps its reason
+- Put details in a collapsible; show only a one-line summary by default
+- For multi-step work, show the step list and current position, and mark where the user can intervene
+```
+
+#### Citations and trust cues
+
+```
+- Attach clickable source links to generated text, and map which sentence comes from which source
+- Convey confidence secondarily through wording strength or color; never a bare numeric score.
+  Why: numbers get trusted without basis and invite overconfidence
+- When information is missing, say so instead of filling the gap with guesses
+```
+
+#### Control and apply
+
+```
+- Keep three controls always available: stop / retry / edit the last input and resend
+- Present output as a proposal the user can edit or reject before adopting
+- For anything that reaches outside (file writes, sending, publishing), require a diff preview and an explicit apply
+```
+
+### Patterns to avoid
+
+| Pattern | Problem | Alternative |
+|---------|---------|-------------|
+| Only a spinner until completion | Perceived wait roughly doubles | Stream what is being worked on |
+| Generation that cannot be interrupted | Users feel control was taken away | Always-available stop and retry |
+| Assertions without sources | Unverifiable; erodes trust | Source links and explicit uncertainty |
+| Pushing every feature into chat | Users cannot discover what is possible | Core actions in the GUI, chat as a helper |
+| Applying output to production immediately | Irreversible | Diff preview + explicit apply |
+| Height keeps shifting during generation | Unreadable; causes mis-taps | Reserved space and a stop condition for auto-scroll |
 
 ---
 
-## フィンテック
+## Productivity (notes / tasks)
 
-### 参考プロダクト
+### Reference products
 
-| プロダクト | 見るべき点 | 注意 |
-|-----------|-----------|------|
-| **Wise** | 手数料と着金予定の事前提示 | |
-| **Revolut / Monzo** | 取引一覧の可読性、カード操作の即時性 | 機能量に対する階層設計は要検討 |
-| **マネーフォワード** | 複数口座の集約表示、カテゴリ分類 | |
+| Product | What to study | Caveats |
+|---------|---------------|---------|
+| **Linear** | Keyboard-first, optimistic updates, fast state transitions | |
+| **Notion** | Block editing, switching views | Poor discoverability relative to feature count is a cautionary example |
+| **Obsidian** | Local storage, link structure | The amount of exposed settings is excessive for general users |
+| **Things** | Focused daily view, short add flow | |
 
-### ベストプラクティス
+### Best practices
 
-#### 金額の表示
-
-```
-- 金額は font-variant-numeric: tabular-nums の等幅数字で桁を揃える。
-  理由: 桁がずれると比較のたびに読み直しが起きる
-- 正負は 色 + 記号 + ラベル で表す。色だけで表さない
-- 通貨記号と単位を必ず併記し、概算には「約」を付けて確定額と区別する
-```
-
-#### 取引の状態と不可逆な操作
+#### Input and reflecting changes
 
 ```
-- 状態は 処理中 / 完了 / 失敗 / 返金 を独立したバッジで表し、次の行動を添える
-- 送金前の確認画面には 金額・手数料・着金予定・宛先 の4点を1画面に出す
-- 失敗時は理由コードではなく、ユーザーが取れる次の行動を書く
-- 送金・解約・限度額変更は取り消せないため、確認と宛先の再表示を課す
-- 残高・口座番号は既定でマスクし、明示的な操作で開く
+- The add action opens with one key / one tap from any screen. Why: the effort of adding directly caps how much gets recorded
+- Provide a command palette (every feature reachable by keyboard alone) and show each item's shortcut
+- Apply edits instantly with optimistic updates; roll back and show the reason only on failure
+- Limit save status to three states: saved / saving / offline (kept locally)
 ```
 
-### 避けるべきパターン
+#### History, offline, and undo
 
-| パターン | 問題点 | 代替案 |
-|---------|--------|--------|
-| 手数料を最終画面まで隠す | 信頼を失い、離脱と苦情になる | 入力画面の時点で総額を出す |
-| 金額の正負を色だけで表現 | 色覚多様性・印刷で判別できない | 記号とラベルを併記 |
-| プロポーショナル数字で桁が揺れる | 一覧の比較ができない | tabular-nums で桁を固定 |
-| 「処理中」のまま説明がない | 問い合わせが増える | 想定所要時間と次の行動を明示 |
-| 残高を常時大きく表示 | 公共の場で画面を開けない | 既定でマスク + 表示切替 |
+```
+- Make delete, move, and bulk changes undoable, with an undo action in the toast right after
+- Queue offline edits instead of discarding them; on conflict at reconnect, keep both versions and let the user choose
+- Show version history as "when, who, where", and let users view the diff before restoring
+```
+
+### Patterns to avoid
+
+| Pattern | Problem | Alternative |
+|---------|---------|-------------|
+| Requiring a save button | Forgetting to save loses data | Autosave + save status |
+| Delete guarded only by a confirm dialog | Users skim past it and delete | Undoable delete + trash |
+| Undocumented shortcuts | Power users never get faster | List them on a reference screen and in menus |
+| Unclear sync status | Users cannot tell "lost" from "not yet synced" | Explicit sync status and last-synced time |
 
 ---
 
-## ヘルスケア
+## Fintech
 
-### 参考プロダクト
+### Reference products
 
-| プロダクト | 見るべき点 | 注意 |
-|-----------|-----------|------|
-| **Apple Health** | 指標の集約、期間比較、データ提供元の明示 | |
-| **Oura** | スコアの根拠内訳の見せ方 | 単一スコアへの集約は解釈を奪う面もある |
-| **Flo** | 機微情報の露出制御、記録入力の軽さ | |
+| Product | What to study | Caveats |
+|---------|---------------|---------|
+| **Wise** | Showing fees and arrival time up front | |
+| **Revolut / Monzo** | Readable transaction lists, instant card controls | Hierarchy design relative to feature count needs scrutiny |
+| **Money Forward** | Aggregated view of multiple accounts, categorization | |
 
-### ベストプラクティス
+### Best practices
 
-#### 数値の提示
-
-```
-- 数値には解釈を添える（基準範囲、前回比、測定条件）。
-  理由: 数値だけでは良し悪しが判断できず、不安か無関心のどちらかになる
-- 断定を避ける語で書く（「〜の傾向があります」「判断は医師に相談してください」）
-- 診断・治療の助言と読める文言を出さない
-```
-
-#### 機微情報と読みやすさ
+#### Displaying amounts
 
 ```
-- 健康データは既定で伏せ、ロック解除や明示的な操作で開く
-- 通知のプレビューに具体的な数値や症状名を出さない
-- 動的な文字サイズ拡大（200%程度）でレイアウトが壊れないことを前提に組む
-- グラフは色 + 形（点の形状・線種）で系列を区別し、数値ラベルを併置する
+- Align digits with font-variant-numeric: tabular-nums.
+  Why: misaligned digits force re-reading on every comparison
+- Express sign with color + symbol + label, never color alone
+- Always show the currency symbol or unit, and mark estimates with "approx." to distinguish them from final amounts
 ```
 
-### 避けるべきパターン
+#### Transaction states and irreversible actions
 
-| パターン | 問題点 | 代替案 |
-|---------|--------|--------|
-| 数値だけを大きく出す | 良し悪しが分からない | 基準範囲と前回比を併記 |
-| 医療的な断定 | 誤った自己判断を招く | 傾向の記述 + 受診の案内 |
-| 通知に症状名を出す | 他人に見られる | 中立的な文言 + アプリ内で詳細 |
-| 未記録日を赤で強調 | 罪悪感で記録をやめる | 中立色 + 記録の再開導線 |
-| 単一スコアだけを提示 | 何を変えれば良いか分からない | 内訳と寄与度を開けるようにする |
+```
+- Show states as separate badges — pending / completed / failed / refunded — each with a next action
+- The pre-transfer confirmation shows four items on one screen: amount, fee, expected arrival, recipient
+- On failure, describe what the user can do next, not a reason code
+- Transfers, account closure, and limit changes are irreversible, so require confirmation and re-show the recipient
+- Mask balances and account numbers by default; reveal only on explicit action
+```
+
+### Patterns to avoid
+
+| Pattern | Problem | Alternative |
+|---------|---------|-------------|
+| Hiding fees until the final screen | Loses trust; causes drop-off and complaints | Show the total from the input screen |
+| Sign shown by color only | Indistinguishable for color-vision differences and in print | Add symbols and labels |
+| Proportional digits that shift | Lists cannot be compared | Fix digits with tabular-nums |
+| "Processing" with no explanation | Support inquiries increase | State expected duration and next action |
+| Balance always shown large | Users cannot open the app in public | Masked by default + reveal toggle |
 
 ---
 
-## 開発者ツール
+## Healthcare
 
-### 参考プロダクト
+### Reference products
 
-| プロダクト | 見るべき点 | 注意 |
-|-----------|-----------|------|
-| **GitHub** | 差分表示、レビュー導線、権限の表現 | |
-| **Sentry** | エラーの集約と絞り込み、再現情報 | |
-| **Vercel** | ビルド状態バッジ、ログの追従表示 | |
-| **Linear** | ショートカット体系、フィルタの保存 | |
+| Product | What to study | Caveats |
+|---------|---------------|---------|
+| **Apple Health** | Aggregated metrics, period comparison, explicit data sources | |
+| **Oura** | Showing the breakdown behind a score | Collapsing into one score can also take interpretation away from users |
+| **Flo** | Controlling exposure of sensitive data, lightweight logging | |
 
-### ベストプラクティス
+### Best practices
 
-#### テキスト・ログ・状態
-
-```
-- ログ・差分・識別子は --font-mono で表示し、行番号と折り返し切替を用意する
-- 長時間のログは追従を既定にし、ユーザーが上に動かしたら止める
-- 差分は行のハイライトに加えて変更内の語単位の差分を出す
-- 状態バッジ（成功/失敗/進行中/スキップ）は 色 + アイコン + 語 の3重で表す
-```
-
-#### 絞り込みとコピー
+#### Presenting numbers
 
 ```
-- フィルタは複数条件の組み合わせと保存に対応し、条件をURLに反映する
-- 一覧の既定並びは「対応が必要なもの」順にし、時系列は切り替えで出す
-- ID・ハッシュ・URL・コマンド・スタックトレースは1操作でコピーできる。
-  理由: 開発者ツールの出力は他の場所に貼るために存在する
-- ショートカット一覧を1画面に置き、各メニュー項目にも併記する
+- Pair numbers with interpretation (reference range, change since last time, measurement conditions).
+  Why: a bare number cannot be judged good or bad, leading to either anxiety or indifference
+- Use non-definitive wording ("tends to…", "consult a doctor for a diagnosis")
+- Never show text that reads as diagnostic or treatment advice
 ```
 
-### 避けるべきパターン
+#### Sensitive data and readability
 
-| パターン | 問題点 | 代替案 |
-|---------|--------|--------|
-| コピーできない識別子 | 手打ちで転記ミスが出る | すべての識別子にコピー操作 |
-| 等幅でないログ表示 | 桁揃えが崩れて読めない | `--font-mono` + 行番号 |
-| 状態を色だけのドットで表す | 判別できない | 色 + アイコン + 語 |
-| フィルタが保存できない | 毎回同じ操作を繰り返す | 条件の保存とURL反映 |
-| エラー文が内部コードのみ | 対処が分からない | 原因の説明 + 次の行動 + 詳細の折りたたみ |
+```
+- Hide health data by default; reveal on unlock or explicit action
+- Keep specific values and symptom names out of notification previews
+- Build on the assumption that dynamic text scaling (around 200%) must not break the layout
+- Distinguish chart series by color + shape (marker shape, line style), with value labels alongside
+```
+
+### Patterns to avoid
+
+| Pattern | Problem | Alternative |
+|---------|---------|-------------|
+| Showing only a large number | Users cannot tell good from bad | Add reference range and change since last time |
+| Medical assertions | Leads to wrong self-diagnosis | Describe trends + guide to a doctor |
+| Symptom names in notifications | Others can see them | Neutral wording + details in the app |
+| Highlighting unlogged days in red | Guilt makes users stop logging | Neutral color + a path to resume logging |
+| Presenting only a single score | Users do not know what to change | Let users open the breakdown and contributions |
 
 ---
 
-## 予約/マーケットプレイス
+## Developer tools
 
-### 参考プロダクト
+### Reference products
 
-| プロダクト | 見るべき点 | 注意 |
-|-----------|-----------|------|
-| **Airbnb** | 検索→絞り込み→比較→確定のフロー、料金内訳 | 「残り1室」等の煽り表現は採用しない |
-| **OpenTable** | 空き状況の提示、時間帯の選択 | |
-| **メルカリ** | 出品と購入の双方向設計、取引状態の追跡 | |
+| Product | What to study | Caveats |
+|---------|---------------|---------|
+| **GitHub** | Diff display, review flow, expressing permissions | |
+| **Sentry** | Error grouping and filtering, reproduction info | |
+| **Vercel** | Build status badges, tailing logs | |
+| **Linear** | Shortcut system, saved filters | |
 
-### ベストプラクティス
+### Best practices
 
-#### 検索・絞り込み・比較
-
-```
-- 検索条件（日程・人数・場所）は結果画面でも常に見え、その場で変更できる
-- 絞り込みは適用前に該当件数を出す。理由: 0件になる操作を事前に避けられる
-- 一覧の時点で総額（税・手数料・清掃費等を含む）を出す。単価のみの表示にしない
-- 比較軸（価格・評価・距離・キャンセル可否）をカード内で揃えて置く
-- 空き状況は 空き / 残りわずか（実数を伴う） / 満席 の3値に限り、演出を足さない
-```
-
-#### 確定と変更
+#### Text, logs, and status
 
 ```
-- 確定前に 日時・人数・場所・総額・キャンセル条件 の5点を1画面で再提示する
-- 予約後の変更・キャンセル導線を予約詳細の1階層目に置く
-- 双方向マーケットプレイスでは提供側の状態（承認待ち・確定）も同じ語彙で表す
+- Show logs, diffs, and identifiers in the monospace font, with line numbers and a wrap toggle
+- Tail long-running logs by default; stop when the user scrolls up
+- In diffs, add word-level changes within lines on top of line highlighting
+- Show status badges (success / failed / running / skipped) three ways: color + icon + word
 ```
 
-### 避けるべきパターン
+#### Filtering and copying
 
-| パターン | 問題点 | 代替案 |
-|---------|--------|--------|
-| 単価表示で最後に総額が跳ねる | 比較が無意味になり信頼を失う | 一覧の時点で総額を出す |
-| 「他N人が見ています」等の煽り | 検証できず、法規制の対象になり得る | 実在庫・実空き数のみを静かに表示 |
-| キャンセル条件が確定後にしか見えない | 苦情と返金対応を生む | 確定前の1画面に併記 |
-| 絞り込み結果が0件で行き止まり | そのまま離脱する | 条件を1つ緩めた候補を提示 |
-| 予約変更が問い合わせ経由のみ | 運用コストと不満が積み上がる | 予約詳細から自己解決できる導線 |
+```
+- Filters support combining and saving conditions, and reflect them in the URL
+- Default list order is "needs attention"; chronological order is a toggle
+- IDs, hashes, URLs, commands, and stack traces are copyable in one action.
+  Why: developer tool output exists to be pasted elsewhere
+- Put the shortcut list on one screen and also show shortcuts next to each menu item
+```
+
+### Patterns to avoid
+
+| Pattern | Problem | Alternative |
+|---------|---------|-------------|
+| Identifiers that cannot be copied | Manual retyping causes errors | A copy action on every identifier |
+| Non-monospace logs | Column alignment breaks; unreadable | Monospace font + line numbers |
+| Status as color-only dots | Indistinguishable | Color + icon + word |
+| Filters that cannot be saved | The same steps repeat every time | Saved conditions reflected in the URL |
+| Errors shown only as internal codes | Users do not know how to respond | Cause + next action + collapsible details |
+
+---
+
+## Booking / marketplace
+
+### Reference products
+
+| Product | What to study | Caveats |
+|---------|---------------|---------|
+| **Airbnb** | Search → filter → compare → book flow, price breakdown | Do not adopt pressure copy like "only 1 room left" |
+| **OpenTable** | Presenting availability, choosing time slots | |
+| **Mercari** | Two-sided design for listing and buying, tracking transaction state | |
+
+### Best practices
+
+#### Search, filtering, and comparison
+
+```
+- Search criteria (dates, party size, location) stay visible on the results screen and editable in place
+- Show the matching count before a filter is applied. Why: users can avoid actions that lead to zero results
+- Show the total price (tax, fees, cleaning, etc.) already in the list, never the unit price alone
+- Align comparison axes (price, rating, distance, cancellability) in the same place on every card
+- Limit availability to three values — available / few left (with the actual number) / full — with no added theatrics
+```
+
+#### Booking and changes
+
+```
+- Before booking, restate five items on one screen: date/time, party size, location, total, cancellation terms
+- Put change and cancel actions at the first level of the booking detail
+- In two-sided marketplaces, describe the provider-side states (awaiting approval, confirmed) with the same vocabulary
+```
+
+### Patterns to avoid
+
+| Pattern | Problem | Alternative |
+|---------|---------|-------------|
+| Unit price shown, total jumps at the end | Comparison becomes meaningless; trust is lost | Show the total in the list |
+| Pressure copy like "N others are looking" | Unverifiable; may be subject to regulation | Quietly show only real inventory / availability |
+| Cancellation terms visible only after booking | Generates complaints and refunds | Show them on the pre-booking screen |
+| Zero filter results as a dead end | Users leave | Suggest results with one condition relaxed |
+| Booking changes only via support | Operating costs and frustration pile up | Self-service from the booking detail |

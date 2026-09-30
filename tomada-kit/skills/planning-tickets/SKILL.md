@@ -1,104 +1,83 @@
 ---
 name: planning-tickets
 description: >-
-  Plan and create GitHub Issues with agile/scrum methodology. Analyze requirements,
-  identify parallel work, manage dependencies, and suggest git worktree strategies. Use
-  when cutting tickets, breaking a feature into issues, planning a sprint, or organizing
-  an issue backlog.
+  Break requirements and design documents into GitHub Issues an implementing agent can
+  ship without asking back: concrete values with their source, EARS requirements,
+  explicit Not In Scope, machine-readable `Depends on #N` edges, a parallel-first
+  breakdown, tracking parents with native sub-issues, and native blocked-by
+  dependencies. Follows the repository's own issue conventions first — a
+  triaging-issues skill's labels and body rules, a shipping-issues skill's ship
+  contract — and falls back to its own templates only where the repository has none.
+  Use when cutting tickets, breaking a feature or a new app's MVP into issues, planning
+  a sprint or backlog, or as the issues stage of kicking-off-apps.
 metadata:
-  platforms: claude-code, codex
+  platforms: claude-code
 ---
 
 # Planning Tickets
 
-Break requirements into GitHub Issues with agile/scrum methodology. Focus on **parallel work, explicit dependencies, and git worktree optimization**. The issue body skeleton lives in [templates/issue-template.md](templates/issue-template.md); this file holds the principles.
+An issue here is read by an agent that has none of this conversation: it must carry the
+real values, the boundary of the work, and its place in the order, or the agent guesses.
+The breakdown optimizes for parallel work — independent issues that do not touch the
+same files — and makes every ordering constraint explicit and machine-readable.
 
-## Core Principles
+## 1. Read the repository's conventions
 
-### 1. Independence over granularity
-Prioritize independence over small size. A larger independent ticket beats several small dependent ones. Merge related tasks if splitting would create dependencies. Ideal size is still 1–3 hours and independently testable, but never split at the cost of introducing a blocking edge.
+Before drafting, look for the repository's own issue skills (`.claude/skills/` or
+`.agents/skills/`) and forms (`.github/ISSUE_TEMPLATE/`, `.github/labels.yml`):
 
-### 2. Parallel work first
-Identify what can run simultaneously. Design tickets to minimize blocking relationships so multiple developers (or agents/worktrees) can work concurrently. Maximizing parallelism is the primary optimization target.
+- **`triaging-issues`** — its labels (type, `priority: P0`–`P3`, `blocked: …`,
+  `tracking`), what a body must contain, and how an ordering constraint is spelled.
+  These **replace** this skill's defaults wherever they differ: its label set instead of
+  the fallback labels, its body requirements added to the skeleton, its dependency
+  spelling exactly.
+- **`shipping-issues`** — the consumer. Read what it parses (its ship contract, e.g. a
+  `<!-- ship: … -->` block, `touches=`, `design=`) and write every field it reads, so
+  the backlog ranks and parallelizes without a research pass.
+- **Title style** — follow the repository's existing issues and forms. The bracket
+  prefixes in [templates/issue-template.md](templates/issue-template.md) are only for
+  repositories with no convention.
 
-### 3. Concrete values are mandatory
-"誰が実装しても要件は絶対に満たせる" — anyone (human or AI agent) must be able to implement and definitely satisfy the requirement. Every requirement uses **real values** extracted from the source (numbers, colors, sizes, exact text) with the source section cited. Never write vague requirements ("properly displays") or placeholders ("XX", "[value]").
+## 2. Plan the breakdown
 
-### 4. Not In Scope is required
-Every ticket must state explicitly what it does **not** include, referencing the tickets that own the excluded work. This is the primary guard against scope creep.
+Sources are the documents, cited by path and section (`docs/product/requirements.md
+§3.2`, an ADR number), never copied wholesale. Where a repository rule asks for a
+`path:line` and the code does not exist yet, point at the file or directory the change
+lands in and the document section it implements.
 
-## Requirements: EARS format (required)
+- **Independence over granularity.** A larger independent issue beats several small
+  dependent ones; merge tasks whose split would only add edges. Target a reviewable
+  pull request: one responsibility, a few files, 3–5 acceptance criteria.
+- **Foundation first, then parallel streams, then integration.** Foundation issues
+  (schema, core types, shared config, design tokens) get the highest tier the
+  repository's rubric allows for groundwork; parallel issues must not touch the same
+  files; every convergence of streams gets an integration issue.
+- **Hierarchy is a judgment call.** Group issues under a tracking parent when they
+  together deliver one outcome (a roadmap Now item, an MVP feature area) — the parent
+  holds the checklist and the "done when", never work of its own. Skip the parent for a
+  handful of unrelated issues.
+- **Every issue** states concrete values with their source, EARS requirements
+  (Ubiquitous / When / While / If-then / Where), boundary conditions, at least three
+  concrete examples, acceptance criteria tied to requirement IDs, and Not In Scope
+  naming where the excluded work lives. Skeleton and variants:
+  [templates/issue-template.md](templates/issue-template.md).
 
-Every ticket's functional requirements use **EARS (Easy Approach to Requirements Syntax)** so they are unambiguous and testable. The five patterns (+ combination):
+Present the plan before creating anything: a summary table (title, labels, tier,
+parent, depends on), the dependency layers, and which issues can run in parallel. Get
+the user's yes — creating issues is a remote write.
 
-| Pattern | Template | Example |
-|---------|----------|---------|
-| **Ubiquitous** | The [system] shall [action] | The button shall have a 44pt minimum touch target. |
-| **Event-driven** | **When** [trigger], the [system] shall [action] | **When** user taps "Coffee", the system shall display the size selection sheet. |
-| **State-driven** | **While** [state], the [system] shall [action] | **While** loading, the system shall display a spinner. |
-| **Unwanted** | **If** [condition], **then** the [system] shall [action] | **If** save fails, **then** the system shall show an error toast. |
-| **Optional** | **Where** [feature], the [system] shall [action] | **Where** Pro is active, the system shall allow unlimited custom drinks. |
-| **Complex** | Combine patterns | **While** after cutoff, **when** user selects a caffeine drink, the system shall show a warning. |
+## 3. Create
 
-Give each requirement an ID (e.g. `REQ-001`) and map each ID to an acceptance criterion. Cover boundary conditions (min/max, empty/null, over-limit) in EARS form too.
+Follow [reference.md](reference.md): draft every body to a local file with provisional
+IDs, create in dependency order, backfill real numbers into `Depends on` / `Blocks` /
+`Part of` lines, then link natively — sub-issues under their tracking parent and
+blocked-by relationships — so the edges show in GitHub's UI as well as in the bodies.
+Body lines stay the source automation parses; native links mirror them.
 
-## Issue body: required sections
+When the repository has a roadmap page, fill each outcome's issue links after creation.
 
-Full skeleton in [templates/issue-template.md](templates/issue-template.md). Required sections:
+## Report
 
-1. **User Story** — As a [user], I want [goal], So that [benefit].
-2. **Background & Context** — position in the whole, source-document section references, all concrete values with sources.
-3. **Functional Requirements (EARS)** — each with an ID and a verification method.
-4. **Boundary Conditions** — edge cases (0, max, over-limit, empty, null) in EARS form.
-5. **Concrete Examples** — at least 3 (happy path / boundary / error) with real values.
-6. **Not In Scope** — what this ticket excludes and where it lives instead (mandatory).
-7. **Acceptance Criteria** — each tied to a requirement ID and testable with specific values.
-8. **Dependencies** — bidirectional, in the fixed phrasing below.
-
-## Dependency phrasing (machine-readable contract)
-
-Write dependencies exactly as `Depends on #N` / `Blocks #N` (one per line, in the Dependencies section). Downstream automation (issue digests, ordering scripts) extracts dependency edges from issue bodies by regex; free-form phrasings ("needs the schema ticket first") create hidden edges that break automated ordering. If there are none, write `None`.
-
-## Title format
-
-```
-【並列可】Feature - Specific scope
-【依存あり】Feature - Specific scope
-【基盤】Infrastructure - Must complete first
-【並列可/worktree:feature-xxx】Feature with worktree suggestion
-【順次】Feature - Must follow specific order
-```
-
-| Prefix | Meaning |
-|--------|---------|
-| 【並列可】 | Parallel OK (independent) |
-| 【依存あり】 | Has dependencies |
-| 【基盤】 | Foundation, required before parallel work |
-| 【並列可/worktree:name】 | Parallel + suggested worktree branch |
-| 【順次】 | Sequential |
-
-## Dependency & parallelism analysis
-
-1. **Identify foundation tasks** others depend on (schema, core types, base components, config).
-2. **Map dependencies** as layers: Foundation → Layer 1 (parallel within) → Layer 2 → Integration.
-3. **Group into parallel streams** (e.g. UI / Data / Logic), each an independent worktree. Parallel tickets must not touch the same files.
-4. **Always create an integration ticket** where parallel streams converge.
-
-## Git worktree strategy
-
-Suggest a worktree when parallel tickets touch different areas, for long-running features, or for multiple developers/agents. Naming: `../{project}-{feature-category}/` (e.g. `../hydro-ui-home/`). Set up with `git worktree add`, clean up with `git worktree remove` once merged.
-
-## Creating issues (two-pass, gh CLI)
-
-Issue numbers don't exist until creation, so draft every ticket body to a local file with provisional IDs, create in dependency order (foundation → parallel → integration) with `gh issue create --body-file`, then backfill real numbers with `gh issue edit --body-file` — foundation tickets' `Blocks #N` can only be written in that pass. Exact procedure, label/milestone bootstrap commands, and sizing guidance: [reference.md](reference.md).
-
-## Output when planning
-
-1. **Summary table** of all tickets first.
-2. **Dependency graph** if the breakdown is complex.
-3. **Phase breakdown** grouped by implementation phase (foundation → parallel streams → integration → polish).
-4. **Worktree plan** listing suggested worktrees.
-
-## Platform notes
-
-Platform-neutral (uses only `gh`/`git` CLI and skill-relative references — no degradation on Codex). See [references/platform-notes.md](references/platform-notes.md).
+The created issues as a table with numbers and links, the tracking parents, the
+dependency layers, and anything left for a human (a `blocked: design` decision, a
+`blocked: external` step).

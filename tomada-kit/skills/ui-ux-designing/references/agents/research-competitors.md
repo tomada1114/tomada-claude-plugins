@@ -1,49 +1,41 @@
-# 競合UX調査（サブエージェント用プロンプト）
+# Competitor UX research — sub-agent prompt
 
-委譲先・代替手段は SKILL.md の Phase 2 を参照。以下のプレースホルダを埋めて渡す。
+Fill the placeholders and pass the text below the rule as the prompt of one `executor` sub-agent (see SKILL.md step 2).
 
-| プレースホルダ | 埋めるもの |
+| Placeholder | Fill with |
 |---|---|
-| `{{SKILL_DIR}}` | このスキルの絶対パス |
-| `{{PRODUCT_SUMMARY}}` | Phase 1 で確定したプロダクト概要（2〜3行） |
-| `{{TARGET_USER}}` | 対象ユーザー像（状況・動機・制約） |
-| `{{APP_TYPE}}` | アプリタイプ（`app-type-ux-patterns.md` / `-verticals.md` の節名） |
-| `{{APPS}}` | 本体側で確定した調査対象アプリ3つ以上（サブエージェントに選ばせない） |
-| `{{FLOWS}}` | 比較する主要フロー3〜4本（「初回登録→最初の成果」を必ず含む） |
-| `{{OUTPUT_PATH}}` | 調査サマリーを書き出す絶対パス |
+| `{{SKILL_DIR}}` | Absolute path of this skill |
+| `{{PRODUCT_SUMMARY}}` | Settled product summary, 2–3 lines |
+| `{{TARGET_USER}}` | Target user: situation, motivation, constraints |
+| `{{PLATFORMS}}` | Target platforms |
+| `{{APP_TYPE}}` | App type, as a section name in `app-type-ux-patterns.md` or `-verticals.md` |
+| `{{APPS}}` | At least three products, chosen by the main session |
+| `{{FLOWS}}` | 3–4 flows to compare, always including "first launch → first success" |
 
 ---
 
-{{APP_TYPE}} のプロダクトについて、競合3つ以上のUXを調査してください。
+<context>
+Research the UX of at least three competitors of a {{APP_TYPE}} product.
 
-意図: この調査結果は、次フェーズでユーザーに提示するデザイン方向性の選択肢を組み立てる材料であり、そのままユーザーにも共有されます。裏の取れていない主張が1つ混ざると、その上に積む選択肢ごと誤ります。断定するなら出典を付け、確認できなかったことは「未確認」と書いてください。
+Why: the result becomes the evidence behind the UX policy options the main session puts to the user, and is shown to the user as-is. One unsupported claim corrupts every option built on it — cite a source for each claim and mark anything you could not confirm as "Unverified".
 
-前提（Phase 1 で確定済み。ここは調べ直さない）:
-- プロダクト概要: {{PRODUCT_SUMMARY}}
-- 対象ユーザー: {{TARGET_USER}}
-- アプリタイプ: {{APP_TYPE}}
-- 調査対象アプリ: {{APPS}}
-- 比較するフロー: {{FLOWS}}
+Settled inputs (do not re-research these):
+- Product: {{PRODUCT_SUMMARY}}
+- Target user: {{TARGET_USER}}
+- Platforms: {{PLATFORMS}}
+- App type: {{APP_TYPE}}
+- Products to study: {{APPS}}
+- Flows to compare: {{FLOWS}}
+</context>
 
-最初に {{SKILL_DIR}}/references/research-methods.md を全文読み、その3段構成（Jobs to Be Done → フロー横断比較 → 6観点ルーブリック）、検索クエリの形、記事の採否条件に従って調査してください。検索クエリ内の年は実行時の西暦に置き換えます。
+<instructions>
+Read {{SKILL_DIR}}/references/research-methods.md in full first and follow its three steps (jobs to be done → the same flows across competitors → six-criterion rubric), its query patterns, and its source rules. Replace the year in queries with the current year.
 
-制約:
-- 前提の項目は調べ直さない。調査対象アプリを差し替えたり足したりしない。
-- 自分でサブエージェントを起動しない。この調査は1セッションで完結させる。
+Scope is UX only: flows, navigation, state handling (empty, loading, error, offline, permission), feedback, forms, and accessibility cues. Skip visual style — colors, typography, look and feel.
 
-出力: {{SKILL_DIR}}/references/research-methods.md の「調査結果のユーザーへの共有」にある調査サマリー形式で、次の節を**この名前・この順序で**すべて埋める。
+Constraints: do not swap or add products; do not spawn sub-agents — finish in this session.
+</instructions>
 
-```
-## 調査サマリー
-### 対象と前提
-### Jobs to Be Done
-### フロー比較
-### ヒューリスティック評価
-### 避けるべきパターン
-### 自プロダクトへの示唆
-### 参照ソース
-```
-
-書き出し先: {{OUTPUT_PATH}}
-
-最終メッセージは調査サマリー本文だけにしてください。検索結果の原文、途中の作業ログ、読んだ記事の要約は返さないこと。判断が割れて決めきれなかった論点は、「自プロダクトへの示唆」の「判断が割れる点」に選択肢の形で残してください（そこで決めない）。
+<output>
+Return the summary in the "Summary format" of research-methods.md, with every section, in that order, under those names. Your final message is the summary only — no raw search results, work log, or article digests. Leave split decisions as options under "Implications → Split decisions"; do not decide them.
+</output>

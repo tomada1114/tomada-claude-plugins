@@ -1,208 +1,208 @@
-# アプリタイプ別の追加質問（Phase 4b）
+# App-type questions
 
-以下はワークトエグザンプルであり、そのまま流用するものではない。ここに無いアプリタイプでは、`app-type-ux-patterns.md` の該当節の「ベストプラクティス」と「避けるべきパターン」から、選択が実装値を変える論点を2〜3個選んで等価な質問を組み立てる。質問設計の原則は `../SKILL.md` を参照。汎用の質問は `questions-core.md` にある。
+These are worked examples used in Round 4 (app type) of the question rounds defined in `questions-core.md`; do not reuse them verbatim. The question-design rules are in SKILL.md § "Asking questions". For an app type not listed here, build 2–3 equivalent questions from the "Best practices" and "Patterns to avoid" of the matching section in `app-type-ux-patterns.md` or `app-type-ux-patterns-verticals.md`, choosing only points whose answer changes an implementation value.
 
-## 目次
+## Table of contents
 
-- [会話/音声アプリ](#会話音声アプリ)
-- [Eコマース/ショッピング](#eコマースショッピング)
-- [ダッシュボード/管理画面](#ダッシュボード管理画面)
-- [AIアシスタント/エージェント](#aiアシスタントエージェント)
+- [Conversation / voice apps](#conversation--voice-apps)
+- [E-commerce / shopping](#e-commerce--shopping)
+- [Dashboards / admin panels](#dashboards--admin-panels)
+- [AI assistant / agent](#ai-assistant--agent)
 
-## 会話/音声アプリ
+## Conversation / voice apps
 
-セッション型（開始 → 会話 → 評価）向け。セッション後にまとめて評価しないプロダクトでは、スコア表示と終了トランジションの質問を落とす。
+For session-based products (start → conversation → evaluation). If the product does not evaluate after a session, drop the score display and ending transition questions.
 
-### 会話中UI
+### In-conversation UI
 
 ```json
 {
-  "question": "会話中のUIはどのスタイルにしますか？",
-  "header": "会話UI",
+  "question": "Which style should the in-conversation UI use?",
+  "header": "Convo UI",
   "options": [
-    { "label": "ミニマル（推奨）", "description": "波形アニメーションとステータスのみ。会話そのものに集中させられるが、聞き取れなかった発言を確認する手段が無い" },
-    { "label": "チャットバブル", "description": "発言をリアルタイムでテキスト表示する。確認できる一方、読むことに意識が向いて発話量が落ちる" },
-    { "label": "ハイブリッド", "description": "普段はミニマル、タップでトランスクリプトを開く。両立できるが、開閉状態の管理と再描画の設計が増える" }
+    { "label": "Minimal (Recommended)", "description": "Waveform animation and status only. Keeps focus on the conversation, but there is no way to check an utterance the user missed" },
+    { "label": "Chat bubbles", "description": "Shows utterances as text in real time. Checkable, but attention shifts to reading and users speak less" },
+    { "label": "Hybrid", "description": "Minimal by default; tap to open the transcript. Gets both, but adds open/closed state management and re-render design" }
   ]
 }
 ```
 
-### ステータス表示
+### Status display
 
 ```json
 {
-  "question": "会話中のステータス表示に何を含めますか？",
-  "header": "ステータス",
+  "question": "What should the in-conversation status display include?",
+  "header": "Status",
   "options": [
-    { "label": "波形 + 状態テキスト（推奨）", "description": "「聴いています」「考え中」を言語化する。無音時に固まったと誤解されにくいが、文言の翻訳と読み上げ対応が要る" },
-    { "label": "波形のみ", "description": "言語に依存せず、画面がうるさくならない。ただし処理待ちと無反応の区別がつきにくい" },
-    { "label": "波形 + 残りターン数", "description": "「3/10」で進捗も見せる。終わりが見えて安心する反面、残数を意識して発話が短くなる" }
+    { "label": "Waveform + status text (Recommended)", "description": "Puts \"Listening\" / \"Thinking\" into words. Less likely to look frozen during silence, but needs translation and screen-reader support for the copy" },
+    { "label": "Waveform only", "description": "Language-independent and uncluttered. But waiting and unresponsive are hard to tell apart" },
+    { "label": "Waveform + turns left", "description": "Shows progress like \"3/10\". Seeing the end reassures, but awareness of the count makes utterances shorter" }
   ]
 }
 ```
 
-### 導入UI（セッション開始前）
+### Intro UI (before the session)
 
 ```json
 {
-  "question": "セッション開始前の導入UIはどうしますか？",
-  "header": "導入UI",
+  "question": "What should the pre-session intro UI be?",
+  "header": "Intro",
   "options": [
-    { "label": "シンプル（推奨）", "description": "シナリオ説明と開始ボタンのみ。再訪ユーザーが最短で始められるが、初回のマイク不調に気付くのが会話開始後になる" },
-    { "label": "ブリーフィング", "description": "相手役の紹介や今日のトピックを提示する。文脈が伝わるが、毎回読ませると2回目以降は障害になる" },
-    { "label": "ウォームアップ", "description": "マイクテストや短い発声練習を挟む。失敗セッションを減らせるが、開始までの手数が増える" }
+    { "label": "Simple (Recommended)", "description": "Scenario description and a start button only. Returning users start fastest, but a first-time mic problem is only noticed after the conversation starts" },
+    { "label": "Briefing", "description": "Introduces the counterpart role and today's topic. Conveys context, but reading it every time becomes an obstacle from the second session on" },
+    { "label": "Warm-up", "description": "Adds a mic test or short vocal warm-up. Reduces failed sessions, but adds steps before starting" }
   ]
 }
 ```
 
-### 終了トランジション（セッション終了後）
+### Ending transition (after the session)
 
 ```json
 {
-  "question": "セッション終了時のトランジションはどうしますか？",
-  "header": "終了演出",
+  "question": "How should the session end transition work?",
+  "header": "Ending",
   "options": [
-    { "label": "スムーズ遷移", "description": "フェードでフィードバック画面へ送る。区切りが自然だが、評価計算の待ち時間を隠す設計が別途要る" },
-    { "label": "サマリーモーダル", "description": "結果概要をモーダルで出し、タップで詳細へ。要点だけ見て終われるが、モーダルを閉じただけで離脱する率が上がる" },
-    { "label": "即時表示", "description": "遷移演出なしでフィードバック画面を表示する。最短で結果に到達できるが、会話の余韻が断ち切られる" }
+    { "label": "Smooth transition", "description": "Fades into the feedback screen. A natural break, but hiding the scoring wait needs separate design" },
+    { "label": "Summary modal", "description": "Shows a result overview in a modal; tap for details. Users can finish after the highlights, but more users leave just by closing the modal" },
+    { "label": "Immediate display", "description": "Shows the feedback screen with no transition. Fastest path to results, but cuts off the afterglow of the conversation" }
   ]
 }
 ```
 
-### スコア/フィードバック表示
+### Score / feedback display
 
 ```json
 {
-  "question": "スコア表示のビジュアルはどの形式にしますか？",
-  "header": "スコア表示",
+  "question": "Which visual format should the score display use?",
+  "header": "Score view",
   "options": [
-    { "label": "円形ゲージ", "description": "軸ごとに円形ゲージを並べる。一目で強弱が分かるが、軸が5つを超えると狭い画面に収まらない" },
-    { "label": "バーチャート", "description": "横棒で軸を比較する。軸数が増えても縦に伸ばせるが、円形ほど「達成感」の演出にはならない" },
-    { "label": "総合点のみ", "description": "大きな数字1つ、内訳は展開式。迷いなく読めるが、どこを直せばよいかが最初の画面から読み取れない" }
+    { "label": "Circular gauges", "description": "One circular gauge per axis. Strengths and weaknesses are clear at a glance, but more than five axes do not fit a narrow screen" },
+    { "label": "Bar chart", "description": "Compares axes with horizontal bars. Extends vertically as axes grow, but conveys less sense of achievement than circles" },
+    { "label": "Overall score only", "description": "One large number with an expandable breakdown. Unambiguous to read, but the first screen does not show what to improve" }
   ]
 }
 ```
 
-### フィードバックの情報密度
+### Feedback density
 
 ```json
 {
-  "question": "フィードバック画面の情報密度はどうしますか？",
-  "header": "FB密度",
+  "question": "How dense should the feedback screen be?",
+  "header": "FB density",
   "options": [
-    { "label": "コンパクト（推奨）", "description": "スコアとハイライトのみ、詳細は展開式。次のセッションへ戻りやすいが、深く復習したいユーザーには物足りない" },
-    { "label": "詳細表示", "description": "全発言と代替表現を一度に出す。復習価値は高いが、量に圧倒されて読まれない率が上がる" },
-    { "label": "カード式", "description": "発言ごとにカードで1件ずつ確認させる。1件への集中度は上がるが、全体像を掴むのに時間がかかる" }
+    { "label": "Compact (Recommended)", "description": "Score and highlights only, details expandable. Easy to return to the next session, but thin for users who want deep review" },
+    { "label": "Detailed", "description": "Shows every utterance and alternative phrasing at once. High review value, but the volume overwhelms and more of it goes unread" },
+    { "label": "Cards", "description": "Reviews one utterance per card. Raises focus on each item, but takes longer to grasp the whole" }
   ]
 }
 ```
 
-## Eコマース/ショッピング
+## E-commerce / shopping
 
-### 商品リストの密度
+### Product list density
 
 ```json
 {
-  "question": "商品リストの見せ方はどれにしますか？",
-  "header": "商品リスト",
+  "question": "How should the product list be presented?",
+  "header": "Listing",
   "options": [
-    { "label": "画像優先グリッド", "description": "大きな画像 + 価格のみ。見た目で選ぶ商材に強いが、スペックで比較する商材では詳細ページへの往復が増える" },
-    { "label": "情報付きカード", "description": "画像 + 価格 + レビュー + 主要属性。比較しやすいが、カードが縦に伸びて1画面あたりの件数が減る" },
-    { "label": "行リスト（表形式）", "description": "属性を列で揃える。型番商材の比較に最も強いが、ブランドの世界観は伝わりにくく、モバイルでは横スクロールが要る" }
+    { "label": "Image-first grid", "description": "Large image + price only. Strong for goods chosen by look, but spec-compared goods need more round trips to detail pages" },
+    { "label": "Info cards", "description": "Image + price + reviews + key attributes. Easy to compare, but cards grow taller and fewer fit per screen" },
+    { "label": "Row list (table)", "description": "Aligns attributes in columns. Best for comparing model-numbered goods, but conveys little brand character and needs horizontal scroll on mobile" }
   ]
 }
 ```
 
-### チェックアウトの形
+### Checkout shape
 
 ```json
 {
-  "question": "チェックアウトの流れはどの形にしますか？",
-  "header": "購入フロー",
+  "question": "Which shape should the checkout flow take?",
+  "header": "Checkout",
   "options": [
-    { "label": "ステップ分割（推奨）", "description": "配送 → 支払い → 確認をインジケータ付きで分ける。1画面あたりの入力が少なく、どこで離脱したか特定できるが、画面遷移が増える" },
-    { "label": "単一ページ", "description": "全項目を1画面に出す。全体量が見えて手戻りしにくいが、初見では圧迫感があり、エラー箇所まで長くスクロールする" },
-    { "label": "アコーディオン1ページ", "description": "1ページ内で節を開閉する。遷移なしで進捗も見えるが、開閉状態とバリデーションの組み合わせが複雑になる" }
+    { "label": "Step-by-step (Recommended)", "description": "Shipping → payment → review with a progress indicator. Less input per screen and drop-off points are identifiable, but more screen transitions" },
+    { "label": "Single page", "description": "All fields on one screen. The total effort is visible and backtracking is rare, but it feels heavy at first and errors require long scrolling" },
+    { "label": "Accordion single page", "description": "Sections open and close within one page. No transitions and progress is visible, but open state and validation combine into complexity" }
   ]
 }
 ```
 
-送料・手数料は最初のステップから合計に含めて表示する。理由: 最終確認で初めて増えると、そこが最大の離脱点になる。
+Include shipping and fees in the total from the first step. Why: if the total first rises at final review, that becomes the biggest drop-off point.
 
-## ダッシュボード/管理画面
+## Dashboards / admin panels
 
-### 指標の階層
+### Metric hierarchy
 
 ```json
 {
-  "question": "画面上の指標の優先順位はどう見せますか？",
-  "header": "指標階層",
+  "question": "How should metric priority be shown on screen?",
+  "header": "KPI layout",
   "options": [
-    { "label": "上部KPI帯 + 詳細セクション（推奨）", "description": "重要指標を上段に固定し、下に詳細を積む。概要から詳細へ読み進められるが、KPIを5つ以上並べると優先順位が消える" },
-    { "label": "単一主指標 + 補助", "description": "1つの数値を大きく置き、他は補助的に添える。何を見る画面かが明確だが、複数の役割が使う画面には合わない" },
-    { "label": "均等カードグリッド", "description": "同じ大きさのカードを並べる。追加・並べ替えが容易だが、どれが重要かをUIが語らないので毎回読み解きが要る" }
+    { "label": "Top KPI strip + detail sections (Recommended)", "description": "Pins key metrics at the top with details below. Reads from overview to detail, but five or more KPIs erase the priority" },
+    { "label": "Single primary metric + supporting", "description": "One large number with others as support. The screen's purpose is clear, but it does not suit screens used by several roles" },
+    { "label": "Uniform card grid", "description": "Same-size cards. Easy to add and reorder, but the UI does not say what matters, so every visit needs interpretation" }
   ]
 }
 ```
 
-### ドリルダウンの方式
+### Drill-down method
 
 ```json
 {
-  "question": "概要から詳細へ掘り下げる操作はどうしますか？",
-  "header": "ドリルダウン",
+  "question": "How should users drill down from overview to detail?",
+  "header": "Drill-down",
   "options": [
-    { "label": "インライン展開", "description": "その場で行を開いて内訳を出す。文脈を失わないが、階層が2段を超えると画面が縦に破綻する" },
-    { "label": "別画面へ遷移", "description": "詳細画面に十分な情報を置ける。URLで共有できる一方、概要へ戻る操作が毎回必要になる" },
-    { "label": "サイドパネル/シート", "description": "一覧を残したまま詳細を出す。連続確認に強いが、横幅を取るため一覧側の列を削ることになる" }
+    { "label": "Inline expand", "description": "Opens the row in place to show the breakdown. Keeps context, but beyond two levels the screen breaks vertically" },
+    { "label": "Separate screen", "description": "Room for full detail and shareable by URL, but returning to the overview takes an action every time" },
+    { "label": "Side panel / sheet", "description": "Shows detail while keeping the list. Strong for checking items in sequence, but takes width, so list columns must be cut" }
   ]
 }
 ```
 
-## AIアシスタント/エージェント
+## AI assistant / agent
 
-### ストリーミング表示
+### Streaming display
 
 ```json
 {
-  "question": "生成中の出力はどう見せますか？",
-  "header": "ストリーミング",
+  "question": "How should output be shown while generating?",
+  "header": "Streaming",
   "options": [
-    { "label": "トークン逐次描画（推奨）", "description": "体感待ち時間が最短になる。コードブロックや表は閉じるまで描画を遅らせないと崩れた中間状態が見えるため、その分岐が要る" },
-    { "label": "ブロック単位で確定描画", "description": "段落・コードブロック単位で出す。表示崩れが無いが、長いブロックの間は無反応に見える" },
-    { "label": "完了後に一括表示", "description": "レイアウトが最も安定する。ただし待ち時間が可視化されず、長い処理では停止したと判断されやすい" }
+    { "label": "Token-by-token (Recommended)", "description": "Shortest perceived wait. Code blocks and tables must be held until they close or broken intermediate states show, so that branch is needed" },
+    { "label": "Render per block", "description": "Outputs per paragraph or code block. No broken display, but long blocks look unresponsive" },
+    { "label": "All at once on completion", "description": "Most stable layout. But the wait is invisible and long tasks are easily judged as stalled" }
   ]
 }
 ```
 
-どれを選んでも、生成中は常に停止操作を出し、ユーザーが上へスクロールしたら自動スクロールを止める。理由: 制御を奪われる感覚が、AI製品への不信に直結する。
+Whichever is chosen, always show a stop control during generation, and stop auto-scroll when the user scrolls up. Why: the feeling of losing control translates directly into distrust of AI products.
 
-### ツール実行の可視化
+### Tool execution visibility
 
 ```json
 {
-  "question": "ツール実行・検索・ファイル読み取りの過程をどこまで見せますか？",
-  "header": "実行可視化",
+  "question": "How much of the tool-call, search, and file-read process should be shown?",
+  "header": "Tool trace",
   "options": [
-    { "label": "実行中に1行ずつ + 折りたたみ詳細（推奨）", "description": "何をしているかが実行中に分かり、必要な人だけ中身を開ける。行が増え続けるので、完了後は畳む設計が要る" },
-    { "label": "全文を常時展開", "description": "検証やデバッグ用途に最適だが、通常利用では出力本体が埋もれる" },
-    { "label": "結果のみ", "description": "画面は最も静かだが、待ち時間の根拠が見えず、誤った前提で作業していても途中で気付けない" }
+    { "label": "One line per step live + collapsible details (Recommended)", "description": "Users see what is happening while it runs, and only those who need it open the contents. Lines keep growing, so collapsing after completion needs design" },
+    { "label": "Always fully expanded", "description": "Best for verification and debugging, but buries the actual output in normal use" },
+    { "label": "Results only", "description": "The quietest screen, but the wait has no visible reason and users cannot catch a wrong premise mid-task" }
   ]
 }
 ```
 
-### 出典と確信度の表示
+### Citations and confidence
 
 ```json
 {
-  "question": "根拠・出典の示し方はどうしますか？",
-  "header": "出典",
+  "question": "How should evidence and sources be shown?",
+  "header": "Sources",
   "options": [
-    { "label": "インライン番号 + 参照先リンク（推奨）", "description": "どの文がどの根拠かを対応付けられる。文中の記号が増えて可読性は少し落ちる" },
-    { "label": "末尾に参照リスト", "description": "本文が読みやすい。ただし文と根拠の対応が取れず、検証には使いにくい" },
-    { "label": "出典なし", "description": "生成のみで完結する用途に限る。外部情報を扱うなら、検証手段が無いまま断定口調だけが残るため選ばない" }
+    { "label": "Inline numbers + source links (Recommended)", "description": "Maps each sentence to its evidence. Extra markers in the text slightly reduce readability" },
+    { "label": "Reference list at the end", "description": "Body text reads easily. But sentences cannot be matched to evidence, so it is weak for verification" },
+    { "label": "No sources", "description": "Only for purely generative uses. When external information is involved, do not choose it: only assertive tone remains, with no way to verify" }
   ]
 }
 ```
 
-確信度は数値だけで出さない。理由: 単独の数値は精度の保証と誤読され、過信を招く。
+Never show confidence as a number alone. Why: a standalone number is misread as a guarantee of accuracy and invites overconfidence.

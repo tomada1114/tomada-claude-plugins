@@ -1,327 +1,327 @@
-# アプリタイプ別UXパターン
+# UX patterns by app type
 
-アプリタイプごとに、設計判断として符号化する価値のあるものだけを置く。各節は「参考プロダクト / ベストプラクティス / 避けるべきパターン」の3部構成で、避けるべきパターンは パターン → 問題点 → 代替案 の表にする。理由: 代替案まで書いて初めて指示として機能する。
+For each app type, this file keeps only what is worth encoding as a design decision. Each section has three parts — "Reference products / Best practices / Patterns to avoid" — and patterns to avoid are a table of Pattern | Problem | Alternative. Why: a pattern only works as an instruction once the alternative is written down.
 
-ここに無いタイプ（AIアシスタント/エージェントUI、生産性・ノート/タスク、フィンテック、ヘルスケア、開発者ツール、予約/マーケットプレイス）は `app-type-ux-patterns-verticals.md` を見る。
+For types not covered here (AI assistant/agent UIs, productivity — notes/tasks, fintech, healthcare, developer tools, booking/marketplaces), see `app-type-ux-patterns-verticals.md`.
 
-参考プロダクト表の「注意」列は、そのプロダクトのどこを真似しないかを書く欄。「観察対象（ダークパターンの反面教師）」と書かれたものは、手本ではなく回避例として見る。
+The "Caution" column in the reference-product tables says what not to copy from that product. Entries marked "Observe only (dark-pattern counterexample)" are examples to avoid, not models to follow.
 
-## 目次
+## Contents
 
-- [会話/音声アプリ](#会話音声アプリ)
-- [Eコマース/ショッピング](#eコマースショッピング)
-- [ダッシュボード/管理画面](#ダッシュボード管理画面)
-- [SNS/コミュニティ](#snsコミュニティ)
-- [学習/教育アプリ](#学習教育アプリ)
-- [調査時のチェックリスト](#調査時のチェックリスト)
+- [Conversational / voice apps](#conversational--voice-apps)
+- [E-commerce / shopping](#e-commerce--shopping)
+- [Dashboards / admin panels](#dashboards--admin-panels)
+- [Social / community](#social--community)
+- [Learning / education apps](#learning--education-apps)
+- [Checklist for research](#checklist-for-research)
 
 ---
 
-## 会話/音声アプリ
+## Conversational / voice apps
 
-### 参考プロダクト
+### Reference products
 
-| プロダクト | 見るべき点 | 注意 |
-|-----------|-----------|------|
-| **ChatGPT 音声モード** | 音声入出力の状態遷移、割り込み（barge-in）の扱い | |
-| **Speak** | ロールプレイの目的提示、会話の自然な終わらせ方 | |
-| **ELSA Speak** | 発音スコアの粒度と提示タイミング | |
-| **Duolingo（会話練習）** | 短時間セッションの区切り方 | ストリーク維持圧は別途評価する |
-| **Replika** | — | 観察対象（ダークパターンの反面教師）。感情的な引き留めと課金導線を学ぶ対象にしない |
+| Product | What to study | Caution |
+|---------|---------------|---------|
+| **ChatGPT voice mode** | Voice input/output state transitions, handling interruptions (barge-in) | |
+| **Speak** | Presenting role-play goals, ending a conversation naturally | |
+| **ELSA Speak** | Granularity and timing of pronunciation scores | |
+| **Duolingo (conversation practice)** | How short sessions are divided | Evaluate streak pressure separately |
+| **Replika** | — | Observe only (dark-pattern counterexample). Do not learn from its emotional retention hooks or paywall funnels |
 
-### ベストプラクティス
+### Best practices
 
-#### 会話中の画面
-
-```
-- 画面の主役は状態表示ひとつ（波形またはレベルメーター）に絞る
-- 文字起こしは既定で非表示、トグルで出せるようにする。理由: 読み始めると発話が止まる
-- 常時置くボタンは 終了 と ミュート の2つまで
-```
-
-#### 音声状態の視覚化
+#### In-conversation screen
 
 ```
-状態ごとに 色 + 形 + ラベル の3つを変える。理由: 色だけの区別は色覚多様性と屋外の視認性で破綻する
-- AI発話中:   波形アクティブ / --color-accent      / 「話しています」
-- ユーザー発話中: 波形アクティブ / --color-info    / 「聞いています」
-- 処理中:     不確定インジケーター / --color-text-muted / 「考えています」
-- 待機中:     波形静止 / --color-text-subtle       / 「タップで開始」
+- Make one state indicator (waveform or level meter) the focus of the screen
+- Hide the transcript by default; let a toggle show it. Why: once users start reading, they stop speaking
+- At most two always-visible buttons: End and Mute
 ```
 
-#### フィードバックのタイミング
+#### Visualizing voice state
 
 ```
-- 会話中は訂正しない。終了後に「良かった点 → 直す点1〜2個」の順で出す
-- 会話中に出してよいのは非評価情報（音量・話速・残り時間）だけ。
-  理由: 採点が見えると発話量が落ち、練習量そのものが減る
+Vary three things per state: color + shape + label. Why: color-only distinction fails for color-vision differences and outdoor visibility
+- AI speaking:    active waveform / accent color / "Speaking"
+- User speaking:  active waveform / info color   / "Listening"
+- Processing:     indeterminate indicator / muted text color  / "Thinking"
+- Idle:           still waveform / subtle text color / "Tap to start"
 ```
 
-#### 割り込みと終了
+#### Feedback timing
 
 ```
-- ユーザーの発話を検知したらAI音声を即座に止める（barge-in）
-- 無音が続いて自動終了する前に、続けるかどうかを一度尋ねる
-- 途中終了でもその時点までのフィードバックを残す。理由: 中断が損に感じると再開されない
+- Do not correct during the conversation. Afterwards, show "what went well → 1-2 things to fix", in that order
+- During the conversation, show only non-evaluative info (volume, speaking rate, time left).
+  Why: visible scoring reduces how much people speak, which reduces practice itself
 ```
 
-### 避けるべきパターン
+#### Interruption and ending
 
-| パターン | 問題点 | 代替案 |
-|---------|--------|--------|
-| 毎回質問で終わる | 尋問のように感じる | 相槌で締める応答を混ぜ、質問は3回に1回程度 |
-| 会話中の即時採点 | 評価を意識して発話が縮む | セッション後にまとめて提示 |
-| 音声のみで完結させる | 騒音下・聴覚に制約がある環境で使えない | テキスト入力と文字起こしを同等の経路として用意 |
-| 開始前の長い設定 | 使う前に離脱する | 既定値で即開始し、設定は初回セッション後に提案 |
-| 状態を色だけで表す | 判別できない環境がある | 色 + 形 + ラベルの3重化 |
+```
+- Stop AI audio immediately when user speech is detected (barge-in)
+- Before auto-ending after prolonged silence, ask once whether to continue
+- Keep feedback up to that point even when a session ends early. Why: if quitting feels like a loss, users don't come back
+```
 
-### 参考リンク（会話UI/VUI）
+### Patterns to avoid
 
-- [Google Design: Speaking the Same Language（VUI設計原則）](https://design.google/library/speaking-the-same-language-vui) — 一次情報
+| Pattern | Problem | Alternative |
+|---------|---------|-------------|
+| Ending every turn with a question | Feels like an interrogation | Mix in turns that close with an acknowledgment; ask a question roughly one turn in three |
+| Instant scoring mid-conversation | Awareness of evaluation shrinks speech | Present it together after the session |
+| Voice-only experience | Unusable in noise or for users with hearing constraints | Provide text input and transcripts as equal paths |
+| Long setup before starting | Users drop off before using it | Start immediately with defaults; suggest settings after the first session |
+| State shown by color alone | Indistinguishable in some environments | Triple-encode with color + shape + label |
+
+### Reference links (conversational UI / VUI)
+
+- [Google Design: Speaking the Same Language (VUI design principles)](https://design.google/library/speaking-the-same-language-vui) — primary source
 - [WillowTree: 7 UX/UI Rules for Designing a Conversational AI Assistant](https://www.willowtreeapps.com/insights/willowtrees-7-ux-ui-rules-for-designing-a-conversational-ai-assistant)
-- [Voice User Interface (VUI) Design Principles](https://www.parallelhq.com/blog/voice-user-interface-vui-design-principles) — 二次情報。主張は一次情報で裏を取る
+- [Voice User Interface (VUI) Design Principles](https://www.parallelhq.com/blog/voice-user-interface-vui-design-principles) — secondary source; verify claims against primary sources
 
 ---
 
-## Eコマース/ショッピング
+## E-commerce / shopping
 
-### 参考プロダクト
+### Reference products
 
-| プロダクト | 見るべき点 | 注意 |
-|-----------|-----------|------|
-| **Amazon** | 検索と絞り込み、レビュー表示、再購入導線 | 商品ページの情報密度は日本語圏では過剰になりやすい |
-| **メルカリ** | 出品から購入までの摩擦の少なさ、即決導線 | |
-| **ZOZOTOWN** | サイズ選択、在庫と再入荷通知の表現 | |
-| **Apple Store** | 構成選択（コンフィギュレータ）の段階提示 | |
-| **SHEIN / Temu** | — | 観察対象（ダークパターンの反面教師）。カウントダウン・偽の在庫警告・ルーレット型クーポンを学ぶ対象にしない |
+| Product | What to study | Caution |
+|---------|---------------|---------|
+| **Amazon** | Search and filtering, review display, repurchase paths | Product-page information density tends to be excessive for Japanese-language markets |
+| **Mercari** | Low friction from listing to purchase, instant-buy paths | |
+| **ZOZOTOWN** | Size selection, stock and restock-notification display | |
+| **Apple Store** | Step-by-step configurator | |
+| **SHEIN / Temu** | — | Observe only (dark-pattern counterexample). Do not learn from countdowns, fake low-stock warnings, or roulette-style coupons |
 
-販売者向けの管理画面（Shopify 等）はダッシュボードの節を見る。
+For seller-facing admin screens (Shopify etc.), see the dashboards section.
 
-### ベストプラクティス
+### Best practices
 
-#### 商品リスト
-
-```
-- カード内は 画像 / 商品名2行まで / 価格 / 評価（数値 + 件数）の4要素に固定する
-- 画像は aspect-ratio で領域を予約し、遅延読み込みでもレイアウトを動かさない
-- 追加読み込みは「もっと見る」+ ページネーションを既定にする。
-  無限スクロールはSNSの節の条件を満たす場合に限る。
-  理由: 一覧は「戻る」で元の位置に返れることが購入率に直結する
-- 絞り込みは適用結果の件数を即座に返す
-```
-
-#### 商品詳細
+#### Product list
 
 ```
-- 画像ギャラリーはスワイプと拡大に対応し、1枚目でサイズ感が分かる写真を置く
-- 基本 → 詳細 → レビューの順に段階開示し、詳細スペックは折りたたむ
-- カート追加CTAはスクロール中も固定表示し、価格と選択中のバリエーションを併記する
-- 在庫・納期・返品条件はCTAより前に出す。理由: 後出しはカート離脱の主因
+- Fix card content to four elements: image / name (max 2 lines) / price / rating (score + count)
+- Reserve image space with aspect-ratio so lazy loading never shifts the layout
+- Default to "Load more" + pagination for loading more.
+  Use infinite scroll only when the conditions in the social section are met.
+  Why: returning to the same position via "Back" directly affects conversion
+- Filters immediately return the resulting item count
 ```
 
-#### カート/チェックアウト
+#### Product detail
 
 ```
-- 送料・手数料・税を含む総額を、決済に進む前の画面で確定表示する
-- ゲスト購入を既定の導線にし、会員登録は購入完了後に提案する
-- 入力欄に autocomplete 属性を付け、住所は郵便番号から補完する
-- 1画面1目的でステップを分け、現在位置と残ステップ数を出す
-- エラーは該当欄の直下に、何をどう直すかの文で出す
+- Gallery supports swipe and zoom; the first image conveys size
+- Progressive disclosure: basics → details → reviews; collapse detailed specs
+- Keep the add-to-cart CTA fixed while scrolling, with price and selected variant alongside
+- Show stock, delivery time, and return terms before the CTA. Why: revealing them late is a main cause of cart abandonment
 ```
 
-### 避けるべきパターン
+#### Cart / checkout
 
-| パターン | 問題点 | 代替案 |
-|---------|--------|--------|
-| 隠れた送料・手数料 | 最終画面で総額が跳ね、信頼を失う | 一覧・詳細の時点で総額の目安を出す |
-| 強制会員登録 | 初回購入の離脱率が上がる | ゲスト購入 + 完了後の登録提案 |
-| カウントダウンや在庫の煽り | 虚偽なら法規制の対象、事実でも不信を招く | 実在庫のみを装飾なしで表示 |
-| ポップアップの重ね掛け | 商品を見る前に離脱する | 初回のみ、ページ下部の控えめなバナー1つ |
-| 事前チェック済みの追加購入 | 意図しない課金と返金対応コスト | 既定はオフ、追加は明示的な操作で |
+```
+- Show the final total, including shipping, fees, and tax, before the payment step
+- Make guest checkout the default path; offer account creation after purchase
+- Add autocomplete attributes to inputs; fill the address from the postal code
+- One purpose per step; show current position and remaining steps
+- Show errors directly below the field, as a sentence saying what to fix and how
+```
+
+### Patterns to avoid
+
+| Pattern | Problem | Alternative |
+|---------|---------|-------------|
+| Hidden shipping/fees | Total jumps on the final screen, destroying trust | Show an estimated total already on list and detail pages |
+| Forced registration | Higher first-purchase drop-off | Guest checkout + registration offer after completion |
+| Countdowns and stock pressure | Illegal if false; breeds distrust even if true | Show only real stock, without decoration |
+| Stacked pop-ups | Users leave before seeing products | First visit only, one unobtrusive banner at the bottom |
+| Pre-checked add-ons | Unintended charges and refund costs | Off by default; add-ons require an explicit action |
 
 ---
 
-## ダッシュボード/管理画面
+## Dashboards / admin panels
 
-### 参考プロダクト
+### Reference products
 
-| プロダクト | 見るべき点 | 注意 |
-|-----------|-----------|------|
-| **Linear** | キーボード操作、状態遷移の速さ、楽観的更新 | |
-| **Stripe Dashboard** | 一覧と詳細の往復、フィルタの永続化 | |
-| **Shopify 管理画面** | 販売者向け業務画面の情報設計、一括操作 | 買い手側ECの参考ではない |
-| **Vercel** | デプロイ状態バッジ、ログの追従表示 | |
-| **Notion** | 階層とビューの切り替え | 権限・共有の表現は複雑さの上限例として見る |
+| Product | What to study | Caution |
+|---------|---------------|---------|
+| **Linear** | Keyboard operation, fast state transitions, optimistic updates | |
+| **Stripe Dashboard** | Moving between list and detail, persistent filters | |
+| **Shopify admin** | Information architecture for seller operations, bulk actions | Not a reference for buyer-side e-commerce |
+| **Vercel** | Deployment status badges, auto-following logs | |
+| **Notion** | Switching hierarchy and views | Treat its permission/sharing UI as an upper bound on complexity |
 
-### ベストプラクティス
+### Best practices
 
-#### レイアウト
-
-```
-- 左サイドバー（第1階層）+ ページ内タブ（第2階層）まで。階層は2段で止める
-- 画面上部は「今日判断したい数値」3〜5個に限る。残りはドリルダウン先に置く
-- 可変の余白はサイドバー側で吸収し、データ領域の幅を優先する
-```
-
-#### データ表示
+#### Layout
 
 ```
-- 一覧は既定でソート済み・ページネーション付き。全件表示を既定にしない
-- フィルタ状態をURLに反映する。理由: 共有と再現ができないと運用で使われない
-- 行から詳細への遷移はモーダルではなくパネルかページ（戻る操作を壊さない）
-- 空状態には「なぜ空か」と「次に何をするか」を書く
-- エクスポートは絞り込み結果に対して効かせる
+- Left sidebar (level 1) + in-page tabs (level 2). Stop the hierarchy at two levels
+- Limit the top of the screen to 3-5 "numbers to act on today"; put the rest behind drill-downs
+- Absorb variable space in the sidebar; prioritize width for the data area
 ```
 
-#### アクション
+#### Data display
 
 ```
-- 破壊的操作は確認ダイアログより「実行 + 取り消し（数秒間のトースト）」を優先する。
-  理由: 確認は読み飛ばされて機能しなくなる。不可逆な操作（課金・公開・完全削除）に限り確認を課す
-- ボタンラベルは動詞 + 目的語（「削除」ではなく「請求書を削除」）
-- 一括操作は対象件数を明示し、画面外の対象を含む場合は総数を出す
+- Lists are sorted and paginated by default. Never show all records by default
+- Reflect filter state in the URL. Why: if it can't be shared and reproduced, it won't be used in operations
+- Open details from a row in a panel or page, not a modal (don't break Back)
+- Empty states say "why it's empty" and "what to do next"
+- Exports apply to the filtered results
 ```
 
-### 避けるべきパターン
+#### Actions
 
-| パターン | 問題点 | 代替案 |
-|---------|--------|--------|
-| 指標を並べただけのトップ | 判断すべき数値が埋もれる | 上位3〜5指標に絞り、残りはドリルダウン |
-| 深い階層 | 現在地が分からなくなる | 2階層 + 全文検索 |
-| モーダルの多重化 | 戻る操作が壊れる | パネルかページ遷移 |
-| 確認ダイアログの乱発 | 読み飛ばしが習慣化する | 取り消し可能にし、確認は不可逆操作のみ |
-| 画面ごとに異なる表現 | 学習コストが積み上がる | トークンとコンポーネントを共有 |
+```
+- For destructive actions, prefer "do it + undo (toast for a few seconds)" over a confirmation dialog.
+  Why: confirmations get skimmed and stop working. Require confirmation only for irreversible actions (billing, publishing, permanent deletion)
+- Button labels are verb + object ("Delete invoice", not "Delete")
+- Bulk actions state the target count, including the total when targets extend off-screen
+```
+
+### Patterns to avoid
+
+| Pattern | Problem | Alternative |
+|---------|---------|-------------|
+| Home page that just lists metrics | The numbers that matter get buried | Narrow to the top 3-5 metrics; drill down for the rest |
+| Deep hierarchy | Users lose track of where they are | Two levels + full-text search |
+| Stacked modals | Breaks Back | Panels or page navigation |
+| Confirmation dialogs everywhere | Skimming becomes habit | Make actions undoable; confirm only irreversible ones |
+| Different expression per screen | Learning cost accumulates | Share components and state patterns |
 
 ---
 
-## SNS/コミュニティ
+## Social / community
 
-### 参考プロダクト
+### Reference products
 
-| プロダクト | 見るべき点 | 注意 |
-|-----------|-----------|------|
-| **Bluesky / Threads** | フィード構成、投稿UI、モデレーション表現 | |
-| **Discord** | チャンネル構造、通知の粒度設定 | |
-| **Instagram** | ストーリー/リールの操作感 | 通知圧とアルゴリズム誘導は真似しない |
-| **Reddit** | スレッドの折りたたみ、投票と並び替え | |
+| Product | What to study | Caution |
+|---------|---------------|---------|
+| **Bluesky / Threads** | Feed structure, compose UI, moderation display | |
+| **Discord** | Channel structure, notification granularity settings | |
+| **Instagram** | Feel of Stories/Reels interaction | Don't copy notification pressure or algorithmic nudging |
+| **Reddit** | Collapsible threads, voting and sorting | |
 
-X はUI変更の幅が大きく、マイクロブログの手本としては参照しない。フィードや投稿UIの参照先は Bluesky / Threads を使う。
+X changes its UI too much to serve as a microblogging model. Use Bluesky / Threads as the reference for feeds and compose UI.
 
-### ベストプラクティス
+### Best practices
 
-#### フィード
-
-```
-- 既定は「もっと見る」+ ページネーション。無限スクロールは次の両方を満たす場合に限る:
-  (1) フッターに重要情報（規約・ヘルプ・設定導線）が無い
-  (2) 詳細から戻ったときスクロール位置と読み込み済み件数を復元できる
-  理由: どちらかを欠くと、到達できない情報と失われる読み位置が生まれる
-- プルトゥリフレッシュは既読位置を飛ばさず、新着は件数バッジで知らせる
-- 動画の自動再生は既定ミュート、モバイル回線では既定オフ
-- いいね等は楽観的更新（即座に反映し、失敗時に戻して通知）
-```
-
-#### プロフィール
+#### Feed
 
 ```
-- 表示名 / ハンドル / 自己紹介 / リンク の4つを1画面目に置き、編集へ1タップで入れる
-- 収集する項目は表示に使うものだけにする。理由: 使わない属性の要求は登録離脱を生む
+- Default to "Load more" + pagination. Use infinite scroll only when both hold:
+  (1) the footer holds no important info (terms, help, settings links)
+  (2) returning from a detail view restores scroll position and loaded items
+  Why: missing either creates unreachable info and lost reading position
+- Pull-to-refresh never skips the read position; announce new posts with a count badge
+- Autoplay video muted by default, and off by default on mobile data
+- Likes etc. use optimistic updates (reflect instantly; revert and notify on failure)
 ```
 
-#### 通知
+#### Profile
 
 ```
-- 種類ごとにオン/オフを分け、既定はオプトイン（メンションとDMのみオン）
-- アプリ内通知は既読/未読を明示し、まとめて既読にできる操作を1つ置く
-- プッシュ許可は価値を体験した後に、理由を添えて1度だけ求める
+- Put display name / handle / bio / links on the first screen, with editing one tap away
+- Collect only fields that are displayed. Why: asking for unused attributes causes sign-up drop-off
 ```
 
-### 避けるべきパターン
+#### Notifications
 
-| パターン | 問題点 | 代替案 |
-|---------|--------|--------|
-| 無条件の無限スクロール | フッターに到達できず、戻り位置も失われる | 「もっと見る」+ 位置復元。条件を満たす場合のみ無限スクロール |
-| 通知の既定全オン | 通知疲れでアプリごと削除される | オプトイン + 種類別設定 |
-| 音付き自動再生 | 公共の場で開けない | 既定ミュート、タップで音声 |
-| 退会・データ削除導線を隠す | 信頼を失い、法規制の対象になる | 設定内の同じ階層に退会を置く |
-| 滞在時間を最大化する設計 | 短期指標と引き換えに定着を失う | 滞在ではなく達成を指標に置く |
+```
+- Separate on/off per type; default to opt-in (only mentions and DMs on)
+- In-app notifications show read/unread clearly, with one "mark all as read" action
+- Ask for push permission once, after the user has experienced value, with a reason
+```
+
+### Patterns to avoid
+
+| Pattern | Problem | Alternative |
+|---------|---------|-------------|
+| Unconditional infinite scroll | Footer unreachable; return position lost | "Load more" + position restore; infinite scroll only when conditions are met |
+| All notifications on by default | Notification fatigue leads to uninstalling | Opt-in + per-type settings |
+| Autoplay with sound | Can't open it in public | Muted by default; tap for sound |
+| Hidden account/data deletion | Loses trust and invites regulation | Put account deletion at the same level within settings |
+| Designing to maximize time spent | Trades retention for short-term metrics | Measure achievement, not time spent |
 
 ---
 
-## 学習/教育アプリ
+## Learning / education apps
 
-### 参考プロダクト
+### Reference products
 
-| プロダクト | 見るべき点 | 注意 |
-|-----------|-----------|------|
-| **Duolingo** | 短時間ユニット、進捗の可視化 | ストリーク維持圧と課金の煽りは分けて評価する |
-| **Khan Academy** | 前提知識の提示、単元の依存関係 | |
-| **Anki** | 間隔反復のスケジュール表現 | 設定の露出量は一般向けには過剰 |
-| **Coursera** | 動画と課題の往復、再開位置の復元 | |
+| Product | What to study | Caution |
+|---------|---------------|---------|
+| **Duolingo** | Short units, progress visualization | Evaluate streak pressure and upsell pushes separately |
+| **Khan Academy** | Showing prerequisites, dependencies between units | |
+| **Anki** | Spaced-repetition schedule display | Exposes too many settings for a general audience |
+| **Coursera** | Moving between videos and assignments, restoring resume position | |
 
-### ベストプラクティス
+### Best practices
 
-#### 進捗表示
-
-```
-- 「今日の目標」を1つだけ提示し、達成条件を数値で書く
-- 進捗は 単元内 と コース全体 の2粒度を出す。全体だけでは達成感が遠すぎる
-- 連続記録を使うなら猶予（休んでも途切れない日）を用意する。
-  理由: 1日の中断で全消滅する設計は、そのまま離脱の理由になる
-```
-
-#### レッスン構造
+#### Progress display
 
 ```
-- 1ユニットは5〜15分。中断しても再開位置が戻る
-- 新規と復習を同一セッションに混ぜる（例: 新規7割・復習3割）
-- 難易度は正答率で調整し、連続不正解のときは易しい問題に戻す
+- Present a single "today's goal" with a numeric completion condition
+- Show progress at two levels: within the unit and across the course. Course-only feels too distant
+- If you use streaks, provide grace (days off that don't break it).
+  Why: a design where one missed day wipes everything becomes a reason to quit
 ```
 
-#### 誤答の扱い
+#### Lesson structure
 
 ```
-- 誤答時は正解の提示で終わらせず、なぜそうなるかを1〜2文で添える
-- 再挑戦は同じ画面から1タップで行える
-- 誤答は復習キューに入れる。減点として累積表示しない。
-  理由: 失点の累積表示は再開の心理的コストになる
+- One unit is 5-15 minutes; after interruption, users resume where they left off
+- Mix new and review material in one session (e.g. 70% new, 30% review)
+- Adjust difficulty by accuracy; step back to easier items after consecutive misses
 ```
 
-### 避けるべきパターン
+#### Handling wrong answers
 
-| パターン | 問題点 | 代替案 |
-|---------|--------|--------|
-| 長いセッション | 集中が切れ、中断が失敗体験になる | 5〜15分の単元 + 中断位置の保存 |
-| 失敗の強調 | 再開しなくなる | 誤答を復習キューに変換する |
-| 一方的な動画視聴 | 定着しない | 数分ごとに確認問題を挟む |
-| 過度なゲーミフィケーション | 学習ではなく報酬が目的化する | 報酬は進捗の可視化までに留める |
-| ストリークの全消滅 | 1日の中断で離脱する | 猶予日と回復手段を用意 |
+```
+- Don't stop at showing the right answer; add 1-2 sentences on why
+- Retry is one tap from the same screen
+- Send wrong answers to a review queue; don't show them as accumulating penalties.
+  Why: a running tally of losses raises the psychological cost of coming back
+```
+
+### Patterns to avoid
+
+| Pattern | Problem | Alternative |
+|---------|---------|-------------|
+| Long sessions | Focus breaks, and stopping feels like failure | 5-15 minute units + saved resume position |
+| Emphasizing failure | Users stop returning | Turn wrong answers into a review queue |
+| Passive video watching | Doesn't stick | Insert check questions every few minutes |
+| Excessive gamification | Rewards, not learning, become the goal | Limit rewards to progress visualization |
+| Streaks that reset completely | One missed day leads to churn | Grace days and a way to recover |
 
 ---
 
-## 調査時のチェックリスト
+## Checklist for research
 
-競合を触るとき、どのタイプでも同じ順で見る。`research-methods.md` の Step 2（フロー横断比較）の観察項目として使う。
+When trying competitors, check the same items in the same order for every type. Use these as the observation items for Step 2 (cross-competitor flow comparison) in `research-methods.md`.
 
-### 各アプリタイプ共通
+### All app types
 
-- [ ] オンボーディングから最初の成果までのステップ数
-- [ ] 主要画面のレイアウトと情報の優先順位
-- [ ] ナビゲーション構造（階層の深さ、現在地の表現）
-- [ ] エラー処理（原因と復旧手段が書かれているか）
-- [ ] ローディング表示（スケルトンか、スピナーか、進捗つきか）
-- [ ] 空状態の表示（次の行動が書かれているか）
-- [ ] 設定画面の構造と既定値
-- [ ] アクセシビリティ（キーボード操作、動的な文字サイズ、コントラスト）
+- [ ] Number of steps from onboarding to the first meaningful result
+- [ ] Layout of key screens and priority of information
+- [ ] Navigation structure (hierarchy depth, how current location is shown)
+- [ ] Error handling (are cause and recovery stated?)
+- [ ] Loading display (skeleton, spinner, or with progress?)
+- [ ] Empty states (is the next action stated?)
+- [ ] Settings structure and defaults
+- [ ] Accessibility (keyboard operation, dynamic text size, contrast)
 
-### タイプ固有
+### Type-specific
 
-**会話/音声:** 音声状態の視覚化 / フィードバックのタイミング / 割り込みと終了処理
+**Conversational / voice:** voice-state visualization / feedback timing / interruption and ending
 
-**Eコマース:** 検索と絞り込み / 総額の提示時点 / カート操作 / チェックアウトのステップ数
+**E-commerce:** search and filtering / when the total is shown / cart operations / number of checkout steps
 
-**ダッシュボード:** 情報の階層 / フィルタの永続化 / 一括操作 / エクスポート
+**Dashboards:** information hierarchy / filter persistence / bulk actions / export
 
-**SNS:** フィードの読み込み方式と位置復元 / 通知の既定値と粒度 / モデレーション導線
+**Social:** feed loading method and position restore / notification defaults and granularity / moderation paths
 
-**学習/教育:** 1ユニットの長さ / 復習の組み込み / 誤答時の扱い / 進捗の粒度
+**Learning / education:** unit length / built-in review / handling wrong answers / progress granularity

@@ -1,153 +1,138 @@
-# アクセシビリティ
+# Accessibility
 
-デザインコンセプトが満たすべき適合基準と、その測り方。
-色の値そのものは `color-systems.md`、トークン名とテーマ実装は `design-tokens.md` を参照する。
+The targets a product's UX guidelines commit to, how to set each one to a concrete value, and how to measure contrast on a palette decided elsewhere. The palette itself is chosen by `refero-design` (and the repository's `designing-ui` skill when it has one); this file only checks it.
 
-## 目次
+## Contents
 
-- [目標レベルと法的背景](#目標レベルと法的背景)
-- [WCAG 2.2 AA で追加確認する達成基準](#wcag-22-aa-で追加確認する達成基準)
-- [コントラスト要件](#コントラスト要件)
-- [実測コントラスト値](#実測コントラスト値)
-- [APCA と WCAG 3 の位置づけ](#apca-と-wcag-3-の位置づけ)
-- [ユーザー設定への追従](#ユーザー設定への追従)
-- [色覚多様性の確認手順](#色覚多様性の確認手順)
-- [キーボードと支援技術](#キーボードと支援技術)
+- [Target level](#target-level)
+- [Targets table](#targets-table)
+- [Contrast requirements](#contrast-requirements)
+- [Contrast pass](#contrast-pass)
+- [Following user settings](#following-user-settings)
+- [Color-vision checks](#color-vision-checks)
+- [Keyboard and assistive technology](#keyboard-and-assistive-technology)
 
 ---
 
-## 目標レベルと法的背景
+## Target level
 
-WCAG 2.2 レベル AA を最低ラインとする。WCAG 2.2 は W3C 勧告であり、ISO/IEC 40500 として国際規格化されている。
+WCAG 2.2 level AA is the floor. WCAG 2.2 is a W3C Recommendation and is standardized as ISO/IEC 40500.
 
-EU 市場に出すサービスは欧州アクセシビリティ法（EAA）の対象で、整合規格 EN 301 549 を通じて適合が求められる。EN 301 549 が参照するのは WCAG 2.1 AA だが、2.2 AA を満たせば 2.1 AA も包含されるため、2.2 を目標に置けば両方を満たせる。日本国内向けでも JIS X 8341-3 が WCAG と対応しているので、基準を分ける必要はない。
+Services offered in the EU fall under the European Accessibility Act, which applies through the harmonized standard EN 301 549. That standard references WCAG 2.1 AA; meeting 2.2 AA also meets 2.1 AA, so target 2.2. Japan's JIS X 8341-3 maps to WCAG as well, so one target covers all three.
 
-生成する design-concept / design-system ドキュメントには、下の表を「本プロダクトでの値」列を埋めた状態で載せる。理由: 実装するセッションが判断に使えるのは具体値だけで、「AA準拠」という宣言は検証もできず実装も導けない。
+Put the targets table below in the UX guidelines with the "This product" column filled. Why: an implementing session can act only on concrete values; "AA compliant" can be neither implemented nor verified.
 
 ---
 
-## WCAG 2.2 AA で追加確認する達成基準
+## Targets table
 
-WCAG 2.1 から 2.2 で追加された基準を中心に、コンセプト段階で決めておく必要があるものを挙げる。
+Focuses on criteria added in 2.2 and on those that must be decided before implementation.
 
-| 達成基準 | 要件 | 決めておくこと |
+| Criterion | Requirement | Decide |
 |---|---|---|
-| 2.5.8 ターゲットのサイズ（最小）| 対象は 24×24 CSS px 以上。満たさない場合は、対象中心から半径12px の円が他の対象と重ならない間隔を確保する | 最小タップ領域の値 |
-| ターゲットサイズ（設計値の推奨）| 適合の最低線は 24px だが、実際の設計値は iOS 44×44pt / Android 48×48dp を使う | 主要操作の実寸 |
-| 2.4.11 フォーカスの非隠蔽（最小）| フォーカスされた要素が固定ヘッダー/フッター/スティッキー要素に完全に隠されない | 固定領域の高さと `scroll-margin` の値 |
-| 2.4.12 フォーカスの非隠蔽（強化・AAA）| 部分的にも隠されない | AAA を狙う場合のみ |
-| 2.4.13 フォーカスの外観（AAA）| 太さ 2px 以上の輪郭で要素を囲み、変化前後で 3:1 以上 | フォーカスリングの太さ・オフセット・色 |
-| 2.5.7 ドラッグ動作 | ドラッグで行う操作に、単一ポインタで完結する代替を用意する | 並べ替え・スライダー・地図パンの代替手段 |
-| 3.3.7 冗長な入力 | 同一プロセス内で既に入力した情報を再入力させない（自動入力か選択肢で提供する） | 住所・氏名などの再利用方針 |
-| 3.3.8 アクセシブルな認証（最小）| 記憶・パズル・文字認識といった認知機能テストを必須にしない | パスワード自動入力の許可、代替認証手段 |
-| 1.4.10 リフロー | 320px 幅相当（400%拡大）で二方向スクロールを生じない | 最小対応幅、横スクロールを許す例外（表・図） |
-| 1.4.12 テキストの間隔 | 行間1.5倍・段落間2倍・文字間0.12em・単語間0.16em を上書きしても内容が失われない | 高さ固定を避ける箇所 |
-| 1.4.11 非テキストのコントラスト | UI部品の境界・状態表示・アイコン・グラフが隣接色に対し 3:1 以上 | 境界色とアイコン色の実測値 |
-| 1.4.3 テキストのコントラスト | 通常 4.5:1、大きなテキスト 3:1 | 全文字色の実測値 |
+| 2.5.8 Target size (minimum) | Targets at least 24×24 CSS px, or spaced so a 24 px circle centered on each does not overlap another target | Minimum target size |
+| Target size (design value) | 24 px is the conformance floor, not a design value; use iOS 44×44 pt / Android 48×48 dp / web 44×44 px for primary controls | Actual size of primary controls |
+| 2.4.11 Focus not obscured (minimum) | A focused element is not entirely hidden by sticky headers, footers, or toolbars | Height of fixed regions and the `scroll-margin` / `scroll-padding` value |
+| 2.4.13 Focus appearance (AAA) | Outline at least 2 px thick around the element, 3:1 between focused and unfocused states | Focus ring width, offset, and which token supplies its color |
+| 2.5.7 Dragging movements | Every drag action has a single-pointer alternative | Alternatives for reordering, sliders, map panning |
+| 3.3.7 Redundant entry | Information entered earlier in the same process is not requested again (auto-filled or selectable) | Reuse policy for address, name, etc. |
+| 3.3.8 Accessible authentication (minimum) | No cognitive test (memorizing, puzzles, transcribing characters) is required | Password manager and paste allowed; alternative sign-in methods |
+| 1.4.10 Reflow | No two-dimensional scrolling at 320 CSS px width (400% zoom) | Minimum supported width; exceptions (tables, diagrams) |
+| 1.4.12 Text spacing | Content survives line height 1.5, paragraph spacing 2×, letter spacing 0.12em, word spacing 0.16em | Places that must not use fixed heights |
+| 1.4.11 Non-text contrast | UI component boundaries, state indicators, icons, and chart marks at 3:1 against adjacent colors | Measured in the contrast pass |
+| 1.4.3 Contrast (minimum) | 4.5:1 normal text, 3:1 large text | Measured in the contrast pass |
 
-`2.4.13` は AAA だが、フォーカスリングの仕様はコンセプト段階で決めておく。理由: 後から足すとコンポーネントごとに別々の見た目になり、統一できなくなる。
+Settle 2.4.13 even when the target is AA. Why: added later, the focus ring ends up looking different per component and cannot be unified.
+
+Defaults to propose when nothing in the inputs says otherwise: focus ring 2 px solid, 2 px offset, drawn with `outline` on `:focus-visible`; primary targets 44×44 pt/px (48×48 dp on Android); text scales to 200% without loss.
 
 ---
 
-## コントラスト要件
+## Contrast requirements
 
-| 対象 | AA | AAA |
+| Target | AA | AAA |
 |---|---|---|
-| 通常テキスト（24px 未満、または 18.66px 未満の太字）| 4.5:1 | 7:1 |
-| 大きなテキスト（24px 以上、または 18.66px 以上の太字）| 3:1 | 4.5:1 |
-| UI部品の境界・状態表示・アイコン・グラフ（1.4.11）| 3:1 | — |
-| フォーカスインジケーター（2.4.13）| 3:1 | — |
-| 装飾・無効状態・ロゴ | 免除 | — |
+| Normal text (under 24 px, or under 18.66 px bold) | 4.5:1 | 7:1 |
+| Large text (24 px and up, or 18.66 px bold and up) | 3:1 | 4.5:1 |
+| UI component boundaries, state indicators, icons, chart marks (1.4.11) | 3:1 | — |
+| Focus indicator (2.4.13) | 3:1 | — |
+| Decorative, disabled, logos | Exempt | — |
 
-「免除」は測らなくてよいという意味ではない。無効状態も判別できる必要があるので、背景に対して 2.5:1 前後を目安に置く。
+"Exempt" does not mean unmeasured: a disabled control must still be recognizable, so aim for about 2.5:1 against its background.
 
-プレースホルダは装飾ではなく本文扱いで 4.5:1 が要る。理由: 入力前の唯一のラベルとして機能している場合、読めないと項目の意味が分からない。
+Placeholder text counts as body text (4.5:1). Why: when it is the only label before input, an unreadable placeholder hides what the field is for.
 
-測定は `scripts/check_contrast.py` で行う。
-
-```
-python3 scripts/check_contrast.py --pair '#FFFFFF' '#1274BD'
-python3 scripts/check_contrast.py --kind ui --pair '#8C9197' '#FAFCFE'
-python3 scripts/check_contrast.py pairs.json --level AA
-```
-
-比率を記憶や推定で書かない。理由: 目視や記憶は 1〜2 割ずれることがあり、4.5:1 の境界付近では適合/不適合の判定が逆転する。
+WCAG 2.x ratios are the floor that law and audits reference. APCA Lc may be used alongside as a readability signal (Lc 90 for body text, at least Lc 75 for anything meant to be read), but never write "compliant" on the strength of APCA alone: WCAG 3 is a Working Draft and its contrast method is not final, so APCA values are not audit evidence.
 
 ---
 
-## 実測コントラスト値
+## Contrast pass
 
-`color-systems.md` の5パレット・中立色・ステータス色の実測値は、各パレットの表の直下に載せてある（値の正はそちら）。以下はパレット外の不適合例で、すべて `scripts/check_contrast.py`（WCAG 2.x 相対輝度式）で算出した。
+Run this on any palette decided elsewhere: the token values in a `design-direction.md` from `refero-design`, a template's `tokens.css` / `globals.css`, or a Tailwind `@theme` block.
 
-### フレームワーク既定色をそのまま使った場合（不適合例）
+1. **List the pairs**, in light and in dark separately:
+   - body text / background, and on every surface it sits on (card, elevated, sidebar)
+   - muted and subtle text / background (subtle text used for real content counts as `text`)
+   - placeholder / input background
+   - on-accent text / accent at base, hover, and pressed
+   - link text / background
+   - each status color used as text (danger, success, warning, info) / background, and on-status text / status fill
+   - input border and control boundaries / background (`ui`)
+   - focus ring / background, and focus ring / accent where the ring sits on filled buttons (`ui`)
+   - icons that carry meaning / background (`ui`)
+2. **Resolve every value to a literal color** the script accepts: `#RRGGBB`, `#RGB`, `rgb(r g b)`, `oklch(L C H)`. Follow `var()` chains and split `light-dark(a, b)` into the light and dark pair. The script rejects alpha: composite a translucent color onto its actual background first (per channel: `a·fg + (1−a)·bg` in sRGB), and name the pair so the reader knows it was composited. Convert `hsl()` to hex first.
+3. **Write the pairs JSON** next to the document the table goes into (e.g. `<state-dir>/contrast-pairs.json`), so a re-run after a palette change is one command:
 
-塗りつぶしボタンに白文字を置いたときの実測値。この組み合わせを採用しない。
+   ```json
+   [
+     {"name": "light/text on bg", "fg": "#18181B", "bg": "#FFFFFF", "kind": "text"},
+     {"name": "light/on-accent on accent-hover", "fg": "#FFFFFF", "bg": "oklch(0.52 0.19 262)", "kind": "text"},
+     {"name": "dark/focus on bg", "fg": "#7AA2FF", "bg": "#0A0A0B", "kind": "ui"}
+   ]
+   ```
 
-| 面 | 白文字とのコントラスト | 判定 |
-|---|---|---|
-| `#F59E0B`（amber-500）| 2.15 | FAIL |
-| `#22C55E`（green-500）| 2.28 | FAIL |
-| `#F97316`（orange-500）| 2.80 | FAIL |
-| `#3B82F6`（blue-500）| 3.68 | FAIL |
-| `#EF4444`（red-500）| 3.76 | FAIL |
-| `#8B5CF6`（violet-500）| 4.23 | FAIL |
-| `#2563EB`（blue-600）| 5.17 | PASS |
+   `kind` is `text` (body), `large` (large text), or `ui` (boundaries, icons, focus).
+4. **Run** `python3 ${CLAUDE_SKILL_DIR}/scripts/check_contrast.py <pairs.json>` (add `--level AAA` for an AAA target, `--json` for machine-readable output; `--pair FG BG --kind ui` checks one pair ad hoc). Exit 0 = all pass, 1 = at least one FAIL, 2 = input error.
+5. **Paste the table** the script prints, unedited, into the target document under a "Measured contrast" heading, with the pairs file path. Why: ratios written from memory or copied from elsewhere are often wrong (a common one: `#71717A` on `#0A0A0B` quoted as 4.6:1 measures 4.09:1), and a wrong ratio marked as passing ships an unreadable UI.
+6. **On FAIL**, report each failing pair with the smallest change that passes (usually lowering or raising OKLCH L on one side, or switching to a dark on-color) and hand it to the palette owner — the `refero-design` direction or the user. Re-run after the palette changes until exit 0.
 
-グリーン・オレンジ・アンバー・ライムは、彩度と明度を保ったままでは白文字が通らない。濃色の on-color を使うか、アクセントの L を下げてから使う。ただし L を下げると色相の印象（明るい緑らしさ）が失われるので、多くの場合は濃色 on-color を選ぶほうが良い。
-
-同様に、暗背景に薄いグレー文字を置く定番の組み合わせも実測すると落ちる。`#71717A` / `#0A0A0B` = 4.09（FAIL）、`#9CA3AF` / `#FFFFFF` = 2.54（FAIL、大きなテキストでも不可）。それぞれ `#8A8A94`（5.79、PASS）、`#6B7280`（4.83、PASS）以上に置き換える。
+Known failures worth checking first: white text on Tailwind 500-level fills fails (amber 2.15, green 2.28, orange 2.80, blue 3.68, red 3.76, violet 4.23; blue-600 passes at 5.17), and light gray on white fails (`#9CA3AF` on `#FFFFFF` = 2.54).
 
 ---
 
-## APCA と WCAG 3 の位置づけ
+## Following user settings
 
-法令と監査が参照するのは WCAG 2.x の比率で、ここは必ず満たす（適合の床）。
-
-そのうえで、読みやすさの品質指標として APCA の Lc を併用してよい（品質の天井）。本文は Lc 90 を目標、読ませる文字は最低 Lc 75 を目安にする。APCA は明背景/暗背景で人間の知覚が非対称であることを扱えるので、WCAG 2.x では同じ比率でも読みにくい暗背景の組み合わせを検出できる。
-
-WCAG 3.0 は Working Draft の段階でコントラスト算法も確定していない。APCA の値だけを根拠に「適合」と書かない。理由: 監査で参照される規格に存在しない指標なので、適合の証跡にならない。
-
----
-
-## ユーザー設定への追従
-
-| メディアクエリ | 対応 |
+| Setting | Required behavior |
 |---|---|
-| `prefers-reduced-motion: reduce` | 移動・拡大縮小・回転・視差を止める。完全に消すのではなくフェードや色変化に置き換える。自動再生カルーセルと大きなスケール変化は止める |
-| `prefers-contrast: more` | 境界線を `--color-border-strong` に上げ、`--color-text-muted` を `--color-text` に寄せる |
-| `forced-colors: active` | `box-shadow` と `backdrop-filter` が無効化されるので、影で表していた境界とフォーカスリングを `border` / `outline` に置き換える。背景画像で伝えている情報が消えないか確認する |
-| OS の文字サイズ設定 | Dynamic Type / フォントスケールで 200% まで破綻しない。本文サイズは `rem` で指定し `px` を使わない |
+| `prefers-reduced-motion: reduce` | Stop translation, scaling, rotation, parallax; replace with a fade or color change rather than removing the state change. Stop auto-playing carousels. |
+| `prefers-contrast: more` | Raise boundaries to the strong border color and move muted text toward body text. |
+| `forced-colors: active` | `box-shadow` and `backdrop-filter` are dropped: boundaries and focus rings drawn with shadows must use `border` / `outline`. Check that no information lives only in background images. |
+| OS text size (Dynamic Type / font scale) | No breakage up to 200%. Body text in `rem` (web), text styles (native). |
 
-```css
-@media (forced-colors: active) {
-  /* システム色キーワードを使う。ハードコードした色は上書きされる */
-  .card  { border: 1px solid CanvasText; }
-  .focus { outline: 2px solid Highlight; outline-offset: 2px; }
-}
-```
-
-フォーカスリングは `outline` で描く。理由: `border` で描くとレイアウトが動き、`box-shadow` で描くと `forced-colors` で消える。
+Draw focus rings with `outline`. Why: `border` shifts layout, and `box-shadow` disappears in forced-colors mode.
 
 ---
 
-## 色覚多様性の確認手順
+## Color-vision checks
 
-観点として持つだけでは検出できないので、以下を実行する。
+Holding "consider color blindness" as a principle detects nothing; write these rules into the guidelines and hand the steps to the implementing session.
 
-1. 情報を色だけで伝えている箇所を洗い出す。ステータス、必須項目、グラフの系列、リンクの区別。それぞれに形・アイコン・テキストのいずれかを併記する。
-2. 成功の緑とエラーの赤が明度でも区別できるか確認する。`color-systems.md` のステータス色はライトで `--color-success` L=0.505 / `--color-danger` L=0.515 と明度が近いので、色以外にアイコンを必ず併記する。
-3. グラフの系列色は色相ではなく、明度差と模様（実線/破線、塗りパターン）で区別できるようにする。
-4. ブラウザの開発者ツールでシミュレートする。Chrome/Edge は Rendering パネルの Emulate vision deficiencies で protanopia（1型）・deuteranopia（2型）・tritanopia（3型）・achromatopsia を切り替える。Firefox は Accessibility Inspector のシミュレーション機能を使う。
-5. achromatopsia（完全色覚異常＝グレースケール）表示で全画面を確認する。ここで区別がつく設計なら、他の型でも成立する。
+1. List every place information is carried by color: status, required fields, chart series, link vs text. Each gets a shape, icon, or text as well.
+2. Success green and error red often have near-equal lightness; always pair status colors with an icon.
+3. Distinguish chart series by lightness difference and pattern (solid/dashed lines, fill patterns), not hue alone.
+4. Simulate in the browser: Chrome/Edge DevTools → Rendering → Emulate vision deficiencies (protanopia, deuteranopia, tritanopia, achromatopsia); Firefox Accessibility Inspector → Simulate.
+5. Review every screen in achromatopsia (grayscale). A design that works there works for the other types.
 
 ---
 
-## キーボードと支援技術
+## Keyboard and assistive technology
 
-- 全機能がキーボードだけで到達・操作できる。マウスホバーやドラッグでしか行えない操作を作らない。
-- フォーカス順序が視覚順序と一致する。`order` や `grid-area` で見た目の順序を変えたら、DOM 順も合わせる。
-- フォーカスリングは `:focus-visible` に付ける。理由: マウスクリックでもリングが出ると装飾として消されやすく、結果的にキーボード利用者が失う。
-- ライブリージョンの方針を決める。非同期更新・ストリーミング表示・トーストのどれを読み上げ、どれを読み上げないか。すべてを `aria-live="assertive"` にしない。
-- 見出しレベルとランドマーク（`header` / `nav` / `main` / `aside` / `footer`）の構造をコンセプト段階で決める。
-- モーダルはフォーカストラップと、閉じたあとの復帰先を定義する。
+Decide each of these as a rule in the guidelines:
 
+- Every function is reachable and operable by keyboard alone; nothing exists only on hover or drag.
+- Focus order matches visual order; if CSS `order` or `grid-area` reorders content, the DOM order follows.
+- Focus rings appear on `:focus-visible`. Why: rings shown on mouse click get removed as "ugly", and keyboard users lose them.
+- Live-region policy: which async updates, streamed output, and toasts are announced, and how. Default `aria-live="polite"`; `assertive` only for errors that block the user. Streamed text is announced per paragraph, not per token.
+- Heading levels and landmarks (`header` / `nav` / `main` / `aside` / `footer`) are part of every screen's structure.
+- Modals trap focus and return it to the triggering element on close.
+- Icon-only buttons carry an accessible name, plus a tooltip on pointer devices.
