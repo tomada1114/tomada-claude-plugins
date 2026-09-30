@@ -9,6 +9,7 @@ Anthropic 公式のプロンプトガイド(Opus 5.5 / 共通ベストプラク�
 - [Opus 5.5 の癖](#opus-55-の癖)
 - [executor に渡すとき](#executor-に渡すとき)
 - [architect に渡すとき](#architect-に渡すとき)
+- [worker に渡すとき](#worker-に渡すとき)
 - [effort とコスト](#effort-とコスト)
 
 ## 共通(どの段に渡すときも)
@@ -50,6 +51,16 @@ high は思考量が多く、スコープを広げやすい。**ゴールと制�
 - レビュー・検出は全件報告 + confidence / severity。選別はメインか別段でやる
 - 機械的な部分を切り出せるなら、architect ではなく executor に渡す
 
+## worker に渡すとき
+
+Sonnet 5.5 medium。完全なブリーフに 1 回の返答で答える仕事だけを渡す。公式ガイド(Prompting Claude Sonnet 5.5)に沿って、次を守る。
+
+- 判断材料はすべてブリーフに入れる。ファイルを読ませたりツールを使わせたりしない
+- 出力形式(JSON など)を指定し、受け取り側は**最後の** JSON 値を取る。medium では最終版の前に下書きを書くことがあるので、最初の `[` から最後の `]` までを切り出すと壊れる
+- ルールを当てはめて JSON で返す判定仕事では、ブリーフの最後に "Think the problem through before you answer." を置く。medium ではこの種の仕事に考えずに即答しがちで、ガイドはこの一文を対策に挙げている
+- 「考える量を減らせ」と書かない。効かないうえ、減らしたいなら effort を下げるのが正しい手段
+- 出力は後段(lint・独立したレビュー・メイン)で検査する。品質の見張りは後段の却下率で行い、上がったら判定役から段を上げる
+
 ## effort とコスト
 
 Artificial Analysis Intelligence Index × Cost per Task(2026-09-28 取得)でパレート最適な組み合わせ:
@@ -57,6 +68,7 @@ Artificial Analysis Intelligence Index × Cost per Task(2026-09-28 取得)でパ
 | 組み合わせ | Index | Cost/Task | 限界コスト | この構成での役 |
 |---|---|---|---|---|
 | Sonnet 5.5 low | 36 | $0.41 | — | 使わない(Opus 5.5 low より $0.14 安いだけで Index 36 対 42) |
+| (劣位)Sonnet 5.5 medium | 41 | $0.59 | — | `worker`(ツールなしの一発仕事だけ。下記) |
 | Opus 5.5 low | 42 | $0.55 | $0.023/pt | `executor` |
 | Sonnet 5.5 high | 47 | $1.08 | $0.106/pt | 使わない(下記) |
 | Opus 5.5 medium | 51 | $1.34 | $0.065/pt(low からは $0.088/pt) | メインセッション |
@@ -65,6 +77,8 @@ Artificial Analysis Intelligence Index × Cost per Task(2026-09-28 取得)でパ
 | Opus 5.5 max | 58 | $5.98 | $1.260/pt | 同上 |
 
 Sonnet 5.5 high は表の上ではパレート最適だが、Opus 5.5 low → medium の限界コスト($0.088/pt)より高い $0.106/pt で low から上がり、その先の medium へは $0.065/pt と安くなる。つまり Opus 5.5 の low と medium を結ぶ線より下にあり($1.08 なら線上は Index 約 48)、段として挟む価値がない。Sonnet 5.5 の medium(41 / $0.59)・xhigh(52 / $2.74)・max(56 / $7.60)は、それぞれ Opus 5.5 の low・high・xhigh に劣位。公式のプロンプトガイドによれば Sonnet 5.5 は low で変更の検証を省くことがあり、low / medium では長いエージェント作業の途中で確認に戻りやすい。executor の役(確定仕様を最後まで走らせて自分で確かめる)と噛み合わない。
+
+それでも Sonnet 5.5 medium を `worker` に置くのは、この表の Cost per Task がツールを使って何手も進むエージェント作業の値だから。完全なブリーフに 1 回の返答で答えるツールなしの仕事では手数が 1 回で、入出力単価の差(Sonnet 5.5 $2 / $10 対 Opus 5.5 $4 / $20 per MTok。キャッシュ読みはどちらも $0.20)がそのまま効き、上の弱点も出てこない。medium を選ぶのは、low だと単純な依頼の多くで考えずに答えるから。単価は公式 Pricing ページ(2026-09-28 確認)。
 
 Fable 5.1・Opus 5・Sonnet 5 はどの effort でも劣位で、同じか安いコストでより賢い Opus 5.5 の段がある(Fable high 51 / $3.91 は Opus 5.5 medium 51 / $1.34 と同 Index、Opus 5 max 51 / $5.86 も同じ)。Fable の利用枠は Max プランの同一リミットの内数で、別枠ではない。
 
@@ -75,7 +89,7 @@ Opus 5.5 の effort 名は Opus 5 と比べられない。Opus 5.5 medium ≈ Op
 | 手段 | 段の指定 |
 |---|---|
 | メインセッション | settings.json の `model: claude-opus-5-5` と `modelSettings.claude-opus-5-5.effortLevel: medium`。一時的に上げるなら `/effort` |
-| Agent ツール | `subagent_type: executor` / `architect`。定義 frontmatter の `model` と `effort`(`low` / `medium` / `high` / `xhigh` / `max` か整数)が効く。`model` だけの起動は modelSettings の medium で走る |
+| Agent ツール | `subagent_type: executor` / `architect` / `worker`。定義 frontmatter の `model` と `effort`(`low` / `medium` / `high` / `xhigh` / `max` か整数)が効く。`model` だけの起動は effort がセッションから決まる(Opus なら modelSettings の medium)。Sonnet 5.5 の API 既定 effort は high |
 | Workflow の `agent()` | `model: 'opus'` と `effort: 'low'` / `'high'` を段ごとに指定する |
 
 数値は API 価格ベースの Cost per Task で、Max プランでは消費量の目安として使う。出典ノート: `~/ghq/github.com/tomada1114/iobsidian/Content/_material/claude-model-effort-cost-performance.md`。

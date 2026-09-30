@@ -1,13 +1,14 @@
 ---
 name: orchestrating-models
 description: >-
-  Playbook for choosing models and deciding what to delegate. Everything runs on
+  Playbook for choosing models and deciding what to delegate. Agentic work runs on
   Opus 5.5: the main session at medium executes directly by default and delegates
   only independent parallel tracks, mechanical work, context isolation, and hard
-  stages that can be briefed standalone. Sub-agents come in exactly two tiers,
-  the named agents `executor` (Opus 5.5 low: settled spec, mechanical work,
-  judgment-free research) and `architect` (Opus 5.5 high: complex implementation,
-  design judgment, review, synthesis); no medium sub-agent. Covers why other
+  stages that can be briefed standalone. Sub-agents come in three named tiers:
+  `executor` (Opus 5.5 low: settled spec, mechanical work, judgment-free
+  research), `architect` (Opus 5.5 high: complex implementation, design
+  judgment, review, synthesis), and `worker` (Sonnet 5.5 medium: single-shot
+  writing or checking from a complete brief, no tools). Covers why other
   models are not used, how effort reaches a spawn, delegation prompts, relay
   formations, Opus 5.5 quirks, spawn cache cost, and surfacing unknowns. The
   canonical source other skills point to for model assignment. Use when
@@ -19,7 +20,7 @@ metadata:
 
 # orchestrating-models
 
-どのモデルに何をやらせるかを決めるための運用手順。モデルは Opus 5.5 だけを使い、段は effort で分ける。安さだけで段を選ばない。難しい実装を low に渡して手戻りするほうが、最初から high に渡すより高くつく。
+どのモデルに何をやらせるかを決めるための運用手順。エージェント作業(ツールを使って進める作業)は Opus 5.5 で行い、段は effort で分ける。ツールを使わない一発の文章仕事だけは Sonnet 5.5 medium の `worker` に渡す。安さだけで段を選ばない。難しい実装を low に渡して手戻りするほうが、最初から high に渡すより高くつく。
 
 **使わない場面:** 会話的な質問への回答、単一ファイルの小さな編集、対話で細かく舵取りしたい作業。委譲のオーバーヘッドが本体コストを上回る。
 
@@ -30,14 +31,17 @@ metadata:
 | メインセッション | Opus 5.5 **medium** | settings.json の `model` と `modelSettings.claude-opus-5-5.effortLevel` |
 | 実行役サブエージェント | Opus 5.5 **low** | 名前付きエージェント `executor`(`~/.claude/agents/executor.md`) |
 | 難所担当サブエージェント | Opus 5.5 **high** | 名前付きエージェント `architect`(`~/.claude/agents/architect.md`) |
+| 文章仕事サブエージェント | Sonnet 5.5 **medium** | 名前付きエージェント `worker`(`~/.claude/agents/worker.md`) |
 
 **既定の姿勢は「自分でやる」。** Opus はコーディングとエージェント作業そのものが最も強く、仕様を全部持ったまま走るときに一番よく働く。委譲するのは §3 の 4 つの理由があるときだけ。主な失敗は過剰委譲と過剰検証。
 
-**サブエージェントは low と high の 2 段だけ。** メインが medium なので、委譲を決めた時点で「仕様確定済み・機械的なら low、複雑・設計判断を含む・レビューなら high」の二択で足りる。medium のサブを作るくらいならメインがやる。
+**エージェント作業のサブエージェントは Opus 5.5 の low と high の 2 段だけ。** メインが medium なので、委譲を決めた時点で「仕様確定済み・機械的なら low、複雑・設計判断を含む・レビューなら high」の二択で足りる。medium のサブを作るくらいならメインがやる。
 
-**Sonnet 5.5・Fable 5.1・Opus 5・Sonnet 5・Haiku は使わない。** Artificial Analysis Intelligence Index × Cost per Task(2026-09-28 取得)でパレート最適なのは Opus 5.5 の low / medium / high / xhigh / max と Sonnet 5.5 の low / high の 7 つで、Fable 5.1・Opus 5・Sonnet 5 は全段が劣位。Sonnet 5.5 はどの段も、同じか安いコストで Opus 5.5 を上回らない。low(36 / $0.41)は Opus 5.5 low より $0.14 安い代わりに Index が 6 低く、high(47 / $1.08)は Opus 5.5 の low と medium を使い分ける線より下にある。加えて Sonnet 5.5 は low で検証を省いたり途中で確認に戻ったりするので、executor に向かない。Fable の利用枠は Max プランの同一リミットの内数で、別枠ではない。数値の詳細は [references/model-playbooks.md](references/model-playbooks.md#effort-とコスト) と出典ノート `~/ghq/github.com/tomada1114/iobsidian/Content/_material/claude-model-effort-cost-performance.md`。
+**`worker` は仕事の形で選ぶ段で、賢さの段ではない。** 対象は、完全なブリーフに 1 回の返答で答え、ツールを使わない仕事に限る。例えば、仕様どおりの項目を書き出す仕事や、書かれた基準で項目を判定する仕事で、出力を後段の検査(lint・別レビュー・人)が受け止めるもの。この形なら Sonnet 5.5 のトークン単価(Opus 5.5 の半額)がそのまま効く。公式ガイドが挙げる弱点(low で検証を省く、low / medium で長いエージェント作業の途中で確認に戻る)はどちらもエージェント作業の話で、この形には出てこない。一方、エージェント作業では Sonnet 5.5 medium(41 / $0.59)は Opus 5.5 low(42 / $0.55)に劣位なので、ツールを使う仕事を `worker` に渡さない。
 
-姿勢の根拠、委譲する理由ごとの判断、executor と architect の分水嶺は [references/delegation-triage.md](references/delegation-triage.md) を読む。
+**Sonnet 5.5 の medium 以外、Fable 5.1・Opus 5・Sonnet 5・Haiku は使わない。** Artificial Analysis Intelligence Index × Cost per Task(2026-09-28 取得、エージェント作業の指標)でパレート最適なのは Opus 5.5 の low / medium / high / xhigh / max と Sonnet 5.5 の low / high の 7 つで、Fable 5.1・Opus 5・Sonnet 5 は全段が劣位。Sonnet 5.5 はどの段も、同じか安いコストで Opus 5.5 を上回らない。low(36 / $0.41)は Opus 5.5 low より $0.14 安い代わりに Index が 6 低く、high(47 / $1.08)は Opus 5.5 の low と medium を使い分ける線より下にある。`worker` を low にしないのは、low だと単純な依頼の多くで考えずに答えるから。Fable の利用枠は Max プランの同一リミットの内数で、別枠ではない。数値の詳細は [references/model-playbooks.md](references/model-playbooks.md#effort-とコスト) と出典ノート `~/ghq/github.com/tomada1114/iobsidian/Content/_material/claude-model-effort-cost-performance.md`。
+
+姿勢の根拠、委譲する理由ごとの判断、executor・architect・worker の分水嶺は [references/delegation-triage.md](references/delegation-triage.md) を読む。
 
 ## 2. 役割分担
 
@@ -46,22 +50,24 @@ metadata:
 | 要件解釈・設計・トレードオフ判断・分解と委譲設計・ユーザーとの確認・最終レビュー | メイン(委譲しない) |
 | 複雑な実装(複数ファイルにまたがる機能、大きなリファクタ、e2e、非自明なアルゴリズム)、設計判断を含む作業、コードレビュー/バグ発見、散在情報の統合、仕様に穴が残る作業 | **`architect`**(Opus 5.5 high) |
 | 仕様が確定した実装、機械的作業(テスト追加、CI を通す、コミット、PR 作成、一括置換・整形)、判断を含まない調査・収集・列挙 | **`executor`**(Opus 5.5 low) |
+| ツールを使わない一発の文章仕事: ブリーフだけから項目を書き出す、書かれた基準で項目を判定して決まった形式(JSON など)で返す。後段に検査があるもの | **`worker`**(Sonnet 5.5 medium) |
 
 判断基準は**仕様の確定度であって作業の大きさではない**。委譲先が「どういう意味か」と聞き返してきそうなら、それは architect に渡すべきだった合図。実装だからといって一律に executor ではない。既存パターンの反復なら executor、どこかで設計判断が要るなら architect。
 
 **選ばない組み合わせ:**
 
 - Fable 5.1 の全段、Opus 5 の全段: 同じか安いコストで Opus 5.5 がより賢い(例: Fable xhigh 53 / $5.98 は Opus 5.5 max 58 / $5.98 と同額で Index が 5 低く、Opus 5.5 high 54 / $1.82 にも負ける)
-- Sonnet 5.5 の全段: low と high はパレート最適だが使わない(上記)。medium / xhigh / max は Opus 5.5 の low / high / xhigh に劣位。Sonnet 5・Haiku も使わない
-- サブエージェントの medium: 2 段構成の設計上作らない
+- Sonnet 5.5 の medium 以外: low と high はパレート最適だが使わない(上記)。xhigh / max は Opus 5.5 の high / xhigh に劣位。Sonnet 5・Haiku も使わない
+- エージェント作業に `worker`(Sonnet 5.5 medium): エージェント作業では Opus 5.5 low に劣位
+- Opus 5.5 のサブエージェントの medium: 2 段構成の設計上作らない
 - サブエージェントの xhigh / max: high → xhigh は +2pt に +$1.64、xhigh → max は +2pt に +$2.52 の崖。high までの限界コスト($0.16/pt)の 5〜8 倍になる
 
-**effort の届け方:** Agent ツールは `model` しか取らず effort を取らない。**`model: opus` だけで起動すると、サブエージェントは `modelSettings` の Opus 5.5 = medium で走る**(2 段構成が崩れる)。段は必ず `subagent_type: executor` / `architect` で指定する。定義の frontmatter が `model: claude-opus-5-5` と `effort: low` / `high` を持っている。組み込みの `Explore`・`Plan`・`general-purpose` は effort を持たずメインから引き継ぐので、委譲先には選ばない。Workflow の `agent()` は `model` と `effort` を段ごとに取るので、`model: 'opus'` に `effort: 'low'` か `'high'` を必ず添える。
+**effort の届け方:** Agent ツールは `model` しか取らず effort を取らない。**`model: opus` だけで起動すると、サブエージェントは `modelSettings` の Opus 5.5 = medium で走る**(2 段構成が崩れる)。段は必ず `subagent_type: executor` / `architect` / `worker` で指定する。定義の frontmatter が `model: claude-opus-5-5` と `effort: low` / `high`、`worker` は `model: claude-sonnet-5-5` と `effort: medium` を持っている。`model: sonnet` だけの起動も effort がセッションから決まり、Sonnet 5.5 自体の既定は high なので、medium にはならない。組み込みの `Explore`・`Plan`・`general-purpose` は effort を持たずメインから引き継ぐので、委譲先には選ばない。Workflow の `agent()` は `model` と `effort` を段ごとに取るので、`model: 'opus'` に `effort: 'low'` か `'high'` を必ず添える。
 
 **他スキルからの参照:** このスキルがモデル割当の正本。
 
-- **グローバルスキル**(`~/.claude/skills`)と `~/.claude/CLAUDE.md` は割当をコピーしない。段をエージェント名(`executor` / `architect`)で指し、選び方はこのスキルへのポインタで済ませる。モデルや effort を変えるときは、エージェント定義とこのスキルだけを直せばよい
-- **リポジトリ内のスキル**で単体で動く必要があるもの(公開リポジトリ、他人も使うもの)は、結論と分水嶺をベタ書きして `<!-- derived from orchestrating-models §2 -->` を付け、同じ 2 本のエージェント定義を `.claude/agents/` に同梱する
+- **グローバルスキル**(`~/.claude/skills`)と `~/.claude/CLAUDE.md` は割当をコピーしない。段をエージェント名(`executor` / `architect` / `worker`)で指し、選び方はこのスキルへのポインタで済ませる。モデルや effort を変えるときは、エージェント定義とこのスキルだけを直せばよい
+- **リポジトリ内のスキル**で単体で動く必要があるもの(公開リポジトリ、他人も使うもの)は、結論と分水嶺をベタ書きして `<!-- derived from orchestrating-models §2 -->` を付け、使うエージェント定義を `.claude/agents/` に同梱する
 
 改訂したら `grep -rln 'orchestrating-models' ~/.claude/skills ~/.claude/CLAUDE.md` でポインタ側、`grep -rl 'derived from orchestrating-models' ~/ghq/github.com/tomada1114` でベタ書き側を洗い出して追随させる。
 
@@ -81,6 +87,7 @@ Opus 5.5 の癖に合わせた委譲プロンプトの書き方は [references/m
 | 仕様が確定した機械的作業、まとまった量の書き出し(確定仕様の実装、ドキュメント、長いファイル生成、複数ファイル編集) | `executor`(low は medium の半額以下: $0.55 対 $1.34/task) |
 | 大量に読むが読んだ内容自体は後で使わない | `executor`(コンテキスト隔離) |
 | 難しい実装・レビュー・散在情報の統合で、ブリーフに書き出せるもの | `architect` |
+| ツールを使わず、1 回の返答で済む書き出し・判定を大量にこなす(後段に検査あり) | `worker`(トークン単価が Opus 5.5 の半額) |
 | 難所だが会話の文脈と切り離せない | 委譲せず、メインの `/effort` を一時的に high へ上げる |
 | 数時間以上の無人走行 | /goal(`authoring-goal-prompts`)へ |
 

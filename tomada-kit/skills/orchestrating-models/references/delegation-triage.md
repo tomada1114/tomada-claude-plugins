@@ -5,7 +5,7 @@ SKILL.md のトリアージ表で判断がつかないとき、または構成�
 
 ## Table of Contents
 
-- [なぜ Opus 5.5 一本で、段が 3 つなのか](#なぜ-opus-55-一本で段が-3-つなのか)
+- [なぜエージェント作業は Opus 5.5 一本で、worker だけ Sonnet 5.5 なのか](#なぜエージェント作業は-opus-55-一本でworker-だけ-sonnet-55-なのか)
 - [委譲しないもの](#委譲しないもの)
 - [委譲する 4 つの理由](#委譲する-4-つの理由)
 - [executor と architect の分水嶺](#executor-と-architect-の分水嶺)
@@ -15,9 +15,11 @@ SKILL.md のトリアージ表で判断がつかないとき、または構成�
 
 ---
 
-## なぜ Opus 5.5 一本で、段が 3 つなのか
+## なぜエージェント作業は Opus 5.5 一本で、worker だけ Sonnet 5.5 なのか
 
-Opus 5.5 の low / medium / high / xhigh / max はすべてパレート最適で、Fable 5.1・Opus 5・Sonnet 5 はどの effort でも、同じか安いコストでより賢い Opus 5.5 の段がある。Sonnet 5.5 の low(36 / $0.41)と high(47 / $1.08)もパレート最適ではあるが、どちらも「Opus 5.5 より安いが賢くない」点で、同じか安いコストで Opus 5.5 を上回る段は Sonnet 5.5 にない。low は $0.14 の節約に Index 6 を手放し、high は Opus 5.5 low と medium を結ぶ線より下にある。だからモデルを替えて段を作る理由がなく、effort だけで段を作る。詳細は [model-playbooks.md](model-playbooks.md#effort-とコスト)。
+Opus 5.5 の low / medium / high / xhigh / max はすべてパレート最適で、Fable 5.1・Opus 5・Sonnet 5 はどの effort でも、同じか安いコストでより賢い Opus 5.5 の段がある。Sonnet 5.5 の low(36 / $0.41)と high(47 / $1.08)もパレート最適ではあるが、どちらも「Opus 5.5 より安いが賢くない」点で、同じか安いコストで Opus 5.5 を上回る段は Sonnet 5.5 にない。low は $0.14 の節約に Index 6 を手放し、high は Opus 5.5 low と medium を結ぶ線より下にある。だから**エージェント作業では**モデルを替えて段を作る理由がなく、effort だけで段を作る。詳細は [model-playbooks.md](model-playbooks.md#effort-とコスト)。
+
+例外が `worker`(Sonnet 5.5 medium)。これは賢さの段ではなく、仕事の形で決まる段になる。上の指標はツールを使って何手も進めるエージェント作業の 1 タスクあたりの費用で、そこでは Sonnet 5.5 medium(41 / $0.59)が Opus 5.5 low(42 / $0.55)に劣位になる。一方、完全なブリーフに 1 回の返答で答えるツールなしの仕事(書き出し・基準による判定)は手数が 1 回で、トークン単価の差(Sonnet 5.5 は Opus 5.5 の半額、キャッシュ読みだけは同額)がそのまま効く。公式ガイドが挙げる Sonnet 5.5 の弱点(low で検証を省く、low / medium で長いエージェント作業の途中で確認に戻る)も、この形には出てこない。品質は、後段の検査(lint・独立したレビュー・人)で受け止める前提になる。
 
 メインを medium に置くのは、判断と実行の両方を担う段として、low からの +9pt を $0.088/pt で買え、high 以上に上げるより上積みが安いから。サブを low と high の 2 段に絞るのは、メインが medium である以上、medium のサブに渡すものはメインがやっても同じ品質・同じ単価で、委譲の固定費だけが余分にかかるから。委譲する価値があるのは、メインより**安く済む**段(low)か、メインより**賢い**段(high)だけ。
 

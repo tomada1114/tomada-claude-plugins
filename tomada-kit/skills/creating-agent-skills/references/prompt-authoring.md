@@ -78,10 +78,11 @@ A skill that spawns sub-agents says which tier each one runs on. Left unspecifie
 |---|---|
 | Complex implementation, design judgment, code review and bug-finding, synthesizing scattered findings, anything with unresolved spec | `architect` (Opus 5.5 high) |
 | Fully specified work with a clear pass/fail (settled-spec implementation, run the tests, add coverage, make CI green, commit, open the PR, bulk replace), routine research and enumeration | `executor` (Opus 5.5 low) |
+| Single-shot, tool-free writing or checking from a complete brief, whose output a later stage checks (drafting items to a spec, judging items against a rubric) | `worker` (Sonnet 5.5 medium) |
 
 The dividing line is **spec completeness, not size**. If the sub-agent could plausibly come back asking what you meant, it needed `architect`. The lower the tier, the more self-contained the prompt must be: an `executor` spawn needs explicit paths, an explicit output shape, and no open questions; an `architect` spawn can be handed the goal and the constraints.
 
-Where the skill lives decides how to write this in. A skill installed alongside `orchestrating-models` (the user's global skills) names the tier by agent name and points to that skill for the criteria — it does not copy them, so a model change touches only the agent definitions and `orchestrating-models`. A skill that must stand alone (a public repository, a plugin others install) writes the conclusion in with `<!-- derived from orchestrating-models §2 -->` and ships its own `executor` / `architect` definitions under `.claude/agents/`.
+Where the skill lives decides how to write this in. A skill installed alongside `orchestrating-models` (the user's global skills) names the tier by agent name and points to that skill for the criteria — it does not copy them, so a model change touches only the agent definitions and `orchestrating-models`. A skill that must stand alone (a public repository, a plugin others install) writes the conclusion in with `<!-- derived from orchestrating-models §2 -->` and ships the agent definitions it uses (`executor`, `architect`, `worker`) under `.claude/agents/`.
 
 Do not pin a model in SKILL.md frontmatter to control sub-agents — frontmatter `model:` sets the model for the skill's own turn and should usually be omitted so it inherits the session.
 

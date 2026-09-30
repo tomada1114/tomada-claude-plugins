@@ -160,7 +160,7 @@ Sub-agents never talk to each other; there is no "Phase 1.5" where Agent A recei
 
 Every spawn names its tier. Unspecified, the mechanical specialist and the hard one both inherit the session's model and effort — overpaying for a grep or underpowering a review.
 
-Two tiers, assigned by **spec completeness, not task size**: `executor` (Opus 5.5 low) for fully specified, judgment-free work — settled-spec implementation, tests, CI, commit, PR, bulk replace, routine research and enumeration; `architect` (Opus 5.5 high) for complex implementation, design judgment, review and bug-finding, synthesis of scattered findings, and anything with unresolved spec. The criteria live in the `orchestrating-models` skill — point there rather than restating them.
+Two tiers, assigned by **spec completeness, not task size**: `executor` (Opus 5.5 low) for fully specified, judgment-free work — settled-spec implementation, tests, CI, commit, PR, bulk replace, routine research and enumeration; `architect` (Opus 5.5 high) for complex implementation, design judgment, review and bug-finding, synthesis of scattered findings, and anything with unresolved spec. A third tier, `worker` (Sonnet 5.5 medium), is chosen by the shape of the job rather than its difficulty: single-shot, tool-free writing or checking from a complete brief, with a later stage that checks the output. The criteria live in the `orchestrating-models` skill — point there rather than restating them.
 
 A phase is often mixed rather than uniform: several `executor` collectors on disjoint slices, then one `architect` that reconciles their reports.
 

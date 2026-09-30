@@ -44,6 +44,7 @@ Run `/plugin` to browse interactively.
 |---|---|
 | **architect** | Opus 5.5 high の難所担当。 |
 | **executor** | Opus 5.5 low の実行役。 |
+| **worker** | Sonnet 5.5 at medium effort, the tier for briefed text work. |
 
 ## Requirements
 
