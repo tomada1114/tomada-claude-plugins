@@ -2,14 +2,26 @@
 
 Question data for the app-wide UX rounds. The rules for asking (option count, trade-offs, one `(Recommended)`, batch size) are in SKILL.md § Asking questions. App-type questions for Round 4 are in `questions-app-type.md`.
 
-Every JSON block is an AskUserQuestion question as-is. Translate `question`, `label`, and `description` into the user's language at runtime when the conversation is in another language; keep the meaning and the trade-off in each description. Move `(Recommended)` to a different option when the product's inputs point elsewhere, and drop it when nothing is clearly better.
+Every JSON block is one option question: `question` is the prompt, `header` a short tag, `options[]` the choices with `label` and `description`, and `multiSelect: true` allows several answers. When the runtime has an option-prompt tool, pass the block to it as-is; otherwise present it as plain text (below). Either way, translate `question`, `label`, and `description` into the user's language at runtime when the conversation is in another language; keep the meaning and the trade-off in each description. Move `(Recommended)` to a different option when the product's inputs point elsewhere, and drop it when nothing is clearly better.
 
 ## Contents
 
+- [Presenting as plain text](#presenting-as-plain-text)
 - [Round plan](#round-plan)
 - [Round 1 — Structure](#round-1--structure)
 - [Round 2 — States and feedback](#round-2--states-and-feedback)
 - [Round 3 — Input, motion, language, accessibility](#round-3--input-motion-language-accessibility)
+
+## Presenting as plain text
+
+Without an option-prompt tool, render each block as: the `question` line, then one numbered line per option in the form `N. label — description`, then `(Recommended: N)` when an option carries `(Recommended)` (drop the marker from the label), and `(Pick one or more)` when `multiSelect` is true. Send every question of the round in one message, numbered Q1–Q4, and wait for the reply. Map a free-form answer back to the nearest option, and confirm the mapping in the next message when it is ambiguous. One example; the other blocks have no plain-text version.
+
+```
+Q1. Which width should design start from?
+1. Mobile first — Design narrow, then expand. Forces prioritization, but desktop layouts tend to feel stretched.
+2. Desktop first — Start from the information-heavy view; suits work tools. Decisions about what to cut on mobile get postponed.
+3. Equal weight — Design the key screens at both widths in parallel. Highest quality, twice the specification work.
+```
 
 ## Round plan
 

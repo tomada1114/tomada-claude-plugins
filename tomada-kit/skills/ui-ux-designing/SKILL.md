@@ -1,9 +1,9 @@
 ---
 name: ui-ux-designing
-description: "Produces one app-wide UX guidelines document (docs/design/ux-guidelines.md or a caller-named path) fixing navigation, platform conventions, empty/loading/error/offline/permission states, feedback, form validation, motion and reduced-motion, UI language and i18n, and accessibility targets as concrete values, settled through batched AskUserQuestion rounds; also runs a measured WCAG contrast pass on a palette decided elsewhere. Use when settling app-wide behavior, deciding state handling, validation timing, motion policy, or accessibility targets, when a kickoff needs UX guidelines, or when a palette or tokens file needs its contrast measured. Not for visual direction — palette, typography, tokens (refero-design, plus the repository's designing-ui skill); not for wireframes, screen layouts, or user flows (designing-wireframes); not for product requirements (refining-requirements)."
+description: "Produces one app-wide UX guidelines document (docs/design/ux-guidelines.md or a caller-named path) fixing navigation, platform conventions, empty/loading/error/offline/permission states, feedback, form validation, motion and reduced-motion, UI language and i18n, and accessibility targets as concrete values, settled through batched option-question rounds; also runs a measured WCAG contrast pass on a palette decided elsewhere. Use when settling app-wide behavior, deciding state handling, validation timing, motion policy, or accessibility targets, when a kickoff needs UX guidelines, or when a palette or tokens file needs its contrast measured. Not for visual direction — palette, typography, tokens (refero-design, plus the repository's designing-ui skill); not for wireframes, screen layouts, or user flows (designing-wireframes); not for product requirements (refining-requirements)."
 argument-hint: "[output-path] | contrast <palette-source> [into <doc>]"
 metadata:
-  platforms: claude-code
+  platforms: claude-code, codex
 ---
 
 # UI/UX Designing
@@ -19,7 +19,7 @@ Visual direction (references, palette, typography, spacing, tokens, the design l
 - paths of sibling documents — requirements, UX flows, design direction — to read and link, never restate.
 - `contrast <palette-source> [into <doc>]` — run only the [contrast pass](#contrast-pass) on a pairs JSON, a tokens file, or a design-direction document, and paste the table into `<doc>`.
 
-**Output:** the one document, from [templates/ux-guidelines-template.md](templates/ux-guidelines-template.md). If the repository already has a UX home — an existing `ux-guidelines.md`, or UX sections in an older `docs/design/design-concept.md` / `design-system.md` — update that file in place instead of creating a second one. Why: two sources split the implementing session's reference, and the stale one gets read. When it is unclear which file is canonical, ask once with AskUserQuestion.
+**Output:** the one document, from [templates/ux-guidelines-template.md](templates/ux-guidelines-template.md). If the repository already has a UX home — an existing `ux-guidelines.md`, or UX sections in an older `docs/design/design-concept.md` / `design-system.md` — update that file in place instead of creating a second one. Why: two sources split the implementing session's reference, and the stale one gets read. When it is unclear which file is canonical, ask once: present the candidate files as options with a recommendation and wait for the answer.
 
 **Boundaries:** screen layouts, wireframes, and user flows → `designing-wireframes`; product requirements → `refining-requirements`; visual direction → `refero-design`. When one of those documents exists, link to it and write only policy it does not already fix.
 
@@ -29,7 +29,7 @@ A single, local question ("how should this list behave when empty?") gets one re
 
 1. **Read inputs.** Requirements, UX flows, the template or repository constraints (platform, stack, sample app), existing `docs/design/*`, README. Anything they answer is settled and not asked again. Why: users asked something they already answered start answering the rest carelessly. Identify the platforms and the app type (a section in [references/app-type-ux-patterns.md](references/app-type-ux-patterns.md) or [references/app-type-ux-patterns-verticals.md](references/app-type-ux-patterns-verticals.md)).
 
-2. **Research competitor UX — when it would change an option.** Skip it when the caller says research is done, the inputs already name reference products with their flows, or the app has no real competitors. Otherwise pick at least three products, fill [references/agents/research-competitors.md](references/agents/research-competitors.md), and hand it to one `executor` sub-agent (cap: one; tier criteria in `orchestrating-models`). Why `executor`: the products, flows, rubric, and output shape are all fixed here, so what remains is collection without judgment. Share the summary with the user before the first question round; the options are built on it.
+2. **Research competitor UX — when it would change an option.** Skip it when the caller says research is done, the inputs already name reference products with their flows, or the app has no real competitors. Otherwise pick at least three products and fill [references/agents/research-competitors.md](references/agents/research-competitors.md), resolving `{SKILL_DIR}` to this skill's absolute directory — a sub-agent does not start in the skill directory, so a skill-relative path would not resolve for it. If the runtime can delegate, hand the filled prompt to one sub-agent at the low-effort execution tier (cap: one; tier criteria in `orchestrating-models` where that skill is installed); otherwise run the same prompt yourself in this session and keep only its summary, not the raw search results. Why the low tier: the products, flows, rubric, and output shape are all fixed here, so what remains is collection without judgment. The research needs web search; without it, ask the user for product names, URLs, or screenshots, pass them as `{{USER_MATERIAL}}` (left empty when web search is available), and compare the same flows from that material, marking each row "user-supplied". Share the summary with the user before the first question round; the options are built on it.
 
 3. **Ask the question rounds** from [references/questions-core.md](references/questions-core.md) (Rounds 1–3), then Round 4 only when the app type matches a section of [references/questions-app-type.md](references/questions-app-type.md). For an app type not listed there, build 2–3 equivalent questions from the matching pattern section, choosing only points whose answer changes an implementation value. Follow [Asking questions](#asking-questions).
 
@@ -44,9 +44,11 @@ A single, local question ("how should this list behave when empty?") gets one re
 Runs on any palette decided elsewhere — the token values in a `refero-design` direction, a template's `tokens.css` / `globals.css`, a Tailwind `@theme` block. Follow the pair checklist and value-resolution rules in [references/accessibility.md § Contrast pass](references/accessibility.md#contrast-pass): list light and dark pairs, resolve `var()` / `light-dark()` to literal colors, composite any alpha onto its background, write a pairs JSON next to the target document, then run:
 
 ```bash
-python3 ${CLAUDE_SKILL_DIR}/scripts/check_contrast.py <pairs.json>            # AA; add --level AAA, --json
-python3 ${CLAUDE_SKILL_DIR}/scripts/check_contrast.py --pair "#FFFFFF" "#2563EB" --kind text
+python3 {SKILL_DIR}/scripts/check_contrast.py <pairs.json>            # AA; add --level AAA, --json
+python3 {SKILL_DIR}/scripts/check_contrast.py --pair "#FFFFFF" "#2563EB" --kind text
 ```
+
+`{SKILL_DIR}` is this skill's directory as an absolute path. Run from the target repository root, so `<pairs.json>` resolves there while the script resolves through the absolute path.
 
 The JSON is an array of `{"name", "fg", "bg", "kind"}`; `kind` is `text`, `large`, or `ui`. Accepted colors: `#RRGGBB`, `#RGB`, `rgb()`, `oklch()`, no alpha. Exit 0 = all pass, 1 = a pair fails, 2 = bad input.
 
@@ -54,11 +56,11 @@ Paste the printed table unedited under "Measured contrast" in the document the c
 
 ## Asking questions
 
-Every question goes through AskUserQuestion, using the JSON in the question files as-is (translated into the user's language when the conversation is in another one).
+Every question is put to the user as options, and the round waits for the answer before anything is written. Use the JSON in the question files as-is (translated into the user's language when the conversation is in another one): pass it unchanged to an option-prompt tool when the runtime has one; otherwise render it as numbered plain text following [references/questions-core.md § Presenting as plain text](references/questions-core.md#presenting-as-plain-text).
 
 - 2–4 options, each with its concrete content and what it gives up. Why: an open question ("how should errors work?") hands the design to the user, and the answer does not map to a value.
 - At most one option marked `(Recommended)`, and only when one really is better for this product. Why: several recommendations equal none, and an unfounded one skews the choice.
-- Up to 4 questions per call, one call per round. Why: later questions in a long batch get careless answers, and careless answers ship as values.
+- Up to 4 questions per round, asked together in one prompt or one message. Why: later questions in a long batch get careless answers, and careless answers ship as values.
 
 ## Resources
 
@@ -70,3 +72,7 @@ Every question goes through AskUserQuestion, using the JSON in the question file
 - [references/research-methods.md](references/research-methods.md) — research procedure and summary format, when researching without delegating
 - [references/agents/research-competitors.md](references/agents/research-competitors.md) — the delegation prompt
 - [templates/ux-guidelines-template.md](templates/ux-guidelines-template.md) — the output document
+
+## Platform notes
+
+Tool mapping per host and degradation paths: [references/platform-notes.md](references/platform-notes.md).

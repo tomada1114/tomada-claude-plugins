@@ -92,7 +92,7 @@ Run this on any palette decided elsewhere: the token values in a `design-directi
    ```
 
    `kind` is `text` (body), `large` (large text), or `ui` (boundaries, icons, focus).
-4. **Run** `python3 ${CLAUDE_SKILL_DIR}/scripts/check_contrast.py <pairs.json>` (add `--level AAA` for an AAA target, `--json` for machine-readable output; `--pair FG BG --kind ui` checks one pair ad hoc). Exit 0 = all pass, 1 = at least one FAIL, 2 = input error.
+4. **Run** from the target repository root `python3 {SKILL_DIR}/scripts/check_contrast.py <pairs.json>`, with `{SKILL_DIR}` resolved to this skill's absolute directory (add `--level AAA` for an AAA target, `--json` for machine-readable output; `--pair FG BG --kind ui` checks one pair ad hoc). Exit 0 = all pass, 1 = at least one FAIL, 2 = input error.
 5. **Paste the table** the script prints, unedited, into the target document under a "Measured contrast" heading, with the pairs file path. Why: ratios written from memory or copied from elsewhere are often wrong (a common one: `#71717A` on `#0A0A0B` quoted as 4.6:1 measures 4.09:1), and a wrong ratio marked as passing ships an unreadable UI.
 6. **On FAIL**, report each failing pair with the smallest change that passes (usually lowering or raising OKLCH L on one side, or switching to a dark on-color) and hand it to the palette owner — the `refero-design` direction or the user. Re-run after the palette changes until exit 0.
 

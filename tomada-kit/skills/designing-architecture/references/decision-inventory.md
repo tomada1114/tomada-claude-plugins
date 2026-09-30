@@ -21,8 +21,9 @@ them) and rows the MVP never touches. Each applicable row becomes one ADR.
 | Minimum platform version | native or desktop apps | the OS version floor and what it enables |
 
 Research every option before presenting it: current versions, licences, and platform
-support from primary sources (context7 for libraries, the vendor's docs otherwise), with
-the URL and the date checked written into the ADR's Sources.
+support from primary sources (a library documentation lookup tool where the runtime has
+one, the official docs otherwise), with the URL and the date checked written into the
+ADR's Sources. A claim that could not be checked is written as unchecked, never dated.
 
 ## Overview document skeleton
 

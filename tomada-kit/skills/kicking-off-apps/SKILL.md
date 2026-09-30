@@ -14,7 +14,7 @@ description: >-
   in a template, or when resuming a kickoff.
 argument-hint: "[app idea, free-form | resume]"
 metadata:
-  platforms: claude-code
+  platforms: claude-code, codex
 ---
 
 # Kicking Off Apps
@@ -32,8 +32,8 @@ the same subject.
 
 ## Contract
 
-**Input:** `$ARGUMENTS` — the app idea in the user's words, `resume`, or empty. Empty
-with no resumable run → ask for the idea in one open question.
+**Input:** the skill's argument — the app idea in the user's words, `resume`, or empty.
+Empty with no resumable run → ask for the idea in one open question.
 
 **Output:** the new repository at `$(ghq root)/github.com/<owner>/<slug>` and the state
 directory described in [references/artifacts.md](references/artifacts.md), which also
@@ -50,18 +50,20 @@ defines every artifact path used below. Read it before stage 1.
    `isTemplate`) and ask which one fits the idea — or recommend one after stage 1's
    first round settles the platform.
 3. **Read the template's map:** `AGENTS.md` (or `CLAUDE.md`), `README.md`'s "Using
-   this template", and the index of `.claude/skills/*/SKILL.md` frontmatter. Note which
-   of these exist, because they replace a global default later: `starting-an-app`,
+   this template", and the index of the repository's skill frontmatter
+   (`.claude/skills/*/SKILL.md` or `.agents/skills/*/SKILL.md`). Note which of these
+   exist, because they replace a global default later: `starting-an-app`,
    `designing-ui`, `recording-architecture-decisions`, `steering-the-roadmap`,
-   `triaging-issues`, `shipping-issues`. The template fixes the stack; questions it
-   already answers are not asked.
+   `triaging-issues`, `shipping-issues`. When the host does not load a repository skill
+   by name, read its `SKILL.md` and follow it the same way. The template fixes the
+   stack; questions it already answers are not asked.
 
 ## Stages
 
 Run in order. At the end of each stage: update `state.md`, show the user a short
-summary of what was decided, and move on once they agree. Every question goes through
-AskUserQuestion, batched (at most 4 per call), with one recommended option when there
-is a real recommendation.
+summary of what was decided, and move on once they agree. Every question is asked as
+2–4 options with their trade-offs, batched (at most 4 questions per round), with one
+recommended option when there is a real recommendation; then wait for the answers.
 
 | # | Stage | Skill | Output |
 |---|---|---|---|
@@ -93,7 +95,7 @@ palette with `ui-ux-designing`'s contrast pass (`contrast <palette-source> into
 $STATE/design-direction.md`); a failing pair goes back to the direction, not to a
 silent tweak. Tokens are not applied to code here; that is a stage 8 issue.
 
-**Gate before stage 4.** One AskUserQuestion call confirming the identity inputs (owner,
+**Gate before stage 4.** One question round confirming the identity inputs (owner,
 repository name, visibility — public unless the user said otherwise — display name,
 bundle identifier where the template has one) and listing every remote write stages 4–5
 will make: create the repository from the template, push to `main`, sync labels — and
@@ -108,11 +110,17 @@ next session starts with the loose permissions already in place.
 
 **Stage 6 — handoff.** The session started in the template directory, so the new
 repository's settings, hooks, and skills are not loaded. Mark stage 6 done, then print
-this and stop:
+only the block for the host this run is on — start a session in the new repository, then
+invoke this skill with `resume` — and stop:
 
 ```
+# Claude Code
 cd <repo_path> && claude
 /kicking-off-apps resume
+
+# Codex CLI
+cd <repo_path> && codex
+$kicking-off-apps resume
 ```
 
 **Stage 7.** `designing-architecture` turns the drafts into the stable documents; commit
@@ -139,7 +147,15 @@ later is amended in its document, never only in an issue thread.
 
 ## Delegation
 
-Stages 1–3, 5, and 7 are dialogue with the user and run in this session. Delegate only
-bounded, briefed work: a long verification run in stage 4 to an `executor`; drafting
-many issue bodies from a settled plan in stage 8 to a `worker`. Tiers: the
-`orchestrating-models` skill.
+Stages 1–3, 5, and 7 are dialogue with the user and run in this session. When the
+runtime can delegate, hand off only bounded, briefed work: a long verification run in
+stage 4 to a low-effort executor sub-agent; drafting many issue bodies from a settled
+plan in stage 8 to a tool-free writing sub-agent. The brief inlines what the
+sub-agent needs (for stage 8: the approved plan table and the issue template content
+from `planning-tickets`) and passes `repo_path` and `$STATE` as absolute paths, since a
+sub-agent neither shares this skill's directory nor starts in the clone. When it cannot,
+run the same work here, stage by stage in the same order. Tier names per host: [references/platform-notes.md](references/platform-notes.md).
+
+## Platform notes
+
+See [references/platform-notes.md](references/platform-notes.md).

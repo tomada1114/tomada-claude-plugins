@@ -2,7 +2,9 @@
 
 How to research competitors' flows, navigation, and state handling. The goal is not a list of nice-looking apps but the material the question rounds are built from. Visual style research (palettes, typography, look and feel) is out of scope: `refero-design` does it.
 
-When research is delegated, this file is the sub-agent's procedure and output contract; the prompt template is `agents/research-competitors.md`.
+When research is delegated, this file is the sub-agent's procedure and output contract; the prompt template is `agents/research-competitors.md`. Without delegation, the main session follows the same file and returns the same summary.
+
+Searching needs a web search tool. Without one, ask the user for product names, URLs, or screenshots, run the same three steps on that material, and mark each row "user-supplied" instead of citing a search result.
 
 ## Contents
 
@@ -132,7 +134,7 @@ Primary, preferred:
 
 Real product flows:
 
-- Refero flows (`refero:refero_search_flows`, `refero:refero_get_flow`) when the Refero MCP server is connected — multi-step journeys of real products, directly usable for Step 2
+- Refero flows — the flow-search and flow-detail tools of the Refero server, when it is connected — multi-step journeys of real products, directly usable for Step 2
 - [Mobbin](https://mobbin.com/) — real app screens organized by flow
 - Installing the product and walking the flows yourself — best when possible
 

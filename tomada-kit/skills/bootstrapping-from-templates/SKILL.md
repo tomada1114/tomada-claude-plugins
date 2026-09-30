@@ -12,7 +12,7 @@ description: >-
   kicking-off-apps.
 argument-hint: "--template-path DIR | --template OWNER/NAME, --repo OWNER/NAME"
 metadata:
-  platforms: claude-code
+  platforms: claude-code, codex
 ---
 
 # Bootstrapping From Templates
@@ -37,15 +37,18 @@ holds the bootstrap commit, plus a list of the human-only steps the template res
 
 **Authorization.** Creating the repository, pushing `main`, and syncing labels are
 remote writes. Run them only after the user approved that list (the kickoff gate counts;
-standalone, ask once with AskUserQuestion). A step the template marks as a human's —
-typically the bootstrap itself — runs only when the approval names it.
+standalone, present the list once — approve as listed, or adjust — and wait for the
+answer). A step the template marks as a human's — typically the bootstrap itself — runs
+only when the approval names it.
 
 ## 1. Create and clone
 
 ```bash
-python3 ${CLAUDE_SKILL_DIR}/scripts/create_from_template.py \
+python3 {SKILL_DIR}/scripts/create_from_template.py \
   --template-path <template-dir> --repo <owner>/<name> [--visibility private] --dry-run
 ```
+
+`{SKILL_DIR}` is this skill's absolute directory; the command runs from any directory.
 
 Read the warnings: a local template ahead of its upstream means the new repository will
 not contain those commits — ask whether to push the template first. Then run it again
@@ -55,7 +58,8 @@ re-run reuses what already exists.
 
 ## 2. Follow the template's procedure
 
-Read `<clone>/.claude/skills/starting-an-app/SKILL.md` (or the `.agents/skills/` copy)
+Read the template's `starting-an-app` skill from the clone's skills directory
+(`<clone>/.claude/skills/` or `<clone>/.agents/skills/`, whichever the template ships)
 by absolute path, plus every reference it marks REQUIRED for the rename. Execute its
 order inside the clone, with these boundaries:
 
@@ -84,7 +88,8 @@ the user about any hit whose right value is not obvious.
    needed). Where the template already has a document for the same subject, merge into
    it instead of adding a second one.
 2. Run the verification command the template names (`just check`, `pnpm check`, …). A
-   first build can take many minutes: run it in the background and do step 3 meanwhile.
+   first build can take many minutes: where the runtime can run a command in the
+   background, start it and do step 3 meanwhile; otherwise do step 3 first, then run it.
    A failure is fixed, not skipped — and never by weakening a check, which the templates
    forbid.
 3. Sync labels with the template's recipe (`just labels`, `pnpm repo:labels`, or
@@ -99,3 +104,7 @@ the user about any hit whose right value is not obvious.
 
 Repository URL, clone path, the identity values used, checks run with their result,
 the steps deferred to later stages, and the human-only list.
+
+## Platform notes
+
+Host-specific tool mapping and sandbox recovery: [references/platform-notes.md](references/platform-notes.md).

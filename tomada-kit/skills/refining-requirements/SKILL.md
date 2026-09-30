@@ -12,7 +12,7 @@ description: >-
   is about to start from a vague or incomplete spec, or as stage 1 of kicking-off-apps.
 argument-hint: "[idea or path to spec] [--out path]"
 metadata:
-  platforms: claude-code
+  platforms: claude-code, codex
 ---
 
 # Refining Requirements
@@ -47,10 +47,11 @@ decides which question rounds apply ([references/question-bank.md](references/qu
 
 Repeat until the user signs off:
 
-1. **Ask** one batch through AskUserQuestion — at most 4 questions, grouped by topic,
-   2–4 options each with its trade-off, one marked recommended when there is a real
-   recommendation. Hearing mode starts with the Product and scope round; open
-   questions are fine there when options would put words in the client's mouth.
+1. **Ask** one batch — at most 4 questions, grouped by topic, 2–4 options each with its
+   trade-off, one marked recommended when there is a real recommendation — and wait
+   for the user's answers before updating the document. Hearing mode starts with the
+   Product and scope round; open questions are fine there when options would put
+   words in the client's mouth.
 2. **Update the document** with the answers: concrete values, defaults, limits,
    validation rules, edge cases. Record each decision in the Decision log with the
    rejected alternative.
@@ -75,3 +76,7 @@ styling.
 Sign-off is the user saying so, not the loop running out of questions. Set the
 document's status line to `Signed off YYYY-MM-DD`, and leave any remaining Open
 questions with what would settle them.
+
+## Platform notes
+
+Host tool mapping and degradation paths: [references/platform-notes.md](references/platform-notes.md).

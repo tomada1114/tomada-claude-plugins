@@ -13,7 +13,7 @@ description: >-
   first ADRs or design lock, filling the roadmap after a bootstrap, or as stage 7 of
   kicking-off-apps.
 metadata:
-  platforms: claude-code
+  platforms: claude-code, codex
 ---
 
 # Designing Architecture
@@ -49,11 +49,14 @@ the user before researching, so a decision they consider settled is not re-opene
 
 ## 2. Decide, round by round
 
-For each open decision, research the options from primary sources (context7 for
-libraries; vendor docs for platforms) and present them through AskUserQuestion —
-batched, at most 4 per call, 2–4 options each with what it costs, one marked
-recommended when there is a real recommendation. The requirements and the non-goals are
-the tie-breakers: say which line of them an option serves or violates. The design lock
+For each open decision, research the options from primary sources (a library
+documentation lookup tool where the runtime has one, otherwise the library's official
+docs; vendor docs for platforms). If the runtime cannot reach the web, say so and mark
+each claim you could not check as unchecked instead of dating it. Then present the
+decisions in batched rounds — at most 4 questions per round, 2–4 options each with what
+it costs, one marked recommended when there is a real recommendation — and wait for the
+answers before the next round. The requirements and the non-goals are the
+tie-breakers: say which line of them an option serves or violates. The design lock
 is not re-decided here: transcribe `design-direction.md` into the lock format and ask
 only about gaps the format has and the draft does not fill.
 
@@ -61,8 +64,9 @@ only about gaps the format has and the draft does not fill.
 
 - **ADRs**, one per decision, in the repository's template. Status **Accepted** with
   today's date when the user chose explicitly in this session — they are the owner the
-  status legend means; **Proposed** for anything they deferred. Every external claim
-  carries its URL and the date checked. Add each index row in the same change.
+  status legend means; **Proposed** for anything they deferred, and for any ADR resting
+  on a claim marked unchecked. Every external claim carries its URL and the date
+  checked, or is marked unchecked. Add each index row in the same change.
 - **Overview**, using the skeleton in the reference: principles that each rule something
   out, the domain → layer map, data, core flows, measurable quality targets.
 - **Roadmap**: Now = the MVP outcomes from the requirements, one to three, each with an
@@ -76,10 +80,15 @@ is not done here. List it as follow-ups in the relevant ADR; it becomes an issue
 ## 4. Verify and commit
 
 Run the repository's documentation and harness checks (`just check-harness`, a docs
-build, a link check — whatever its `AGENTS.md` lists for docs changes). Commit as
-`docs: architecture overview, ADRs, and roadmap for <App>` and push when authorized.
+build, a link check — whatever its `AGENTS.md` / `CLAUDE.md` lists for docs changes).
+Commit as `docs: architecture overview, ADRs, and roadmap for <App>` and push when
+authorized.
 
 ## Report
 
 The decisions made (ADR number, title, status), the ones deferred with what would settle
 them, the documents written, and the follow-ups that must become issues.
+
+## Platform notes
+
+Host-specific tool mapping and degradations: [references/platform-notes.md](references/platform-notes.md).

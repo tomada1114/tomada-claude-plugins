@@ -11,7 +11,7 @@ description: >-
   Use when cutting tickets, breaking a feature or a new app's MVP into issues, planning
   a sprint or backlog, or as the issues stage of kicking-off-apps.
 metadata:
-  platforms: claude-code
+  platforms: claude-code, codex
 ---
 
 # Planning Tickets
@@ -23,8 +23,9 @@ same files — and makes every ordering constraint explicit and machine-readable
 
 ## 1. Read the repository's conventions
 
-Before drafting, look for the repository's own issue skills (`.claude/skills/` or
-`.agents/skills/`) and forms (`.github/ISSUE_TEMPLATE/`, `.github/labels.yml`):
+Before drafting, look for the repository's own issue skills in its skills directory
+(`.claude/skills/` or `.agents/skills/` — check both) and forms
+(`.github/ISSUE_TEMPLATE/`, `.github/labels.yml`):
 
 - **`triaging-issues`** — its labels (type, `priority: P0`–`P3`, `blocked: …`,
   `tracking`), what a body must contain, and how an ordering constraint is spelled.
@@ -63,8 +64,8 @@ lands in and the document section it implements.
   [templates/issue-template.md](templates/issue-template.md).
 
 Present the plan before creating anything: a summary table (title, labels, tier,
-parent, depends on), the dependency layers, and which issues can run in parallel. Get
-the user's yes — creating issues is a remote write.
+parent, depends on), the dependency layers, and which issues can run in parallel. Then
+stop and wait for the user's explicit yes — creating issues is a remote write.
 
 ## 3. Create
 
@@ -81,3 +82,7 @@ When the repository has a roadmap page, fill each outcome's issue links after cr
 The created issues as a table with numbers and links, the tracking parents, the
 dependency layers, and anything left for a human (a `blocked: design` decision, a
 `blocked: external` step).
+
+## Platform notes
+
+Host tool mapping and degradation paths: [references/platform-notes.md](references/platform-notes.md).

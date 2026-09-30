@@ -21,7 +21,7 @@ Run `/plugin` to browse interactively.
 | **building-chat-uis** | Field notes for building LLM chat interfaces on the Vercel AI SDK (`ai` + `@ai-sdk/react`), whose API is… |
 | **building-function-hook-mods** | Build a Claude Mod — a Claude Code plugin whose behaviour lives in a TypeScript hooks module, registered as… |
 | **codex-cli-config** | Reference for OpenAI Codex CLI configuration, permissions, sandboxing, and autonomy — sandbox_mode and… |
-| **configuring-project-permissions** | Loosen a repository's committed .claude/settings.json so development runs without permission prompts: detect… |
+| **configuring-project-permissions** | Loosen a repository's committed Claude Code permission file (.claude/settings.json) so development runs… |
 | **creating-agent-skills** | Create or improve Agent Skills (the shared SKILL.md format read by Claude Code and OpenAI Codex CLI —… |
 | **designing-architecture** | Turn signed-off requirements and UX drafts into a new app's stable design documents before any issue is… |
 | **designing-wireframes** | Create ASCII wireframes for every screen and window, user flow diagrams, and per-screen states (empty… |
