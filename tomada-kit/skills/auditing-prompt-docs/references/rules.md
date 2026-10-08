@@ -69,8 +69,10 @@ against the spec. That is a workflow stage, not a sentence in a prompt.
 
 Not this rule: an instruction to run a real check that exercises a code change
 (tests, type-checker, build) and to say which check was skipped and why. Sonnet
-5.5 at `low` effort sometimes reports changes done without one, and its guide
-recommends exactly that instruction (`model-sonnet-5-5.md#verification-on-coding-tasks`).
+5.5 at `low` effort, and Haiku 5.5 at `low` and `medium`, sometimes report
+changes done without one, and both guides recommend exactly that instruction
+(`model-sonnet-5-5.md#verification-on-coding-tasks`,
+`model-haiku-5-5.md#verification-on-coding-tasks`).
 
 ## P002 severity-self-filtering
 
@@ -212,9 +214,12 @@ prefill", "prefilled response".
 These patterns are removed, not merely discouraged. Manual extended thinking with
 `budget_tokens` returns 400 on current models; a prefilled assistant message on
 the final turn returns 400 from the 4.6 generation onward. Thinking cannot be
-turned off on any model this skill tracks: Fable 5.1 is adaptive only, Opus 5.5
+turned off on most models this skill tracks: Fable 5.1 is adaptive only, Opus 5.5
 does not accept `disabled`, and Sonnet 5.5 returns 400 with a message pointing
-to `between_tools`.
+to `between_tools`. Haiku 5.5 is the exception — it accepts `disabled` at
+`high` effort or below (400 at `xhigh`/`max`) — but its guide still prefers a
+lower effort level, so the finding stands unless the document targets Haiku 5.5
+deliberately.
 
 **Rewrite:** adaptive thinking (`thinking: {type: "adaptive"}`) with the
 `effort` parameter, and `max_tokens` as the hard ceiling. For less thinking,
@@ -228,8 +233,8 @@ instruction ("Respond directly without preamble") for preamble suppression.
 
 **Fires on:** `temperature:`, `top_p:`, `top_k:` with a value.
 
-Setting any of these to a non-default value returns 400 on Sonnet 5 and
-Sonnet 5.5. Prompts that relied on temperature for stylistic variety need a
+Setting any of these to a non-default value returns 400 on Sonnet 5,
+Sonnet 5.5, and Haiku 5.5. Prompts that relied on temperature for stylistic variety need a
 different lever.
 
 **Rewrite:** remove the parameter. For variety, ask the model to propose several
@@ -272,7 +277,8 @@ important or change direction; close with a recap that stands on its own."
 Sonnet 5.5 rejects forced tool use with a 400, including on the token-counting
 endpoint; earlier models accepted it. `auto` (the default) and `none` still
 work. Severity is `warn` rather than `error` because the call is valid on other
-models — confirm the document targets Sonnet 5.5.
+models — confirm the document targets Sonnet 5.5. Haiku 5.5 accepts forced
+tool use but then skips thinking before the call.
 
 **Rewrite:** `tool_choice: {"type": "auto"}` plus `strict: true` on the tool for
 schema-valid input (on Amazon Bedrock, `auto` alone). The model can now answer

@@ -28,9 +28,18 @@ deletes a CI job the template's own smoke test expects.
 
 **Input:** the template (a local checkout path or `OWNER/NAME`), the new `OWNER/NAME`,
 visibility (public unless the user said otherwise), and the identity values the
-template's bootstrap asks for — display name, slug, bundle identifier, author, email.
-Author and email default to `git config user.name` / `user.email`. Optionally a drafts
+template's bootstrap asks for — display name, slug, bundle identifier, author, and a
+public contact. Author defaults to `git config user.name`. Optionally a drafts
 directory and a draft→repository path map (from `kicking-off-apps`).
+
+**No email address is written into the repository.** Never pass the user's email to a
+bootstrap (an `--email` option, an email placeholder) and never take one from `git
+config user.email`: a repository cut from a template is usually public, and its files —
+README, code of conduct, security policy — are where people look for a contact. Where
+the template has a contact slot, fill it with the public contact the user names (a
+profile URL, such as an X account; ask when none was given) and reword a sentence that
+assumed an address. Commit metadata is out of scope: the clone keeps the user's own git
+identity.
 
 **Output:** a clone at `$(ghq root)/github.com/<owner>/<name>` whose `main` on GitHub
 holds the bootstrap commit, plus a list of the human-only steps the template reserves.

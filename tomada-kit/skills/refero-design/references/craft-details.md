@@ -139,7 +139,7 @@ Forms are where users struggle most. These details reduce friction.
 
 ```html
 <!-- ✅ Placeholders end with … and show format -->
-<input placeholder="name@example.com…">
+<input placeholder="name@company.com…">
 <input placeholder="(555) 123-4567…">
 <input placeholder="Search products…">
 ```
@@ -483,7 +483,7 @@ Writing that converts.
 | **Title Case for headings/buttons** | "Save Changes" not "Save changes" |
 | **Numerals for counts** | "8 deployments" not "eight deployments" |
 | **Specific labels** | "Save API Key" not "Continue" |
-| **Error messages include fix** | "Email invalid. Use format: name@example.com" |
+| **Error messages include fix** | "Email invalid. Use format: name@domain.com" |
 | **Second person** | "Your account" not "My account" |
 | **& over "and"** (space-constrained) | "Terms & Privacy" |
 

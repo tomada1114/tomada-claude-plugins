@@ -21,18 +21,19 @@ Run `/plugin` to browse interactively.
 | **building-chat-uis** | Field notes for building LLM chat interfaces on the Vercel AI SDK (`ai` + `@ai-sdk/react`), whose API is… |
 | **building-function-hook-mods** | Build a Claude Mod — a Claude Code plugin whose behaviour lives in a TypeScript hooks module, registered as… |
 | **codex-cli-config** | Reference for OpenAI Codex CLI configuration, permissions, sandboxing, and autonomy — sandbox_mode and… |
-| **configuring-project-permissions** | Loosen a repository's committed Claude Code permission file (.claude/settings.json) so development runs… |
+| **configuring-project-permissions** | Set up a repository's personal, uncommitted agent permissions so development runs without prompts: Claude… |
 | **creating-agent-skills** | Create or improve Agent Skills (the shared SKILL.md format read by Claude Code and OpenAI Codex CLI —… |
 | **designing-architecture** | Turn signed-off requirements and UX drafts into a new app's stable design documents before any issue is… |
 | **designing-wireframes** | Create ASCII wireframes for every screen and window, user flow diagrams, and per-screen states (empty… |
 | **dual-platform-skills** | Convert one existing skill (Claude Code origin or Codex origin) into a layout that works on both Claude Code… |
 | **find-skills** | Helps users discover and install agent skills when they ask questions like "how do I do X", "find a skill for… |
 | **kicking-off-apps** | Take a rough app idea ("I want an app that…") to a new public GitHub repository cut from one of the user's… |
-| **orchestrating-models** | Playbook for choosing models and deciding what to delegate. |
+| **orchestrating-models** | Decide which model and effort runs a piece of work, and whether to delegate it at all. |
 | **planning-tickets** | Break requirements and design documents into GitHub Issues an implementing agent can ship without asking… |
 | **refero-design** | Primary/default skill for UI design, product design, web design, landing pages, dashboards, product screens… |
 | **refining-prompts** | Polish a rough instruction (often dictated by voice) into a precise prompt that can be handed straight to… |
 | **refining-requirements** | Turn a vague app idea or an incomplete spec into a signed-off, implementation-ready requirements document… |
+| **syncing-agent-tiers** | Push the canonical sub-agent tier definitions (executor, architect, scout, worker) into every listed… |
 | **transplanting-harnesses** | Translate a reference repository's development harness — policy docs (AGENTS.md / CLAUDE.md), agent skills… |
 | **ui-ux-designing** | Produces one app-wide UX guidelines document (docs/design/ux-guidelines.md or a caller-named path) fixing… |
 
@@ -48,7 +49,8 @@ Run `/plugin` to browse interactively.
 |---|---|
 | **architect** | Opus 5.5 high の難所担当。 |
 | **executor** | Opus 5.5 low の実行役。 |
-| **worker** | Sonnet 5.5 at medium effort, the tier for briefed text work. |
+| **scout** | Haiku 5.5 high の調べ物役。 |
+| **worker** | Haiku 5.5 at xhigh effort, the tier for briefed text work. |
 
 ## Requirements
 

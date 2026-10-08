@@ -31,7 +31,7 @@
 
 ## リレー編成
 
-1 タスクを 1 つの段に丸投げしない。段ごとに `executor`(low)と `architect`(high)を当て分ける。サブエージェントの数が増えてもトータルでは安く速い。
+1 タスクを 1 つの段に丸投げしない。段ごとに `scout`(Haiku 5.5 high)・`executor`(low)・`architect`(high)を当て分ける。サブエージェントの数が増えてもトータルでは安く速い。
 
 「判断」段の担当はメイン自身。実装段も自分で持つほうが速い場面が多い(委譲する理由は `references/delegation-triage.md`)。
 
@@ -39,7 +39,7 @@
 
 | 段 | 担当 | 内容 |
 |---|---|---|
-| 収集 | `executor` × N 並列 | 領域を分割して事実だけ集めさせる。解釈させない |
+| 収集 | `scout` × N 並列 | 領域を分割して事実だけ集めさせる。解釈させない。1 本が読む量は 100k トークン未満に収める |
 | 統合 | `architect` × 1 | 各報告を突き合わせ、矛盾・欠落・重複を整理して構造化する |
 | 判断 | メイン | 整理済みの成果に対して方針を決める |
 
@@ -71,10 +71,27 @@
 
 | 状況 | 手段 |
 |---|---|
-| 自己完結する実装・調査の 1 単位 | サブエージェント(Agent ツール、`subagent_type: executor` / `architect`) |
-| 大規模・分解可能・検証重視(監査、広範リサーチ、横断変更) | Dynamic Workflow(`agent()` で `model` + `effort` を段ごとに指定) |
+| 自己完結する実装・調査の 1 単位 | サブエージェント(Agent ツール、`subagent_type: executor` / `architect` / `scout`) |
+| 大規模・分解可能・検証重視(監査、広範リサーチ、横断変更) | Dynamic Workflow(`agent()` で `model` + `effort` を段ごとに指定。下の「Workflow の段の割当」) |
 | 完了条件を定義して無人で回せる実装 | /goal + `authoring-goal-prompts` スキルで goal プロンプトを作成し別セッションへ |
 | 会話的な質問・単一の小さな編集 | 委譲しない(オーバーヘッド負け) |
+
+### Workflow の段の割当
+
+`agent()` は段ごとに `model` と `effort` を取る。名前付きエージェントと同じ割当を、段の仕事の形で当てる。Workflow は並列の本数が多く、段の単価がそのまま本数倍で効くので、Haiku 5.5 に流せる段を見落とさない。
+
+| 段の仕事 | `model` + `effort` | 例 |
+|---|---|---|
+| ファイルを書き換えない、判断を含まない収集・列挙・要約(ツールを使う) | `'haiku'` + `'high'`(= `scout`) | discover(対象ファイル・呼び出し箇所の洗い出し)、Understand の並列リーダー、Research の広域スイープ、ログやテスト結果の要約 |
+| プロンプトに渡した材料だけで答える判定・書き出し(ツールを使わず、`schema` で返す) | `'haiku'` + `'xhigh'`(= `worker`) | 渡した finding を基準どおりに分類・ラベル付け、重複判定、決まった形式への書き出し |
+| 仕様が確定した書き換え | `'opus'` + `'low'`(= `executor`) | Migrate の各サイトの変換、一括修正 |
+| 判断・レビュー・統合・反証 | `'opus'` + `'high'`(= `architect`) | Review の検出段、adversarial verify、judge panel、最終の統合 |
+
+- 検証役(refute・judge)が自分でコードを読んで真偽を決めるなら、それはエージェント作業の判断なので Opus 5.5 high。Haiku の判定段は、判断材料をすべてプロンプトに入れられるときに限る
+- Haiku の段は 1 本のプロンプトを 100k トークン未満に収める。超えるとそのリクエスト全体の単価が 5 倍になる。読む範囲は件数で割って本数を増やす
+- `schema` 付きの Haiku 段はそのまま使える。公式ガイドが挙げる「思考オフ + JSON 形式でツール呼び出しを飛ばす」問題は、思考が常にオンの Claude Code では起きない
+- `'haiku'` が Haiku 5.5 を指すのは Anthropic API の場合だけ(Claude Code v2.1.293 以上)。Bedrock・Google Cloud・Foundry では Haiku 4.5 になり、effort が効かない
+- Haiku の段の出力は後段(Opus の統合・verify、またはメイン)で受け止める。Haiku だけで完結させて結論にしない
 
 `CLAUDE_CODE_SUBAGENT_MODEL` で既定モデルを固定する運用もあるが、全サブエージェント(レビュー系スキル内部のものも含む)に効き、effort は固定できないため、`subagent_type` での指定を優先する。
 

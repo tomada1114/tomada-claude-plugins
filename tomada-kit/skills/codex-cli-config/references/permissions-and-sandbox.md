@@ -75,6 +75,13 @@ without prompting — see `references/rules-execpolicy.md` for the mechanism and
 canonical `git` allow-rule. Reaching for `danger-full-access` just to unblock
 `git commit` is unnecessary and overbroad.
 
+Under the permission-profile system there is also a documented override that
+keeps the sandbox on: set `".git" = "write"` in the profile's
+`":workspace_roots"` table (see "`.git` = write" under Permission profiles).
+It covers git that runs *inside* the sandbox — commands wrapped in a heredoc,
+pipe or substitution never match a Rules `allow` and would otherwise fail on
+`.git`. `sandbox_mode = "workspace-write"` has no equivalent key.
+
 ## approval_policy
 
 ```
@@ -139,6 +146,21 @@ closest Codex equivalent to an "auto mode": the sandbox boundary is unchanged,
 but on-request prompts route to the reviewer subagent instead of interrupting
 you. Config, `-c` and `codex exec --approve-for-me` forms:
 `references/autonomy-recipes.md` Recipe 3.
+
+### App connector tools (`apps.<id>.tools.<tool>.approval_mode`)
+
+Connector tools (the GitHub app's `create_pull_request`, `merge_pull_request`,
+…) are gated here, not by Rules — a `gh pr merge` prompt rule does nothing for
+the connector path. Values: `auto | prompt | writes | approve`;
+`default_tools_approval_mode` sets the fallback. To have a human confirm every
+merge, set both:
+
+```toml
+[apps.<connector-id>.tools."github.merge_pull_request"]
+approval_mode = "prompt"
+```
+
+and a `prefix_rule(pattern = ["gh", "pr", "merge"], decision = "prompt")`.
 
 ## Permission profiles (Beta) — the forward-looking system
 
@@ -262,12 +284,39 @@ default_permissions = ":danger-full-access"   # sandbox off
 approval_policy = "on-request"                # prompts still prompt
 ```
 
-### `":root" = "write"` — the fix for "Codex can't touch git metadata"
+### `".git" = "write"` — the narrow fix for "Codex can't touch git metadata"
 
 `:workspace` (and `workspace-write`) keeps `.git` recursively read-only
 inside every writable root, so a profile that merely `extends = ":workspace"`
-leaves `git commit`, `rebase`, and `pre-commit install` failing. Granting
-`":root" = "write"` in the profile's `filesystem` table lifts that:
+leaves `git commit`, `rebase`, and `pre-commit install` failing inside the
+sandbox. The official override lifts only `.git`:
+
+```toml
+[permissions.dev]
+extends = ":workspace"
+
+[permissions.dev.filesystem.":workspace_roots"]
+"." = "write"
+".git" = "write"
+"**/*.env" = "deny"
+
+[permissions.dev.network]
+enabled = true
+mode = "full"
+```
+
+Measured on 0.153.4 with `codex sandbox -P dev`: `git add` + `git commit`
+succeed, `.codex/` stays read-only, writes outside the workspace and reads of
+the denied `.env` fail with `Operation not permitted`, and `ssh -T
+git@github.com` authenticates through the agent. The trade-off: git writes
+that no Rules entry gates (for example `git --no-pager reset --hard`) now
+succeed inside the sandbox without a prompt, and `.git/hooks` becomes writable
+by sandboxed commands — hooks later run by an allowed (unsandboxed) `git commit`.
+
+### `":root" = "write"` — the wide alternative
+
+Granting `":root" = "write"` in the profile's `filesystem` table also lifts
+the `.git` protection, but makes the whole disk writable:
 
 ```toml
 [permissions.wide.filesystem]
@@ -277,8 +326,8 @@ leaves `git commit`, `rebase`, and `pre-commit install` failing. Granting
 
 Measured on 0.153.4: `.git` writable, `git status`/`commit` fine, `gh`
 fine, and paths outside the workspace writable — while the listed denies
-still hold. This is a genuine alternative to turning the sandbox off for
-someone whose only complaint is that git doesn't work.
+still hold. It beats turning the sandbox off, but prefer `".git" = "write"`
+when git is the only complaint.
 
 ### Filesystem-table path syntax (two rules that bite)
 

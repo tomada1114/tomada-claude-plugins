@@ -44,7 +44,7 @@ template_path: /Users/me/ghq/github.com/tomada1114/tauri-template
 repo: tomada1114/habit-tracker
 repo_path: /Users/me/ghq/github.com/tomada1114/habit-tracker
 visibility: public
-identity: bundle-id=io.tomada.habittracker author="Jane Doe" email=jane@example.com
+identity: bundle-id=io.tomada.habittracker author="Jane Doe" contact=https://x.com/janedoe
 stage: 3
 ---
 

@@ -216,6 +216,26 @@ Caveats worth keeping in mind when adapting this:
 For why `.git` needs an escape hatch at all under `workspace-write`, see
 `references/permissions-and-sandbox.md`.
 
+### Closing the hook-bypass spellings
+
+A `["git","commit",["--no-verify","-n"]]` rule leaves gaps that are all
+literal tokens, so they can be listed (each verified with
+`codex execpolicy check`, 0.153.4):
+
+- **Abbreviations.** git accepts any unambiguous prefix of a long option, so
+  `git commit --no-v` is `--no-verify`. List `--no-v` … `--no-verif` too.
+- **Other hooked subcommands.** `push`, `merge`, `rebase`, `am`,
+  `cherry-pick`, `revert` take `--no-verify` as well. Do **not** add `-n`
+  there: it means `--dry-run` for `push`, `--no-stat` for `merge`/`rebase`,
+  and `--no-commit` for `revert`/`cherry-pick`.
+- **Moving the hooks.** `["git","config","core.hooksPath"]` and
+  `["git","config",["--unset","--unset-all"],"core.hooksPath"]` (a bare
+  `["git","config","--unset"]` would also catch `--unset user.name`);
+  `git -c core.hooksPath=… commit` is caught only by a rule on git's global
+  options. `["lefthook","uninstall"]` if the repo uses lefthook.
+- **Environment prefixes** such as `LEFTHOOK=0 git commit` are not reliably
+  matchable by position; rely on the sandbox and the instruction layer.
+
 ## Measured limits of the pattern language (0.153.4)
 
 The Starlark builtins the policy parser exposes are exactly `prefix_rule`,
@@ -249,6 +269,37 @@ find . -name '*.py' -delete  -> NO MATCH
 rsync --delete src dst       -> prompt
 rsync -a --delete src dst    -> NO MATCH
 ```
+
+A global option in front of the subcommand moves every later position, so
+the command drops past all subcommand-specific rules and lands on whatever
+catch-all exists for the bare program:
+
+```
+git push -f origin main          -> forbidden   (["git","push",["-f",...]])
+git -C repo push -f origin main  -> allow       (falls to catch-all ["git"])
+gh pr merge --admin 12           -> prompt
+gh pr merge 12 --admin           -> allow       (flag after the positional)
+```
+
+Close the git hole with a rule on the options themselves, and gate a
+risky subcommand as a whole rather than by one of its flags:
+
+```python
+prefix_rule(
+    pattern = ["git", ["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env"]],
+    decision = "prompt",
+    justification = "Global options shift rule positions; run `git <subcommand>` from the repo directory.",
+    match = ["git -C repo push -f origin main"],
+    not_match = ["git status"],
+)
+prefix_rule(pattern = ["gh", "pr", "merge"], decision = "prompt")
+```
+
+Option-only flags (`--no-pager`, `-P`, `--no-optional-locks`) can be paired
+with a list of write subcommands in the next position so that
+`git --no-pager log` stays allowed. The `=` forms (`--git-dir=x`) are one
+token and cannot be matched literally. Pair the rule with an AGENTS.md line
+telling the agent not to use `git -C`, or every such call becomes a prompt.
 
 **3. Only the argv *shape* is visible, never the intent.** `cat .env` is
 blockable; `grep -r KEY .env` and `python3 -c "open('.env').read()"` are

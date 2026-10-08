@@ -70,9 +70,17 @@ and select **Custom (config.toml)** in the app's picker — a `-p` profile
 
 **"Codex can't write git metadata / commits fail under my profile."**
 `:workspace` keeps `.git` recursively read-only. A custom profile needs
-`":root" = "write"` in its `filesystem` table — that is usually the whole
-fix, and it beats turning the sandbox off.
-`references/permissions-and-sandbox.md`.
+`".git" = "write"` in its `filesystem.":workspace_roots"` table — the
+official override, narrower than `":root" = "write"`, and it beats turning
+the sandbox off. `references/permissions-and-sandbox.md`.
+
+**"My force-push / merge rule didn't fire."** Rules match argv positions
+literally: `git -C repo push -f` and `gh pr merge 12 --admin` slip past
+`["git","push",["-f"]]` and `["gh","pr","merge",["--admin"]]` into a
+catch-all allow. Gate the global options and the whole subcommand instead,
+and put the final guard server-side (branch protection). The GitHub app
+connector's merge tool is gated separately by
+`apps.<id>.tools.<tool>.approval_mode`. `references/rules-execpolicy.md`.
 
 **"Codex equivalent of Claude Code's auto mode."** `workspace-write` +
 `approval_policy = "on-request"` + `approvals_reviewer = "auto_review"` (or
@@ -105,9 +113,9 @@ with zero user rules: `references/diagnostics.md`.
 | Question shape | Read |
 |---|---|
 | sandbox_mode, `[sandbox_workspace_write]`, permission profiles, `approval_policy`, `/permissions` | `references/permissions-and-sandbox.md` |
-| `.rules` / `prefix_rule()`, layering, "my rule isn't working" | `references/rules-execpolicy.md` |
+| `.rules` / `prefix_rule()`, layering, "my rule isn't working", closing hook-bypass spellings | `references/rules-execpolicy.md` |
 | "how far should I let it run" as named, copy-paste recipes | `references/autonomy-recipes.md` |
-| config.toml layering, project trust, `--profile` files, `requirements.toml` | `references/config-files-and-precedence.md` |
+| config.toml layering, project trust, `--profile` files, `requirements.toml`, a personal per-project override (no `settings.local.json` equivalent) | `references/config-files-and-precedence.md` |
 | AGENTS.md discovery/merge order, SSOT across tools, the retro→AGENTS.md cycle | `references/agents-md.md` |
 | Writing task prompts Codex can self-verify: Mini Codex, Done When, Plan mode | `references/task-design.md` |
 | SKILL.md on Codex, subagents, `plugin.json`, MCP, Codex vs. Claude Code skills | `references/skills-and-plugins.md` |

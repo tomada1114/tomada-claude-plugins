@@ -214,7 +214,7 @@ LINE_RULES: list[LineRule] = [
         id="P011",
         name="sampling-params",
         severity="warn",
-        why="Sonnet 5 and Sonnet 5.5 return 400 for a non-default temperature, top_p, or top_k.",
+        why="Sonnet 5, Sonnet 5.5, and Haiku 5.5 return 400 for a non-default temperature, top_p, or top_k.",
         fix="Remove the parameter and steer tone or variety from the prompt instead.",
         patterns=[r"\b(temperature|top_p|top_k)\s*[:=]\s*[0-9]"],
     ),

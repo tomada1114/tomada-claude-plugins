@@ -5,8 +5,8 @@ description: >-
   command definitions, reference files, whole repositories — against Anthropic's
   published prompting guidance for current Claude models, proposing edits for approval
   before writing anything. Also answers how to prompt a specific model: holds the per-
-  model guidance for Claude Fable 5.1, Claude Opus 5.5, and Claude Sonnet 5.5
-  alongside the cross-model practices. Use when reviewing or slimming an
+  model guidance for Claude Fable 5.1, Claude Opus 5.5, Claude Sonnet 5.5, and
+  Claude Haiku 5.5 alongside the cross-model practices. Use when reviewing or slimming an
   instruction file, when instructions are ignored or fire too often, when migrating a
   prompt to a newer model, or when refreshing this guidance after a model release.
 metadata:
@@ -112,6 +112,10 @@ compose: run its structural pass, this skill's wording pass.
   Sonnet 5, recalibrated effort, initiative and scope, `between_tools`, JSON on
   reasoning tasks, progress updates, mid-turn messages, coding verification,
   plus carried-over Sonnet 5 items.
+- [references/model-haiku-5-5.md](references/model-haiku-5-5.md) — Claude Haiku 5.5: API changes from
+  Haiku 4.5, effort (first Haiku with it), the empty reply at `xhigh`, search
+  nudges, JSON with your own tools, early stopping, coding verification,
+  tiered pricing above 100k tokens.
 - [references/sources.md](references/sources.md) — which source page and model version each reference
   was collected from, and the refresh procedure to run after a model release.
 - `scripts/lint_prompt_doc.py` — run it; do not read it. `--json` for parsing,

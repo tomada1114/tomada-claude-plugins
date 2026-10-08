@@ -206,6 +206,32 @@ settable `approval_policy = "untrusted"` value. Setting
 `approval_policy = "untrusted"` directly is not supported at any layer; see
 `references/permissions-and-sandbox.md` for the retired-values list.
 
+## Personal, uncommitted project overrides (no `settings.local.json` equivalent)
+
+Codex has no first-class "this project, but only for me" file — no
+`config.local.toml`, no `local.rules` convention (checked against
+learn.chatgpt.com/docs/config-file/config-reference and
+/docs/agent-configuration/rules, and codex-cli 0.153.4, 2026-10-01). The
+user-level file cannot scope settings by path either: a
+`[projects."/abs/path"]` table accepts only `trust_level`. What does work,
+best first:
+
+1. **A gitignored file inside the repo's `.codex/`** — the only option that
+   applies automatically to one project. Put personal rules in e.g.
+   `.codex/rules/local.rules` and ignore that file alone (`/.codex/rules/local.rules`),
+   not all of `.codex/`, so shared `.codex/config.toml` / `.codex/agents/` can
+   still be committed. Loads only while the project is trusted. Rules there
+   can only tighten: strictest wins across layers, so a project `allow` never
+   relaxes a user-level `prompt`. *Unverified:* that every `*.rules` file in
+   one `rules/` directory loads (the docs say Codex "scans `rules/`"; not
+   confirmed in source) — check with a real session, since
+   `codex execpolicy check -r <file>` only evaluates the files you pass.
+   A git worktree of the repo does not contain the ignored file, so keep
+   safety-critical rules (hook bypass, force push) at the user layer too.
+2. **A profile file** `~/.codex/<name>.config.toml` selected with `-p <name>` —
+   nothing in the repo, but manual on every launch and it carries no rules.
+3. **The user layer** (`~/.codex/rules/*.rules`) — applies to every project.
+
 ## Related references
 
 - `references/permissions-and-sandbox.md` — `sandbox_mode`, `[sandbox_workspace_write]`,

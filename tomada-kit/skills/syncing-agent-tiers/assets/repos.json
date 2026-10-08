@@ -1,0 +1,17 @@
+{
+  "_comment": "Repositories (owner tomada1114) that receive the tier files. Codex files are written only where .codex/agents/ already exists.",
+  "owner": "tomada1114",
+  "repos": [
+    "uv-template",
+    "nextjs-app-template",
+    "rust-template",
+    "ios-template",
+    "macos-app-template",
+    "agent-cron",
+    "bunshin",
+    "claude-usage-bar",
+    "townsfolk",
+    "research-shopping",
+    "vibe-coding-studio"
+  ]
+}

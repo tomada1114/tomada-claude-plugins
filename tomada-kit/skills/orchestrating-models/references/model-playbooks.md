@@ -1,7 +1,7 @@
 <!-- audit-ignore-file: A006 -->
-# Opus 5.5 プレイブック
+# 委譲プロンプトのプレイブック
 
-Anthropic 公式のプロンプトガイド(Opus 5.5 / 共通ベストプラクティス)を、委譲プロンプトの書き方に落とし込んだもの。Opus 5.5 のより詳しい癖は `~/.claude/skills/auditing-prompt-docs/references/model-opus-5-5.md` にある。
+Anthropic 公式のプロンプトガイド(Opus 5.5 / Haiku 5.5 / 共通ベストプラクティス)を、委譲プロンプトの書き方に落とし込んだもの。モデルごとのより詳しい癖は `~/.claude/skills/auditing-prompt-docs/references/model-opus-5-5.md` と `model-haiku-5-5.md` にある。
 
 ## Table of Contents
 
@@ -9,6 +9,7 @@ Anthropic 公式のプロンプトガイド(Opus 5.5 / 共通ベストプラク�
 - [Opus 5.5 の癖](#opus-55-の癖)
 - [executor に渡すとき](#executor-に渡すとき)
 - [architect に渡すとき](#architect-に渡すとき)
+- [scout に渡すとき](#scout-に渡すとき)
 - [worker に渡すとき](#worker-に渡すとき)
 - [effort とコスト](#effort-とコスト)
 
@@ -51,34 +52,54 @@ high は思考量が多く、スコープを広げやすい。**ゴールと制�
 - レビュー・検出は全件報告 + confidence / severity。選別はメインか別段でやる
 - 機械的な部分を切り出せるなら、architect ではなく executor に渡す
 
+## scout に渡すとき
+
+Haiku 5.5 high。ファイルを書き換えない、判断を含まない調べ物だけを渡す。公式ガイド(Prompting Claude Haiku 5.5)に沿って、次を守る。
+
+- 問いと、答えの形(全件のリスト、file:line、出典 URL と日付)を決めて渡す。「どう解釈するか」が残る問いは architect に渡す
+- 読む範囲を絞る。プロンプトが 100k トークンを超えるとリクエスト全体の単価が 5 倍になる。大量に読ませるなら、範囲を分けて複数の scout に振るほうが安い
+- Web を調べさせるなら今日の日付をブリーフに入れる(Claude Code は環境情報に日付を持つが、ブリーフにも書いておくと検索の判断が安定する)。「どんな事実も必ず検索せよ」のような一律の指示は書かない。不要な検索が増えるだけで正答は増えない
+- 早期停止の対策は定義本文に入れてある。それでも途中で止まるなら effort を上げる前に、ブリーフの問いが一つに絞れているかを見直す
+
 ## worker に渡すとき
 
-Sonnet 5.5 medium。完全なブリーフに 1 回の返答で答える仕事だけを渡す。公式ガイド(Prompting Claude Sonnet 5.5)に沿って、次を守る。
+Haiku 5.5 xhigh。完全なブリーフに 1 回の返答で答える仕事だけを渡す。公式ガイド(Prompting Claude Haiku 5.5)に沿って、次を守る。
 
 - 判断材料はすべてブリーフに入れる。ファイルを読ませたりツールを使わせたりしない
-- 出力形式(JSON など)を指定し、受け取り側は**最後の** JSON 値を取る。medium では最終版の前に下書きを書くことがあるので、最初の `[` から最後の `]` までを切り出すと壊れる
-- ルールを当てはめて JSON で返す判定仕事では、ブリーフの最後に "Think the problem through before you answer." を置く。medium ではこの種の仕事に考えずに即答しがちで、ガイドはこの一文を対策に挙げている
-- 「考える量を減らせ」と書かない。効かないうえ、減らしたいなら effort を下げるのが正しい手段
-- 出力は後段(lint・独立したレビュー・メイン)で検査する。品質の見張りは後段の却下率で行い、上がったら判定役から段を上げる
+- 出力形式(JSON など)を指定し、受け取り側は**最後の** JSON 値を取る。前置きや推論のような文が混ざっても壊れない受け方にしておく
+- 返答が空でないかを受け取り側で確かめる。xhigh では複数ターンの会話で答えを思考の中だけに書き、本文が空のまま終わることがある。1 回で終わる形なら起きにくいが、空なら同じブリーフで一度だけ投げ直す
+- 「考えずに答えて」「直接答えて」と書かない。公式の検証で、プロンプトの指示では思考が止まらなかった。減らしたいなら effort を下げる
+- 規則を厳密に守らせたい判定で品質が足りないときは、ブリーフを足す前に後段の却下率を見る。上がったら判定役から段を上げる(Opus 5.5 low か、ブリーフを architect に渡す)
 
 ## effort とコスト
 
-Artificial Analysis Intelligence Index × Cost per Task(2026-09-28 取得)でパレート最適な組み合わせ:
+Artificial Analysis Intelligence Index × Cost per Task(2026-10-08 取得)。Opus 5.5・Sonnet 5.5・Haiku 5.5 の 15 段:
 
-| 組み合わせ | Index | Cost/Task | 限界コスト | この構成での役 |
+| 組み合わせ | Index | Cost/Task | 限界コスト(パレート最適の隣同士) | この構成での役 |
 |---|---|---|---|---|
-| Sonnet 5.5 low | 36 | $0.41 | — | 使わない(Opus 5.5 low より $0.14 安いだけで Index 36 対 42) |
-| (劣位)Sonnet 5.5 medium | 41 | $0.59 | — | `worker`(ツールなしの一発仕事だけ。下記) |
-| Opus 5.5 low | 42 | $0.55 | $0.023/pt | `executor` |
-| Sonnet 5.5 high | 47 | $1.08 | $0.106/pt | 使わない(下記) |
-| Opus 5.5 medium | 51 | $1.34 | $0.065/pt(low からは $0.088/pt) | メインセッション |
-| Opus 5.5 high | 54 | $1.82 | $0.160/pt | `architect` |
-| Opus 5.5 xhigh | 56 | $3.46 | $0.820/pt | 既定にしない(品質差を実測した作業だけ、メインの `/effort` で) |
-| Opus 5.5 max | 58 | $5.98 | $1.260/pt | 同上 |
+| Haiku 5.5 low | 29.5 | $0.02 | — | 使わない |
+| Haiku 5.5 medium | 34.5 | $0.05 | $0.006/pt | 使わない |
+| Haiku 5.5 high | 37.8 | $0.08 | $0.009/pt | `scout`(書き換えない調べ物だけ) |
+| Haiku 5.5 xhigh | 41.2 | $0.12 | $0.012/pt | `worker`(ツールなしの一発仕事だけ) |
+| Haiku 5.5 max | 43.4 | $0.21 | $0.041/pt | 使わない(下記) |
+| (劣位)Sonnet 5.5 low | 35.9 | $0.35 | — | 使わない |
+| (劣位)Sonnet 5.5 medium | 40.8 | $0.48 | — | 使わない |
+| (劣位)Opus 5.5 low | 42.3 | $0.55 | — | `executor`(下記) |
+| Sonnet 5.5 high | 46.8 | $0.88 | $0.197/pt | 使わない(下記) |
+| Opus 5.5 medium | 51.2 | $1.34 | $0.105/pt | メインセッション |
+| Opus 5.5 high | 53.6 | $1.82 | $0.200/pt | `architect` |
+| (劣位)Sonnet 5.5 xhigh | 51.9 | $2.01 | — | 使わない |
+| Opus 5.5 xhigh | 56.0 | $3.46 | $0.683/pt | 既定にしない(品質差を実測した作業だけ、メインの `/effort` で) |
+| (劣位)Sonnet 5.5 max | 56.0 | $5.46 | — | 使わない |
+| Opus 5.5 max | 57.6 | $5.98 | $1.575/pt | 同上 |
 
-Sonnet 5.5 high は表の上ではパレート最適だが、Opus 5.5 low → medium の限界コスト($0.088/pt)より高い $0.106/pt で low から上がり、その先の medium へは $0.065/pt と安くなる。つまり Opus 5.5 の low と medium を結ぶ線より下にあり($1.08 なら線上は Index 約 48)、段として挟む価値がない。Sonnet 5.5 の medium(41 / $0.59)・xhigh(52 / $2.74)・max(56 / $7.60)は、それぞれ Opus 5.5 の low・high・xhigh に劣位。公式のプロンプトガイドによれば Sonnet 5.5 は low で変更の検証を省くことがあり、low / medium では長いエージェント作業の途中で確認に戻りやすい。executor の役(確定仕様を最後まで走らせて自分で確かめる)と噛み合わない。
+**Haiku 5.5 のコストは暫定値。** プロンプトが 100k トークンを超えるとリクエスト全体の単価が 5 倍($0.10 / $0.50 → $0.50 / $2.50、キャッシュ読み $0.01 → $0.05)になるが、AA はまだこれを反映していない。最悪で表の 5 倍(max 約 $1.05、xhigh 約 $0.60)になり、Opus 5.5 low($0.55)と並ぶ。Haiku 5.5 max が Opus 5.5 low と Sonnet 5.5 low / medium を劣位にしているのは、この暫定値の上での話。
 
-それでも Sonnet 5.5 medium を `worker` に置くのは、この表の Cost per Task がツールを使って何手も進むエージェント作業の値だから。完全なブリーフに 1 回の返答で答えるツールなしの仕事では手数が 1 回で、入出力単価の差(Sonnet 5.5 $2 / $10 対 Opus 5.5 $4 / $20 per MTok。キャッシュ読みはどちらも $0.20)がそのまま効き、上の弱点も出てこない。medium を選ぶのは、low だと単純な依頼の多くで考えずに答えるから。単価は公式 Pricing ページ(2026-09-28 確認)。
+**`executor` を Opus 5.5 low に残す理由。** Anthropic は Haiku 5.5 の用途を要約・compaction・分類・狭い範囲のサブエージェントとし、複雑なエージェント型コーディングには Sonnet / Opus を勧めている。公式ベンチも全項目で Sonnet 5.5 が上(Terminal-Bench 4.0 は 39.2% 対 70.6%、OSWorld 2.1 は 72.4% 対 83.9%)。ファイルを書き換える仕事は間違えたときの手戻りが大きく、暫定値の差で替える理由にならない。書き換えない調べ物だけを `scout` に切り出す。AA が段階料金を反映したコストを出したら見直す。
+
+**Sonnet 5.5 high を使わない理由。** Opus 5.5 low から +4.5pt を 1.6 倍の費用で買う段で、Haiku を除けば Opus 5.5 low と medium を結ぶ線($0.88 なら Index 約 46.0)より上にある。ただし executor の仕事(確定仕様の機械的作業)にその上積みは要らず、architect の仕事には Opus 5.5 high のほうが賢い。間に段を挟む価値がない。
+
+**`worker` を Haiku 5.5 xhigh に置く理由。** この表の Cost per Task はツールを使って何手も進むエージェント作業の値。完全なブリーフに 1 回の返答で答えるツールなしの仕事では手数が 1 回でプロンプトも 100k を超えず、入出力単価の差(Haiku 5.5 $0.10 / $0.50 対 Sonnet 5.5 $2 / $10 対 Opus 5.5 $4 / $20 per MTok)がそのまま効く。xhigh(41.2)は以前の `worker`(Sonnet 5.5 medium、40.8)と同じ Index 帯。公式ガイドは xhigh / max を「評価で上積みを確かめたときだけ」としているので、後段の却下率で見張る。キャッシュ読みは Haiku $0.01、Sonnet $0.10、Opus $0.20(いずれも入力単価の 0.05〜0.1 倍)。単価は公式 Pricing ページ(2026-10-08 確認)。
 
 Fable 5.1・Opus 5・Sonnet 5 はどの effort でも劣位で、同じか安いコストでより賢い Opus 5.5 の段がある(Fable high 51 / $3.91 は Opus 5.5 medium 51 / $1.34 と同 Index、Opus 5 max 51 / $5.86 も同じ)。Fable の利用枠は Max プランの同一リミットの内数で、別枠ではない。
 
@@ -89,7 +110,7 @@ Opus 5.5 の effort 名は Opus 5 と比べられない。Opus 5.5 medium ≈ Op
 | 手段 | 段の指定 |
 |---|---|
 | メインセッション | settings.json の `model: claude-opus-5-5` と `modelSettings.claude-opus-5-5.effortLevel: medium`。一時的に上げるなら `/effort` |
-| Agent ツール | `subagent_type: executor` / `architect` / `worker`。定義 frontmatter の `model` と `effort`(`low` / `medium` / `high` / `xhigh` / `max` か整数)が効く。`model` だけの起動は effort がセッションから決まる(Opus なら modelSettings の medium)。Sonnet 5.5 の API 既定 effort は high |
-| Workflow の `agent()` | `model: 'opus'` と `effort: 'low'` / `'high'` を段ごとに指定する |
+| Agent ツール | `subagent_type: executor` / `architect` / `scout` / `worker`。定義 frontmatter の `model` と `effort`(`low` / `medium` / `high` / `xhigh` / `max` か整数)が効く。`model` だけの起動は effort がセッションから決まる(Opus なら modelSettings の medium)。Haiku 5.5 の既定 effort は medium で、思考はオフにできない |
+| Workflow の `agent()` | `model` と `effort` を段ごとに指定する(`'opus'` + `'low'` / `'high'`、`'haiku'` + `'high'` / `'xhigh'`) |
 
 数値は API 価格ベースの Cost per Task で、Max プランでは消費量の目安として使う。出典ノート: `~/ghq/github.com/tomada1114/iobsidian/Content/_material/claude-model-effort-cost-performance.md`。

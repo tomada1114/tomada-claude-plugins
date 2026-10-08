@@ -3,16 +3,18 @@ name: kicking-off-apps
 description: >-
   Take a rough app idea ("I want an app that…") to a new public GitHub repository cut
   from one of the user's template repositories, with signed-off requirements, UX flows,
-  a researched design system, architecture docs and ADRs, a loose project
-  .claude/settings.json, and a dependency-ordered issue backlog for the template's
-  shipping-issues. Orchestrates one child skill per stage — refining-requirements,
-  designing-wireframes, ui-ux-designing, refero-design, bootstrapping-from-templates,
-  configuring-project-permissions, designing-architecture, planning-tickets — and defers
-  to the template's own skills wherever they exist. Resumable through a state file;
-  hands off to a fresh session inside the new repository after init. Use when starting
-  a new app from a template repository, when the user describes an app to build while
-  in a template, or when resuming a kickoff.
-argument-hint: "[app idea, free-form | resume]"
+  a researched design system, architecture docs and ADRs, loose project permissions,
+  and a dependency-ordered issue backlog for the template's shipping-issues.
+  Orchestrates one child skill per stage — refining-requirements, designing-wireframes,
+  ui-ux-designing, refero-design, bootstrapping-from-templates,
+  configuring-project-permissions, designing-architecture, planning-tickets — and
+  defers to the template's own skills. Resumable; hands off to a fresh session in the
+  new repository. A `feature` mode scrutinizes a request for an app that already runs
+  and files it as a tracking issue with sub-issues. Use when starting a new app from a
+  template, when the user describes an app to build while in a template, when resuming
+  a kickoff, or when turning a feature request for an existing app into parent and
+  sub-issues.
+argument-hint: "[app idea, free-form | resume | feature <request>]"
 metadata:
   platforms: claude-code, codex
 ---
@@ -32,8 +34,16 @@ the same subject.
 
 ## Contract
 
-**Input:** the skill's argument — the app idea in the user's words, `resume`, or empty.
-Empty with no resumable run → ask for the idea in one open question.
+**Input:** the skill's argument — the app idea in the user's words, `resume`,
+`feature <request>`, or empty. Empty with no resumable run → ask for the idea in one
+open question.
+
+**`feature <request>`** runs a different, shorter engagement on an existing app's
+repository: scrutiny and hearing, optional wireframes and decisions, then a tracking
+issue with sub-issues. It writes no state and no documents — the requirements live in
+the issues. Follow [references/feature-mode.md](references/feature-mode.md) instead of
+everything below; only the question-round rules and the precedence of the repository's
+own skills carry over.
 
 **Output:** the new repository at `$(ghq root)/github.com/<owner>/<slug>` and the state
 directory described in [references/artifacts.md](references/artifacts.md), which also
@@ -71,7 +81,7 @@ recommended option when there is a real recommendation; then wait for the answer
 | 2 | UX | `designing-wireframes`, then `ui-ux-designing` | `ux-flows.md`, `ux-guidelines.md` |
 | 3 | Design system | `refero-design`, then the contrast pass of `ui-ux-designing` | `design-direction.md` |
 | 4 | Init | `bootstrapping-from-templates` | the repository, Product section, drafts copied in, labels |
-| 5 | Permissions | `configuring-project-permissions` | `.claude/settings.json` committed |
+| 5 | Permissions | `configuring-project-permissions` | `.claude/settings.local.json` and `.codex/rules/local.rules`, gitignored |
 | 6 | Handoff | this skill | resume prompt |
 | 7 | Architecture docs | `designing-architecture` | architecture overview, ADRs, design lock, roadmap |
 | 8 | Issues | `planning-tickets` (repository conventions first) | tracking issues, sub-issues, dependencies |
@@ -97,7 +107,9 @@ silent tweak. Tokens are not applied to code here; that is a stage 8 issue.
 
 **Gate before stage 4.** One question round confirming the identity inputs (owner,
 repository name, visibility — public unless the user said otherwise — display name,
-bundle identifier where the template has one) and listing every remote write stages 4–5
+bundle identifier where the template has one, author, and the public contact for any
+contact slot the template has: a profile URL, never an email address, which
+`bootstrapping-from-templates` does not publish) and listing every remote write stages 4–5
 will make: create the repository from the template, push to `main`, sync labels — and
 running the template's bootstrap, which templates reserve for a human's request. A yes
 authorizes exactly that list; record it in `state.md`.

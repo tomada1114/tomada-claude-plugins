@@ -64,6 +64,49 @@ class MergeTest(unittest.TestCase):
         code, out, _ = self.run_main()
         self.assertIn("conflict: Bash(z *) is in allow and deny", out)
 
+    def test_global_redundant_and_shadowed(self):
+        g = self.dir / "global.json"
+        g.write_text(json.dumps({"permissions": {"allow": ["Bash(git *)"], "ask": ["Bash(gh pr merge *)"],
+                                                 "deny": ["Bash(rm -rf *)"]}}))
+        self.rules.write_text(json.dumps({"allow": ["Bash(git status *)", "Bash(gh pr merge 1)",
+                                                    "Bash(rm -rf build)", "Bash(just *)"],
+                                          "ask": ["Bash(git push *)"], "deny": ["Bash(git push -f *)"]}))
+        code, out, _ = self.run_main("--global", str(g), "--json")
+        report = json.loads(out)
+        self.assertEqual(report["redundant"], [{"rule": "Bash(git status *)", "by": "Bash(git *)"}])
+        self.assertEqual(report["shadowed"], [
+            {"rule": "Bash(gh pr merge 1)", "by": "Bash(gh pr merge *)", "kind": "ask"},
+            {"rule": "Bash(rm -rf build)", "by": "Bash(rm -rf *)", "kind": "deny"}])
+        perms = json.loads(self.settings.read_text())["permissions"]
+        self.assertEqual(perms["allow"], ["Bash(just *)"])
+        self.assertEqual(perms["ask"], ["Bash(git push *)"])
+        self.assertEqual(perms["deny"], ["Bash(git push -f *)"])
+        code, out, _ = self.run_main("--global", str(g))
+        self.assertIn("redundant: Bash(git status *)", out)
+        self.assertIn("shadowed: Bash(rm -rf build) (global deny", out)
+        g.write_text("{bad")
+        code, _, _ = self.run_main("--global", str(g))
+        self.assertEqual(code, 1)
+
+    def test_hooks_merge_and_dedupe(self):
+        hook = {"matcher": "Edit", "hooks": [{"type": "command", "command": "fmt"}]}
+        self.settings.parent.mkdir()
+        self.settings.write_text(json.dumps({"hooks": {"PostToolUse": [hook]}}))
+        other = {"hooks": [{"command": "x", "type": "command"}], "matcher": "Write"}
+        self.rules.write_text(json.dumps({"hooks": {
+            "PostToolUse": [{"hooks": [{"command": "fmt", "type": "command"}], "matcher": "Edit"}, other, other],
+            "Stop": [hook], "Bad": "x"}}))
+        code, out, _ = self.run_main("--json")
+        self.assertEqual(json.loads(out)["hooks_added"], {"PostToolUse": 1, "Stop": 1})
+        data = json.loads(self.settings.read_text())
+        self.assertEqual(data["hooks"]["PostToolUse"], [hook, other])
+        code, out, _ = self.run_main()
+        self.assertIn("nothing to change", out)
+        self.rules.write_text(json.dumps({"hooks": {"Pre": [hook]}}))
+        code, out, _ = self.run_main()
+        self.assertIn("+1 hooks.Pre", out)
+        self.assertEqual(mp.merge_hooks({}, []), {})
+
     def test_bad_inputs(self):
         code, _, err = self.run_main()
         self.assertEqual(code, 1)

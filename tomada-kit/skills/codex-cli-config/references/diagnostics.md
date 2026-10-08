@@ -153,6 +153,7 @@ layer) is actually landing in the running session.
 | AGENTS.md changes aren't taking effect | Either the combined instruction chain hit `project_doc_max_bytes` (32 KiB default) and later files got truncated, or the edited file is outside the discovery walk (wrong directory, or shadowed by an `AGENTS.override.md` in the same directory) | `references/agents-md.md` |
 | A permission profile change seems to have no effect | Both `sandbox_mode`/`[sandbox_workspace_write]` and `default_permissions`/`[permissions.<name>]` are active at once — the docs say use one system per session, not both, and mixing them produces confusing results | `references/permissions-and-sandbox.md` |
 | A skill isn't triggering, or doesn't seem to exist at all | Either it's outside every discovery path (or a broken/dangling symlink into one), or it loaded fine but its `description` doesn't match the request — run `codex debug prompt-input` to see the actual skill-roots table and catalog and tell the two apart | `references/skills-and-plugins.md` (discovery paths, symlink support) |
+| `curl: (60) SSL certificate problem` only when Codex runs curl sandboxed | macOS `/usr/bin/curl` needs `mach-lookup com.apple.TrustEvaluationAgent`, which the sandbox denies (seen with `--log-denials`, 0.153.4); `node`, `python3`, `git` over HTTPS and `ssh` are unaffected | not a certificate or network problem — an approved `curl` (a Rules `prompt`) runs outside the sandbox |
 
 ## `codex sandbox` as a model-free test harness
 

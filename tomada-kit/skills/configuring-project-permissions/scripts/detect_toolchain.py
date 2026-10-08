@@ -6,19 +6,31 @@ one wildcard allow rule per detected tool, ask rules for publish-style subcomman
 for task-runner recipes whose names suggest they act on the machine or on GitHub. The
 calling agent reviews the proposal against the repository's own policy before merging.
 
-Exit codes: 0 detected, 1 nothing recognized, 2 bad invocation.
+The proposal is split by destination. Generic rules (git, gh, coreutils, GitHub docs) are
+`global_candidates` for the user-level ~/.claude/settings.json and are never proposed for
+the project. Project rules go to the gitignored .claude/settings.local.json; any a
+user-level rule already covers is dropped (`covered_by_global`), and a project allow a
+user-level ask/deny would stop anyway is dropped too (`blocked_by_global`), because
+Claude Code evaluates deny, then ask, then allow across every settings file.
+
+Exit codes: 0 detected, 1 nothing recognized, 2 bad invocation or unreadable global
+settings.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+import tomllib
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable, Sequence
+
+from rule_match import first_cover, load_permissions
 
 # tool -> (allow rules, ask rules, docs domains)
 TOOL_RULES: dict[str, tuple[list[str], list[str], list[str]]] = {
@@ -77,8 +89,10 @@ BASELINE_DOMAINS = ["github.com", "raw.githubusercontent.com", "docs.github.com"
 # Recipe/script names that usually act on the developer's machine, on GitHub, or on a release.
 HUMAN_RECIPE_RE = re.compile(
     r"^(run|dev|start|serve|open|install-app|uninstall|release.*|publish.*|deploy.*|labels?|ruleset|"
-    r"bootstrap|clean.*|reset.*|nuke|logs-follow|notari[sz]e.*|sign.*|upload.*|tag.*)$"
+    r"bootstrap|reset.*|logs-follow|notari[sz]e.*|sign.*|upload.*|tag.*)$"
 )
+
+CLEANUP_RECIPE_RE = re.compile(r"^(clean.*|prune.*|nuke)$")
 
 JUST_RECIPE_RE = re.compile(r"^(?:@)?([A-Za-z_][\w-]*)(?:\s+[^:=]*)?:(?!=)", re.MULTILINE)
 MAKE_TARGET_RE = re.compile(r"^([A-Za-z_][\w.-]*)\s*:(?!=)", re.MULTILINE)
@@ -92,10 +106,17 @@ class Detection:
     recipes: list[str] = field(default_factory=list)
     package_scripts: list[str] = field(default_factory=list)
     human_candidates: list[str] = field(default_factory=list)
+    cleanup_recipes: list[str] = field(default_factory=list)
     allow: list[str] = field(default_factory=list)
     ask: list[str] = field(default_factory=list)
     domains: list[str] = field(default_factory=list)
-    existing: dict[str, list[str]] = field(default_factory=dict)
+    global_candidates: dict[str, list[str]] = field(default_factory=dict)
+    covered_by_global: list[dict[str, str]] = field(default_factory=list)
+    blocked_by_global: list[dict[str, str]] = field(default_factory=list)
+    existing: dict[str, dict[str, list[str]]] = field(default_factory=dict)
+    committed_hooks: bool = False
+    ignored: dict[str, bool | None] = field(default_factory=dict)
+    codex: dict[str, object] = field(default_factory=dict)
 
 
 def _add(det: Detection, tool: str, why: str) -> None:
@@ -128,8 +149,51 @@ def default_run(cmd: Sequence[str]) -> str | None:
     return p.stdout if p.returncode == 0 else None
 
 
-def detect(root: Path, run: Callable[[Sequence[str]], str | None] = default_run) -> Detection:
+def default_check(cmd: Sequence[str]) -> int | None:
+    """Return code of `cmd`, or None when it cannot run."""
+    try:
+        return subprocess.run(list(cmd), capture_output=True, text=True, timeout=20).returncode
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def is_ignored(root: Path, rel: str, check: Callable[[Sequence[str]], int | None]) -> bool | None:
+    code = check(["git", "-C", str(root), "check-ignore", "-q", rel])
+    return {0: True, 1: False}.get(code) if code is not None else None
+
+
+def codex_state(root: Path, codex_home: Path | None) -> dict[str, object]:
+    config = (codex_home / "config.toml") if codex_home else None
+    trusted: bool | None = None
+    if config and config.is_file():
+        try:
+            data = tomllib.loads(config.read_text(encoding="utf-8"))
+            entry = (data.get("projects") or {}).get(str(root.resolve())) or {}
+            trusted = isinstance(entry, dict) and entry.get("trust_level") == "trusted"
+        except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError, AttributeError):
+            trusted = None
+    return {"trusted": trusted, "local_rules": (root / ".codex/rules/local.rules").is_file(),
+            "config": str(config) if config else ""}
+
+
+def _settings(path: Path) -> tuple[dict[str, list[str]], bool]:
+    try:
+        perms = load_permissions(path)
+    except ValueError:
+        return {}, False
+    try:
+        data = json.loads(_read(path) or "{}")
+    except json.JSONDecodeError:
+        data = {}
+    return perms, bool(isinstance(data, dict) and data.get("hooks"))
+
+
+def detect(root: Path, run: Callable[[Sequence[str]], str | None] = default_run,
+           global_path: Path | None = None, codex_home: Path | None = None,
+           check: Callable[[Sequence[str]], int | None] = default_check) -> Detection:
+    """Detect `root`'s toolchain. `global_path` None means no user-level settings."""
     det = Detection(root=str(root))
+    glob_perms = load_permissions(global_path) if global_path else {k: [] for k in ("allow", "ask", "deny")}
     exists = lambda *names: next((n for n in names if (root / n).exists()), None)  # noqa: E731
 
     if f := exists("justfile", "Justfile"):
@@ -193,8 +257,12 @@ def detect(root: Path, run: Callable[[Sequence[str]], str | None] = default_run)
         _add(det, "shellcheck", "scripts/*.sh")
 
     det.human_candidates = [r for r in dict.fromkeys(det.recipes + det.package_scripts) if HUMAN_RECIPE_RE.match(r)]
+    det.cleanup_recipes = [r for r in dict.fromkeys(det.recipes + det.package_scripts)
+                           if CLEANUP_RECIPE_RE.match(r)]
     runner = "just" if "just" in det.tools else "make" if "make" in det.tools else None
-    allow, ask, domains = list(BASELINE_ALLOW), list(BASELINE_ASK), list(BASELINE_DOMAINS)
+    allow: list[str] = []
+    ask: list[str] = []
+    domains: list[str] = []
     for tool in det.tools:
         a, k, d = TOOL_RULES.get(tool, ([], [], []))
         allow += a
@@ -208,18 +276,43 @@ def detect(root: Path, run: Callable[[Sequence[str]], str | None] = default_run)
             ask += [f"Bash({pm} {name}*)", f"Bash({pm} run {name}*)"]
     if "mise" in det.tools:
         allow += [f"Bash(mise exec -- {t} *)" for t in det.tools if TOOL_RULES.get(t, ([],))[0] and t != "mise"]
-    det.allow = list(dict.fromkeys(allow))
-    det.ask = list(dict.fromkeys(ask))
     det.domains = list(dict.fromkeys(domains))
-    det.allow += [f"WebFetch(domain:{d})" for d in det.domains]
+    allow += [f"WebFetch(domain:{d})" for d in det.domains]
+    scripts = root / "scripts"
+    if scripts.is_dir() and any(p.is_file() and (p.suffix == ".sh" or os.access(p, os.X_OK))
+                                for p in scripts.iterdir()):
+        allow.append("Bash(scripts/*)")
+    if any(p.is_dir() for p in root.glob(".agents/skills/*/scripts")):
+        allow += ["Bash(.agents/skills/*/scripts/*)", "Bash(bash .agents/skills/*/scripts/*)"]
 
-    settings = root / ".claude" / "settings.json"
-    if settings.exists():
-        try:
-            perms = json.loads(_read(settings)).get("permissions", {})
-            det.existing = {k: list(perms.get(k, [])) for k in ("allow", "ask", "deny")}
-        except (json.JSONDecodeError, AttributeError):
-            det.existing = {}
+    g_allow, g_stop = glob_perms["allow"], glob_perms["deny"] + glob_perms["ask"]
+    for rule in dict.fromkeys(allow):
+        if by := first_cover(rule, glob_perms["deny"]) or first_cover(rule, glob_perms["ask"]):
+            kind = "deny" if by in glob_perms["deny"] else "ask"
+            det.blocked_by_global.append({"rule": rule, "by": by, "kind": kind})
+        elif by := first_cover(rule, g_allow):
+            det.covered_by_global.append({"rule": rule, "by": by})
+        else:
+            det.allow.append(rule)
+    for rule in dict.fromkeys(ask):
+        if by := first_cover(rule, g_stop):
+            det.covered_by_global.append({"rule": rule, "by": by})
+        else:
+            det.ask.append(rule)
+
+    base_allow = BASELINE_ALLOW + [f"WebFetch(domain:{d})" for d in BASELINE_DOMAINS]
+    det.global_candidates = {
+        "allow": [r for r in base_allow if not first_cover(r, g_allow)],
+        "ask": [r for r in BASELINE_ASK if not first_cover(r, g_stop)],
+        "domains": [d for d in BASELINE_DOMAINS if not first_cover(f"WebFetch(domain:{d})", g_allow)],
+    }
+
+    local, _ = _settings(root / ".claude" / "settings.local.json")
+    committed, det.committed_hooks = _settings(root / ".claude" / "settings.json")
+    det.existing = {"local": local, "committed": committed}
+    det.ignored = {rel: is_ignored(root, rel, check)
+                   for rel in (".claude/settings.local.json", ".codex/rules/local.rules")}
+    det.codex = codex_state(root, codex_home)
     return det
 
 
@@ -227,12 +320,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("root", help="repository root")
     ap.add_argument("--json", action="store_true", help="print the detection as JSON")
+    ap.add_argument("--global", dest="global_path", default="~/.claude/settings.json",
+                    help="user-level Claude Code settings (default: ~/.claude/settings.json)")
+    ap.add_argument("--no-global", action="store_true", help="ignore user-level settings")
+    ap.add_argument("--codex-home", default=os.environ.get("CODEX_HOME") or "~/.codex",
+                    help="Codex CLI home (default: $CODEX_HOME or ~/.codex)")
     args = ap.parse_args(argv)
     root = Path(args.root)
     if not root.is_dir():
         print(f"error: {root} is not a directory", file=sys.stderr)
         return 2
-    det = detect(root)
+    global_path = None if args.no_global else Path(args.global_path).expanduser()
+    try:
+        det = detect(root, global_path=global_path, codex_home=Path(args.codex_home).expanduser())
+    except ValueError as e:
+        print(f"error: cannot read global settings: {e}", file=sys.stderr)
+        return 2
     if args.json:
         print(json.dumps(asdict(det), ensure_ascii=False, indent=2))
     else:
@@ -240,7 +343,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"{tool:12} {det.evidence[tool]}")
         if det.human_candidates:
             print("human-only candidates:", ", ".join(det.human_candidates))
+        if det.cleanup_recipes:
+            print("cleanup recipes:", ", ".join(det.cleanup_recipes))
         print(f"proposed: {len(det.allow)} allow, {len(det.ask)} ask")
+        gc = det.global_candidates
+        print(f"global candidates: {len(gc['allow'])} allow, {len(gc['ask'])} ask")
+        print(f"covered by global: {len(det.covered_by_global)}, blocked by global: {len(det.blocked_by_global)}")
+        for b in det.blocked_by_global:
+            print(f"  blocked: {b['rule']} by {b['kind']} {b['by']}")
+        print("ignored: " + ", ".join(f"{k}={v}" for k, v in det.ignored.items()))
+        print(f"codex: trusted={det.codex['trusted']}, local_rules={det.codex['local_rules']}, "
+              f"config={det.codex['config']}")
     return 0 if det.tools else 1
 
 
