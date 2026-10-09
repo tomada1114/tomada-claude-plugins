@@ -86,6 +86,19 @@ def local_clone(repo: str) -> Path:
     return path
 
 
+JS_INSTALL = (("pnpm-lock.yaml", ["pnpm", "install", "--frozen-lockfile"]),
+              ("package-lock.json", ["npm", "ci"]),
+              ("bun.lock", ["bun", "install", "--frozen-lockfile"]),
+              ("yarn.lock", ["yarn", "install", "--frozen-lockfile"]))
+
+
+def install_js_deps(tree: Path) -> None:
+    for lockfile, cmd in JS_INSTALL:
+        if (tree / lockfile).is_file() and shutil.which(cmd[0]):
+            run(cmd, cwd=tree)
+            return
+
+
 def sync_repo(repo: str, dry_run: bool) -> str:
     clone = local_clone(repo)
     run(["git", "fetch", "origin", "main"], cwd=clone)
@@ -100,6 +113,7 @@ def sync_repo(repo: str, dry_run: bool) -> str:
         if dry_run:
             return "would change:\n    " + changed.replace("\n", "\n    ")
         run(["git", "switch", "-C", BRANCH], cwd=tmp)
+        install_js_deps(tmp)  # commit hooks (lefthook, husky) often need node_modules
         run(["git", "add", ".claude/agents", *([".codex/agents"] if (tmp / ".codex/agents").is_dir() else [])], cwd=tmp)
         run(["git", "commit", "-m", TITLE], cwd=tmp)
         if not run(["git", "ls-remote", "--heads", "origin", BRANCH], cwd=tmp):
