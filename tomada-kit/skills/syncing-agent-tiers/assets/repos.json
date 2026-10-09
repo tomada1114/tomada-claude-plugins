@@ -7,6 +7,7 @@
     "rust-template",
     "ios-template",
     "macos-app-template",
+    "fastapi-react-template",
     "agent-cron",
     "bunshin",
     "claude-usage-bar",
