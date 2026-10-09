@@ -83,7 +83,7 @@
 | 段の仕事 | `model` + `effort` | 例 |
 |---|---|---|
 | ファイルを書き換えない、判断を含まない収集・列挙・要約(ツールを使う) | `'haiku'` + `'high'`(= `scout`) | discover(対象ファイル・呼び出し箇所の洗い出し)、Understand の並列リーダー、Research の広域スイープ、ログやテスト結果の要約 |
-| プロンプトに渡した材料だけで答える判定・書き出し(ツールを使わず、`schema` で返す) | `'haiku'` + `'xhigh'`(= `worker`) | 渡した finding を基準どおりに分類・ラベル付け、重複判定、決まった形式への書き出し |
+| プロンプトに渡した材料だけで答える判定・書き出し(ツールを使わず、`schema` で返す) | `'sonnet'` + `'medium'`(= `worker`) | 渡した finding を基準どおりに分類・ラベル付け、重複判定、決まった形式への書き出し |
 | 仕様が確定した書き換え | `'opus'` + `'low'`(= `executor`) | Migrate の各サイトの変換、一括修正 |
 | 判断・レビュー・統合・反証 | `'opus'` + `'high'`(= `architect`) | Review の検出段、adversarial verify、judge panel、最終の統合 |
 

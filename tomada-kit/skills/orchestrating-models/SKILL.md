@@ -12,7 +12,7 @@ metadata:
 
 # orchestrating-models
 
-どのモデルに何をやらせるかを決めるための運用手順。エージェント作業(ツールを使って進める作業)は Opus 5.5 で行い、段は effort で分ける。例外は Haiku 5.5 の 2 段で、ファイルを書き換えない調べ物は `scout`(high)、ツールを使わない一発の文章仕事は `worker`(xhigh)に渡す。安さだけで段を選ばない。難しい実装を low に渡して手戻りするほうが、最初から high に渡すより高くつく。
+どのモデルに何をやらせるかを決めるための運用手順。エージェント作業(ツールを使って進める作業)は Opus 5.5 で行い、段は effort で分ける。例外が 2 段あり、ファイルを書き換えない調べ物は Haiku 5.5 high の `scout`、ツールを使わない一発の文章仕事は Sonnet 5.5 medium の `worker` に渡す。安さだけで段を選ばない。難しい実装を low に渡して手戻りするほうが、最初から high に渡すより高くつく。
 
 **使わない場面:** 会話的な質問への回答、単一ファイルの小さな編集、対話で細かく舵取りしたい作業。委譲のオーバーヘッドが本体コストを上回る。
 
@@ -24,20 +24,20 @@ metadata:
 | 実行役サブエージェント | Opus 5.5 **low** | 名前付きエージェント `executor`(`~/.claude/agents/executor.md`) |
 | 難所担当サブエージェント | Opus 5.5 **high** | 名前付きエージェント `architect`(`~/.claude/agents/architect.md`) |
 | 調べ物サブエージェント | Haiku 5.5 **high** | 名前付きエージェント `scout`(`~/.claude/agents/scout.md`) |
-| 文章仕事サブエージェント | Haiku 5.5 **xhigh** | 名前付きエージェント `worker`(`~/.claude/agents/worker.md`) |
+| 文章仕事サブエージェント | Sonnet 5.5 **medium** | 名前付きエージェント `worker`(`~/.claude/agents/worker.md`) |
 
 **既定の姿勢は「自分でやる」。** Opus はコーディングとエージェント作業そのものが最も強く、仕様を全部持ったまま走るときに一番よく働く。委譲するのは §3 の 4 つの理由があるときだけ。主な失敗は過剰委譲と過剰検証。
 
 **エージェント作業のサブエージェントは Opus 5.5 の low と high の 2 段だけ。** メインが medium なので、委譲を決めた時点で「仕様確定済み・機械的なら low、複雑・設計判断を含む・レビューなら high」の二択で足りる。medium のサブを作るくらいならメインがやる。
 
-**Haiku 5.5 の 2 段は、仕事の形で選ぶ段で、賢さの段ではない。** どちらも Opus 5.5 low の代わりに賢さを買う段ではなく、形が合う仕事だけを安く流す段。
+**`scout` と `worker` は、仕事の形で選ぶ段で、賢さの段ではない。** どちらも Opus 5.5 low の代わりに賢さを買う段ではなく、形が合う仕事だけを安く流す段。
 
 - **`scout`(Haiku 5.5 high)** は、ファイルを書き換えない、判断を含まない調査・収集・列挙・要約。読むだけで成否が決まり、間違えても何も壊れない仕事。Anthropic 自身が Haiku 5.5 の用途に「狭い範囲のサブエージェント・要約・分類」を挙げ、複雑なエージェント型コーディングには Sonnet / Opus を勧めている(公式ベンチの Terminal-Bench 4.0 は Haiku 5.5 39.2% 対 Sonnet 5.5 70.6%)。だから実装・CI・コミットは `executor` に残す。high にするのは、公式ガイドが low で長いエージェント作業の早期停止や検索の省略を挙げ、high を長めのエージェント作業と厳密な指示追従の段としているから
-- **`worker`(Haiku 5.5 xhigh)** は、完全なブリーフに 1 回の返答で答え、ツールを使わない仕事。仕様どおりの項目の書き出しや、書かれた基準での判定で、出力を後段の検査(lint・別レビュー・人)が受け止めるもの。xhigh(41.2)は Sonnet 5.5 medium(40.8)と同じ Index 帯で、トークン単価は 1/20
+- **`worker`(Sonnet 5.5 medium)** は、完全なブリーフに 1 回の返答で答え、ツールを使わない仕事。仕様どおりの項目の書き出しや、書かれた基準での判定で、出力を後段の検査(lint・別レビュー・人)が受け止めるもの。トークン単価は Opus 5.5 の半額。Haiku 5.5 にしないのは、Index の比較(Haiku 5.5 xhigh 41.2 対 Sonnet 5.5 medium 40.8)はツールを使うエージェント作業の指標で、ツールを使わない文章仕事の質は測っていない。成果物に近い指標(AA-Briefcase 1578 対 1824、GDPval 1620 対 1840)では Sonnet 5.5 が上で、Haiku 5.5 の公式ガイドも xhigh / max は評価で上積みを確かめたときだけ使い、Sonnet 5.5 と比べるよう書いている。`worker` の主な仕事は、後段のエージェントが聞き返さずに実装する Issue 本文などの書き出しで、中身が薄いと 1 往復の手戻りが価格差より高くつくから。medium にするのは、low だと単純な依頼の多くで考えずに答えるから
 
-Haiku 5.5 はプロンプトが 100k トークンを超えると、そのリクエスト全体の単価が 5 倍($0.10 / $0.50 → $0.50 / $2.50)になる。それでも Opus 5.5 の 1/8 だが、AA の Cost per Task はこれを含まない暫定値なので、エージェント作業での Haiku の安さは表の数字ほどではない。`scout` のブリーフは読む範囲を絞り、`worker` は 1 回で終わる形を守る。
+Haiku 5.5 はプロンプトが 100k トークンを超えると、そのリクエスト全体の単価が 5 倍($0.10 / $0.50 → $0.50 / $2.50)になる。それでも Opus 5.5 の 1/8 だが、AA の Cost per Task はこれを含まない暫定値なので、エージェント作業での Haiku の安さは表の数字ほどではない。`scout` のブリーフは読む範囲を絞る。
 
-**Sonnet 5.5・Fable 5.1・Opus 5・Sonnet 5 は使わない。** Artificial Analysis Intelligence Index × Cost per Task(2026-10-08 取得、エージェント作業の指標)では、Fable 5.1・Opus 5・Sonnet 5 は全段が劣位。Haiku 5.5 の暫定コストを使うと、パレート最適は Haiku 5.5 の全 5 段、Sonnet 5.5 high、Opus 5.5 の medium / high / xhigh / max の 9 つで、Opus 5.5 low・Sonnet 5.5 low / medium は Haiku 5.5 max(43.4 / $0.21)に劣位になる。それでも `executor` を Opus 5.5 low に残すのは、Haiku の数字が暫定値で、ファイルを書き換えるコーディングを公式が Haiku に勧めていないから。Sonnet 5.5 high(46.8 / $0.88)は Opus 5.5 low から +4.5pt を 1.6 倍の費用で買う段だが、仕様確定済みの機械的作業にその上積みは要らない。Sonnet 5.5 の xhigh / max は Opus 5.5 の high / xhigh に劣位。Fable の利用枠は Max プランの同一リミットの内数で、別枠ではない。数値の詳細は [references/model-playbooks.md](references/model-playbooks.md#effort-とコスト) と出典ノート `~/ghq/github.com/tomada1114/iobsidian/Content/_material/claude-model-effort-cost-performance.md`。
+**Sonnet 5.5(`worker` の medium 以外)・Fable 5.1・Opus 5・Sonnet 5 は使わない。** Artificial Analysis Intelligence Index × Cost per Task(2026-10-08 取得、エージェント作業の指標)では、Fable 5.1・Opus 5・Sonnet 5 は全段が劣位。Haiku 5.5 の暫定コストを使うと、パレート最適は Haiku 5.5 の全 5 段、Sonnet 5.5 high、Opus 5.5 の medium / high / xhigh / max の 9 つで、Opus 5.5 low・Sonnet 5.5 low / medium は Haiku 5.5 max(43.4 / $0.21)に劣位になる(Sonnet 5.5 medium を `worker` に置くのは、この指標が測らない文章仕事の段だから)。それでも `executor` を Opus 5.5 low に残すのは、Haiku の数字が暫定値で、ファイルを書き換えるコーディングを公式が Haiku に勧めていないから。Sonnet 5.5 high(46.8 / $0.88)は Opus 5.5 low から +4.5pt を 1.6 倍の費用で買う段だが、仕様確定済みの機械的作業にその上積みは要らない。Sonnet 5.5 の xhigh / max は Opus 5.5 の high / xhigh に劣位。Fable の利用枠は Max プランの同一リミットの内数で、別枠ではない。数値の詳細は [references/model-playbooks.md](references/model-playbooks.md#effort-とコスト) と出典ノート `~/ghq/github.com/tomada1114/iobsidian/Content/_material/claude-model-effort-cost-performance.md`。
 
 姿勢の根拠、委譲する理由ごとの判断、executor・architect・scout・worker の分水嶺は [references/delegation-triage.md](references/delegation-triage.md) を読む。
 
@@ -49,20 +49,21 @@ Haiku 5.5 はプロンプトが 100k トークンを超えると、そのリク�
 | 複雑な実装(複数ファイルにまたがる機能、大きなリファクタ、e2e、非自明なアルゴリズム)、設計判断を含む作業、コードレビュー/バグ発見、散在情報の統合、仕様に穴が残る作業 | **`architect`**(Opus 5.5 high) |
 | 仕様が確定した実装、機械的作業(テスト追加、CI を通す、コミット、PR 作成、一括置換・整形) | **`executor`**(Opus 5.5 low) |
 | ファイルを書き換えない、判断を含まない調査・収集・列挙・要約(コード検索、条件に合う箇所の全件列挙、大量に読んで結論だけ返す、Web で事実を集める) | **`scout`**(Haiku 5.5 high) |
-| ツールを使わない一発の文章仕事: ブリーフだけから項目を書き出す、書かれた基準で項目を判定して決まった形式(JSON など)で返す。後段に検査があるもの | **`worker`**(Haiku 5.5 xhigh) |
+| ツールを使わない一発の文章仕事: ブリーフだけから項目を書き出す、書かれた基準で項目を判定して決まった形式(JSON など)で返す。後段に検査があるもの | **`worker`**(Sonnet 5.5 medium) |
 
 判断基準は**仕様の確定度であって作業の大きさではない**。委譲先が「どういう意味か」と聞き返してきそうなら、それは architect に渡すべきだった合図。実装だからといって一律に executor ではない。既存パターンの反復なら executor、どこかで設計判断が要るなら architect。
 
 **選ばない組み合わせ:**
 
 - Fable 5.1 の全段、Opus 5 の全段: 同じか安いコストで Opus 5.5 がより賢い(例: Fable xhigh 53 / $5.98 は Opus 5.5 max 58 / $5.98 と同額で Index が 5 低く、Opus 5.5 high 54 / $1.82 にも負ける)
-- Sonnet 5.5 の全段: high はパレート最適だが使わない(上記)。low / medium は Haiku 5.5 max、xhigh / max は Opus 5.5 の high / xhigh に劣位。Sonnet 5 も使わない
-- ファイルを書き換える作業に Haiku 5.5(`scout` / `worker`): 公式が複雑なエージェント型コーディングには Sonnet / Opus を勧めている。`scout` は書き込みツールを持たない
-- Haiku 5.5 の xhigh / max をエージェント作業に: 公式ガイドは「評価で品質の上積みを確かめたときだけ」としていて、xhigh では複数ターンで本文が空のまま終わることがある。`worker` の xhigh は 1 回で終わる仕事に限る
+- Sonnet 5.5 の medium 以外: high はパレート最適だが使わない(上記)。low は Haiku 5.5 max、xhigh / max は Opus 5.5 の high / xhigh に劣位。Sonnet 5 も使わない
+- エージェント作業に `worker`(Sonnet 5.5 medium): 公式ガイドが low / medium で長いエージェント作業の途中で確認に戻りやすいと書いている
+- ファイルを書き換える作業に Haiku 5.5(`scout`): 公式が複雑なエージェント型コーディングには Sonnet / Opus を勧めている。`scout` は書き込みツールを持たない
+- Haiku 5.5 の xhigh / max: 公式ガイドは「評価で品質の上積みを確かめたときだけ」としていて、xhigh では複数ターンで本文が空のまま終わることがある
 - Opus 5.5 のサブエージェントの medium: 2 段構成の設計上作らない
 - サブエージェントの xhigh / max: high → xhigh は +2pt に +$1.64、xhigh → max は +2pt に +$2.52 の崖。high までの限界コスト($0.16/pt)の 5〜8 倍になる
 
-**effort の届け方:** Agent ツールは `model` しか取らず effort を取らない。**`model: opus` だけで起動すると、サブエージェントは `modelSettings` の Opus 5.5 = medium で走る**(2 段構成が崩れる)。段は必ず `subagent_type: executor` / `architect` / `scout` / `worker` で指定する。定義の frontmatter が `model: claude-opus-5-5` と `effort: low` / `high`、`scout` / `worker` は `model: claude-haiku-5-5` と `effort: high` / `xhigh` を持っている。`model: haiku` だけの起動も effort がセッションから決まり、Haiku 5.5 自体の既定は medium なので、high / xhigh にはならない(Haiku 5.5 には Claude Code v2.1.293 以上が要る)。組み込みの `Explore`・`Plan`・`general-purpose` は effort を持たずメインから引き継ぐので、委譲先には選ばない。Workflow の `agent()` は `model` と `effort` を段ごとに取るので、どちらも必ず添える。省くとメインのモデルと effort(Opus 5.5 medium)を引き継ぐ。段ごとの当て方は [references/delegation-patterns.md](references/delegation-patterns.md#workflow-の段の割当) を読む。
+**effort の届け方:** Agent ツールは `model` しか取らず effort を取らない。**`model: opus` だけで起動すると、サブエージェントは `modelSettings` の Opus 5.5 = medium で走る**(2 段構成が崩れる)。段は必ず `subagent_type: executor` / `architect` / `scout` / `worker` で指定する。定義の frontmatter が `model: claude-opus-5-5` と `effort: low` / `high`、`scout` は `model: claude-haiku-5-5` と `effort: high`、`worker` は `model: claude-sonnet-5-5` と `effort: medium` を持っている。`model: haiku` / `model: sonnet` だけの起動は effort がセッションから決まり、Haiku 5.5 の既定は medium、Sonnet 5.5 の既定は high なので、どちらも段の effort にならない(Haiku 5.5 には Claude Code v2.1.293 以上が要る)。組み込みの `Explore`・`Plan`・`general-purpose` は effort を持たずメインから引き継ぐので、委譲先には選ばない。Workflow の `agent()` は `model` と `effort` を段ごとに取るので、どちらも必ず添える。省くとメインのモデルと effort(Opus 5.5 medium)を引き継ぐ。段ごとの当て方は [references/delegation-patterns.md](references/delegation-patterns.md#workflow-の段の割当) を読む。
 
 **他スキルからの参照:** このスキルがモデル割当の正本。
 
@@ -88,7 +89,7 @@ Opus 5.5 の癖に合わせた委譲プロンプトの書き方は [references/m
 | 大量に読むが読んだ内容自体は後で使わない | `scout`(コンテキスト隔離。書き換えが要るなら `executor`) |
 | 難しい実装・レビュー・散在情報の統合で、ブリーフに書き出せるもの | `architect` |
 | ファイルを書き換えない調査・収集・列挙・要約 | `scout`(トークン単価が Opus 5.5 の 1/40、100k 超で 1/8) |
-| ツールを使わず、1 回の返答で済む書き出し・判定を大量にこなす(後段に検査あり) | `worker`(トークン単価が Opus 5.5 の 1/40) |
+| ツールを使わず、1 回の返答で済む書き出し・判定を大量にこなす(後段に検査あり) | `worker`(トークン単価が Opus 5.5 の半額) |
 | 難所だが会話の文脈と切り離せない | 委譲せず、メインの `/effort` を一時的に high へ上げる |
 | 数時間以上の無人走行 | /goal(`authoring-goal-prompts`)へ |
 

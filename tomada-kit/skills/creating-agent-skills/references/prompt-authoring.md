@@ -79,7 +79,7 @@ A skill that spawns sub-agents says which tier each one runs on. Left unspecifie
 | Complex implementation, design judgment, code review and bug-finding, synthesizing scattered findings, anything with unresolved spec | `architect` (Opus 5.5 high) |
 | Fully specified work with a clear pass/fail (settled-spec implementation, run the tests, add coverage, make CI green, commit, open the PR, bulk replace) | `executor` (Opus 5.5 low) |
 | Read-only, judgment-free research, collection, enumeration and summarizing — work that changes no files | `scout` (Haiku 5.5 high) |
-| Single-shot, tool-free writing or checking from a complete brief, whose output a later stage checks (drafting items to a spec, judging items against a rubric) | `worker` (Haiku 5.5 xhigh) |
+| Single-shot, tool-free writing or checking from a complete brief, whose output a later stage checks (drafting items to a spec, judging items against a rubric) | `worker` (Sonnet 5.5 medium) |
 
 The dividing line is **spec completeness, not size**. If the sub-agent could plausibly come back asking what you meant, it needed `architect`. The lower the tier, the more self-contained the prompt must be: an `executor` spawn needs explicit paths, an explicit output shape, and no open questions; an `architect` spawn can be handed the goal and the constraints.
 

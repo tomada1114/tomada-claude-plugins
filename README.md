@@ -50,7 +50,7 @@ Run `/plugin` to browse interactively.
 | **architect** | Opus 5.5 high の難所担当。 |
 | **executor** | Opus 5.5 low の実行役。 |
 | **scout** | Haiku 5.5 high の調べ物役。 |
-| **worker** | Haiku 5.5 at xhigh effort, the tier for briefed text work. |
+| **worker** | Sonnet 5.5 at medium effort, the tier for briefed text work. |
 
 ## Requirements
 
