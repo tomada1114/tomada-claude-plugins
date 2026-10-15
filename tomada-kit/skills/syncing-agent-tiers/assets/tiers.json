@@ -22,12 +22,12 @@
     {
       "name": "scout",
       "model": "haiku",
-      "effort": "high",
+      "effort": "xhigh",
       "codex_effort": "low",
       "extra_frontmatter": {
         "disallowedTools": "Edit, Write, NotebookEdit, Agent"
       },
-      "description": "Haiku at high effort, the read-only research tier. Hand it judgment-free research that changes no files — answering a fixed question, listing every place that matches a condition, reading a lot and returning only the conclusion, collecting facts from the web with sources. Editing, committing, or implementing goes to executor; interpretation, design decisions, review, or synthesis goes to architect.",
+      "description": "Haiku at xhigh effort, the read-only research tier. Hand it judgment-free research that changes no files — answering a fixed question, listing every place that matches a condition, reading a lot and returning only the conclusion, collecting facts from the web with sources. Editing, committing, or implementing goes to executor; interpretation, design decisions, review, or synthesis goes to architect.",
       "codex_description": "Low reasoning effort, the read-only research tier. Hand it judgment-free research that changes no files — answering a fixed question, listing every place that matches a condition, reading a lot and returning only the conclusion. Editing, committing, or implementing goes to executor; interpretation, design decisions, review, or synthesis goes to architect.",
       "body": "You are the research sub-agent. Answer the brief's question with facts you collected.\n\n- Keep working until everything the brief asks for is done. Stop to ask only when you\n  cannot go on without the requester.\n- Change nothing: do not edit files, and run no command that changes the repository or\n  the environment (installs, git writes, creating or deleting files).\n- Cover the whole scope the brief names. Do not look at part of it and guess the rest.\n- Separate fact from inference. Give each claim its evidence — file:line, command\n  output, or source URL and date — and say plainly what you could not find.\n- When a question needs interpretation or a design decision, report it as unresolved\n  instead of deciding.\n- Report the conclusion first, in the brief's format. Never return raw logs or whole\n  files.\n"
     },

@@ -1,6 +1,6 @@
 # Authoring and testing a Claude Code Mod
 
-Scope: how to lay out, write, build, and test a function-hooks mod (a plugin whose behavior lives in TypeScript, not shell commands), grounded in Anthropic's three shipped built-in mods and in commands actually run on this machine. **EARLY ACCESS**, gated by `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`. Facts are pinned to Claude Code 2.1.273; regenerate type declarations with `/plugin-types` after any update rather than trusting this file's version. Where the built-in-mod source and machine-verified findings disagree, the verified findings win — noted inline each time.
+Scope: how to lay out, write, build, and test a function-hooks mod (a plugin whose behavior lives in TypeScript, not shell commands), grounded in Anthropic's three shipped built-in mods and in commands actually run on this machine. Official docs: https://code.claude.com/docs/en/plugins/mods/create. Facts are pinned to Claude Code 2.1.273; regenerate type declarations with `/plugin-types` after any update rather than trusting this file's version. Where the built-in-mod source and machine-verified findings disagree, the verified findings win — noted inline each time.
 
 ## Contents
 1. File layout, `plugin.json`, `hooks.json`
@@ -117,20 +117,11 @@ tsconfig — verbatim (what the built-ins compile against; `/plugin-types` print
 
 ## 4. The build loop, verified on 2.1.273
 
-**The flag is a silent gate.** A hooks module loaded with `--plugin-dir` is **ignored with no warning** when `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS` is unset — no error, no load-failure entry, exit 0. Check this first when a mod "does nothing":
-```
-$ claude --plugin-dir ./hello -p 'reply with the single word: ok'
-ok
-proof: NOT WRITTEN
-
-$ CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude --plugin-dir ./hello -p 'reply ...'
-ok
-proof: loaded at 2026-09-15T23:37:46.669Z cwd=/.../scratchpad
-```
+**When a mod "does nothing"**, check directory trust, `claude plugin validate`, the `/plugin` Installed tab, and `claude --debug` (see https://code.claude.com/docs/en/plugins/mods/troubleshoot).
 
 **`claude --plugin-dir <path>`** loads a folder from source, at the `user` tier by default. A mod whose only real move requires a managed tier (`sec-default`) is inert this way since `next.to` is refused outside one.
 
-**`claude plugin validate <path>`** works **without the flag**, statically scanning source before any runs, printing every event hooked (including matchers) and every `$` call made:
+**`claude plugin validate <path>`** works statically, scanning source before any runs, printing every event hooked (including matchers) and every `$` call made:
 ```
 $ claude plugin validate ./hello
 Validating hooks: /.../hello/hooks/hooks.json
@@ -149,7 +140,7 @@ Exact because a module that spells `on`, `$`, or `$.env` other than literally do
 
 **`claude plugin test <path>`** exists and runs on 2.1.273, though **hidden from `claude plugin --help`** (a report claiming it's missing was stale, from v259–2.1.272):
 ```
-$ CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude plugin test ./hello
+$ claude plugin test ./hello
 tests/register.test.ts:
 (pass) register > session.start raises a toast [472.82ms]
 
@@ -161,7 +152,7 @@ With no tests: `claude plugin test: no *.test.ts or *.test.tsx under <path>` (ex
 
 **`/plugin-types`**, run inside a session from the plugin directory, writes three files under `.claude/types/`:
 ```
-$ CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude -p '/plugin-types'
+$ claude -p '/plugin-types'
 Wrote .claude/types/claude-code.d.ts: the plugin API (module 'claude-code',
   early access: it may change between releases) and 29 built-in tools.
 Wrote .claude/types/claude-code-plugins.d.ts: no enabled plugin names a type
@@ -214,5 +205,4 @@ published via `plugin.json`'s `"types"` field; the returned value is typed again
 ## 8. Unverified
 
 - The exact CLI output format of `claude plugin validate` (table vs. JSON, flags beyond the plain invocation shown here).
-- Whether `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS` is a stable, long-term name for the gating variable, or specific to this early-access window — it appears in no shipped declaration file, only in the run commands above; quote it as early-access, not permanent.
 - Whether `plugin.register`'s full gating semantics (judged by declared `tier` and scanned `uses`, per its doc comment) match how a real managed deployment would use it — no shipped mod exercises it.

@@ -21,6 +21,7 @@ Run `/plugin` to browse interactively.
 | **building-chat-uis** | Field notes for building LLM chat interfaces on the Vercel AI SDK (`ai` + `@ai-sdk/react`), whose API is… |
 | **building-function-hook-mods** | Build a Claude Mod — a Claude Code plugin whose behaviour lives in a TypeScript hooks module, registered as… |
 | **codex-cli-config** | Reference for OpenAI Codex CLI configuration, permissions, sandboxing, and autonomy — sandbox_mode and… |
+| **configuring-cloud-environments** | Inspect, create, and edit Claude Code cloud environments (the Name, Network access, Allowed domains, Setup… |
 | **configuring-project-permissions** | Set up a repository's personal, uncommitted agent permissions so development runs without prompts: Claude… |
 | **creating-agent-skills** | Create or improve Agent Skills (the shared SKILL.md format read by Claude Code and OpenAI Codex CLI —… |
 | **designing-architecture** | Turn signed-off requirements and UX drafts into a new app's stable design documents before any issue is… |
@@ -49,7 +50,7 @@ Run `/plugin` to browse interactively.
 |---|---|
 | **architect** | Opus 5.5 high の難所担当。 |
 | **executor** | Opus 5.5 low の実行役。 |
-| **scout** | Haiku 5.5 high の調べ物役。 |
+| **scout** | Haiku 5.5 xhigh の調べ物役。 |
 | **worker** | Sonnet 5.5 at medium effort, the tier for briefed text work. |
 
 ## Requirements

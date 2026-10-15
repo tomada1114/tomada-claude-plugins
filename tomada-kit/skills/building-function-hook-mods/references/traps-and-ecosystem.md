@@ -18,9 +18,7 @@ Anthropic (`poteat`, maintainer) opened #91870 2026-09-03 as a proposal soliciti
 > "We're now committed to shipping function hooks, on the scale of weeks in lieu of days or months. As well, from a product perspective, we are going to be calling this functionality 'Claude Mods.' The engineering term of art 'function hook' will still exist as the documented implementation primitive Mods are built on. A mod is just a plugin that uses function hooks, nothing is changing there."
 > — poteat, community update, 2026-09-09, issue body
 
-Terminology to keep straight: **"Claude Mods"** is the product name; **"function hooks"** is the implementation primitive; a **mod** is an ordinary Claude Code plugin whose `hooks/hooks.json` names a TypeScript module — not a new plugin type. Gate: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` (env var, one-off prefix or `settings.json` `env` key). None of this — the flag, `/plugin-types`, the `$` API — is in the published docs yet; every real mod README in the corpus says so independently.
-
-**Verified on 2.1.273**: without the flag a hooks module is ignored with no warning (the gate section of SKILL.md; transcript in references/authoring-and-testing.md §4).
+Terminology to keep straight: **"Claude Mods"** is the product name; **"function hooks"** is the implementation primitive; a **mod** is an ordinary Claude Code plugin whose `hooks/hooks.json` names a TypeScript module — not a new plugin type. Mods are on by default and documented at https://code.claude.com/docs/en/plugins/mods/overview; the docs and generated types are primary, this file is supplementary.
 
 ## 2. Stale vs live
 
@@ -105,9 +103,9 @@ Mods use the existing plugin/marketplace machinery — nothing new was added for
 1. `claude plugin marketplace add <owner/repo>` (or `/plugin marketplace add <owner/repo>`) — registers a GitHub repo as a marketplace; several mods ship a `marketplace.json` whose `source` is `"./"`, making the repo its own marketplace.
 2. `claude plugin install <name>@<marketplace>` (or `/plugin install <name>@<marketplace>`).
 
-`CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` must also be set — installing without it leaves the plugin present but inert (§1). Setting the flag globally loads the hooks module of *every* installed plugin that ships one, which is the mechanism the nightly scanner's discovery depends on. For development, `claude --plugin-dir <path>` is the one load path confirmed hot-reload-capable on save.
+Mods are on by default, so the hooks module of every installed, enabled plugin that ships one loads — the mechanism the nightly scanner's discovery depends on. Turn one off from the `/plugin` Installed tab. For development, `claude --plugin-dir <path>` is the one load path confirmed hot-reload-capable on save.
 
-Anthropic's own three built-in mods (diff, sec-default, telemetry) ship **inside the binary** and load on every machine with function hooks on — a deliberate channel entirely separate from the plugin-marketplace path, and they are in **no marketplace at all**.
+Anthropic's own three built-in mods (diff, sec-default, telemetry) ship **inside the binary** and load on every machine with mods enabled — a deliberate channel entirely separate from the plugin-marketplace path, and they are in **no marketplace at all**.
 
 Per Anthropic's published plugin docs (outside this thread's corpus): two official marketplaces exist — **`claude-plugins-official`** (curated by Anthropic, no application process) and **`claude-community`** (third-party submissions after review, added with `claude plugin marketplace add anthropics/claude-plugins-community`). Submission is via platform.claude.com/plugins/submit. Neither name appears anywhere in the #91870 thread or in any cataloged mod's docs — treat any thread-sourced detail about them as absent, not confirmed, from that corpus specifically.
 

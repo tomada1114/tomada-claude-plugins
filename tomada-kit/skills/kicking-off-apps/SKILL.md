@@ -3,7 +3,7 @@ name: kicking-off-apps
 description: >-
   Take a rough app idea ("I want an app that…") to a new public GitHub repository cut
   from one of the user's template repositories, with signed-off requirements, UX flows,
-  a researched design system, architecture docs and ADRs, loose project permissions,
+  a researched design system, architecture docs (no ADRs), loose project permissions,
   and a dependency-ordered issue backlog for the template's shipping-issues.
   Orchestrates one child skill per stage — refining-requirements, designing-wireframes,
   ui-ux-designing, refero-design, bootstrapping-from-templates,
@@ -63,10 +63,11 @@ defines every artifact path used below. Read it before stage 1.
    this template", and the index of the repository's skill frontmatter
    (`.claude/skills/*/SKILL.md` or `.agents/skills/*/SKILL.md`). Note which of these
    exist, because they replace a global default later: `starting-an-app`,
-   `designing-ui`, `recording-architecture-decisions`, `steering-the-roadmap`,
-   `triaging-issues`, `shipping-issues`. When the host does not load a repository skill
-   by name, read its `SKILL.md` and follow it the same way. The template fixes the
-   stack; questions it already answers are not asked.
+   `designing-ui`, `steering-the-roadmap`, `triaging-issues`, `shipping-issues`. A
+   `recording-architecture-decisions` skill or an ADR tree is not one of them: the
+   owner does not keep ADRs, so stage 7 removes it from the new app. When the host
+   does not load a repository skill by name, read its `SKILL.md` and follow it the
+   same way. The template fixes the stack; questions it already answers are not asked.
 
 ## Stages
 
@@ -83,7 +84,7 @@ recommended option when there is a real recommendation; then wait for the answer
 | 4 | Init | `bootstrapping-from-templates` | the repository, Product section, drafts copied in, labels |
 | 5 | Permissions | `configuring-project-permissions` | `.claude/settings.local.json` and `.codex/rules/local.rules`, gitignored |
 | 6 | Handoff | this skill | resume prompt |
-| 7 | Architecture docs | `designing-architecture` | architecture overview, ADRs, design lock, roadmap |
+| 7 | Architecture docs | `designing-architecture` | architecture overview with every decision in it, design lock, roadmap — no ADRs |
 | 8 | Issues | `planning-tickets` (repository conventions first) | tracking issues, sub-issues, dependencies |
 | 9 | Wrap-up | this skill | report and human-only steps |
 
@@ -136,13 +137,15 @@ $kicking-off-apps resume
 ```
 
 **Stage 7.** `designing-architecture` turns the drafts into the stable documents; commit
-and push to `main` directly — the branch ruleset is not applied until wrap-up.
+and push to `main` directly — the branch ruleset is not applied until wrap-up. No ADRs:
+every decision is written as present state, and ADR machinery the template still ships
+is removed in the same change.
 
 **Stage 8.** `planning-tickets`, told the repository's own `triaging-issues` and
 `shipping-issues` exist (when they do) so their label vocabulary, body rules, and
 dependency spelling win. Show the plan table and get one yes before creating anything.
 
-**Stage 9.** Report: repository URL, documents written, ADRs and their status, issue
+**Stage 9.** Report: repository URL, documents written, the decisions and where each is written, issue
 count by tier with the tracking issues linked, and the human-only steps the template's
 `starting-an-app` lists (branch ruleset, repository security settings, release secrets).
 Offer to run the ruleset recipe for them; it writes to GitHub, so only on a yes. The
@@ -152,10 +155,11 @@ next move is the template's `shipping-issues`.
 
 Stable things become documents — what the app is and is not (the Product section at
 stage 4, the requirements it cites), and at stage 7 the architecture's philosophy and
-patterns, each hard-to-reverse choice as an ADR, the
-direction as a roadmap. Units of work become issues at stage 8, and every issue cites
-the document section it implements rather than restating it. A decision that changes
-later is amended in its document, never only in an issue thread.
+patterns, each hard-to-reverse choice as present-state text in those documents (never
+an ADR — git holds what a decision used to say), the direction as a roadmap. Units of
+work become issues at stage 8, and every issue cites the document section it
+implements rather than restating it. A decision that changes
+later is rewritten in place in its document, never only in an issue thread.
 
 ## Delegation
 

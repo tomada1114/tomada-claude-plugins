@@ -3,15 +3,15 @@ name: designing-architecture
 description: >-
   Turn signed-off requirements and UX drafts into a new app's stable design documents
   before any issue is filed: an architecture overview (principles, how the app's domains
-  map onto the template's layers, data, core flows, quality targets), one ADR per
+  map onto the template's layers, data, core flows, quality targets) that states each
   hard-to-reverse choice (design lock, app shape, sandbox and OS permissions,
-  persistence, backend and sync, auth, key dependencies, locales, distribution) decided
-  with the user through researched option rounds, and the Now/Next/Later roadmap —
-  written into the homes the repository's own skills define
-  (recording-architecture-decisions, designing-ui, steering-the-roadmap, updating-docs),
-  with generic fallbacks. Use when designing the architecture of a new app, writing its
-  first ADRs or design lock, filling the roadmap after a bootstrap, or as stage 7 of
-  kicking-off-apps.
+  persistence, backend and sync, auth, key dependencies, locales, distribution) in the
+  present tense with its reasoning — decided with the user through researched option
+  rounds, never written as ADRs — and the Now/Next/Later roadmap, written into the
+  homes the repository's own skills define (designing-ui, steering-the-roadmap,
+  updating-docs), with generic fallbacks; a template's leftover ADR machinery is
+  removed. Use when designing the architecture of a new app, writing its design lock,
+  filling the roadmap after a bootstrap, or as stage 7 of kicking-off-apps.
 metadata:
   platforms: claude-code, codex
 ---
@@ -22,7 +22,14 @@ Issues are cheap and change weekly; the reasoning they depend on should not. Thi
 writes down what the app will stay — its principles, its shape, and each choice that is
 expensive to reverse — so every issue can cite a document instead of re-deciding it in
 a thread. Without it, the first implementer settles persistence or app shape by
-accident, and the template's ADR tree stays empty.
+accident.
+
+**No ADRs** — the owner's standing rule. A decision is written as the present state of
+the design documents: what the app does and why, in the present tense. Git holds what
+it used to say; there are no numbered records, statuses, dates, or index. Changing a
+decision means rewriting its sentences in place, in the same change as the code. Why: a
+record per decision turns every later change of mind into a ceremony, and the owner
+wants features easy to change.
 
 ## Contract
 
@@ -35,10 +42,17 @@ the fallback applies only when there is none):
 
 | Document | Owner skill in the repository | Fallback |
 |---|---|---|
-| Architecture overview | `updating-docs` (which surface holds what) | `docs/architecture/overview.md` |
-| ADRs + index row | `recording-architecture-decisions` | `docs/adr/NNNN-<title>.md` from [assets/adr-template.md](assets/adr-template.md) |
-| Design lock | `designing-ui` (an ADR in some templates, the skill's own lock section in others) | an ADR |
+| Architecture overview, holding every decision | `updating-docs` (which surface holds what) | `docs/architecture/overview.md` |
+| Design lock | `designing-ui` (the present-state lock section it names) | a "Design lock" section in the overview |
 | Roadmap | `steering-the-roadmap` | `docs/roadmap.md` with Now / Next / Later |
+
+A repository whose template still ships ADR machinery — a
+`recording-architecture-decisions` skill, an ADR directory or index, `AGENTS.md` rules
+that require an ADR, a design lock "written as an ADR" — loses it in this stage's
+change: delete the skill (with its mirror and its Skills-table row), the ADR template
+and index, and point every reference at the present-state documents, as
+`tomada1114/rust-template#207` did. Keep the list of hard-to-reverse changes and every
+sign-off rule; only where the reasoning is written changes.
 
 ## 1. Inventory the decisions
 
@@ -62,11 +76,13 @@ only about gaps the format has and the draft does not fill.
 
 ## 3. Write
 
-- **ADRs**, one per decision, in the repository's template. Status **Accepted** with
-  today's date when the user chose explicitly in this session — they are the owner the
-  status legend means; **Proposed** for anything they deferred, and for any ADR resting
-  on a claim marked unchecked. Every external claim carries its URL and the date
-  checked, or is marked unchecked. Add each index row in the same change.
+- **Decisions**, each in the home the repository gives its subject — the overview's
+  Decisions section, `AGENTS.md`'s Architecture section, or the owning skill — as
+  present-tense text: what the app does and why (what it protects, and where it matters
+  the alternative it rules out and why). Write one as settled only when the user chose
+  it explicitly in this session; a choice they deferred, or one resting on a claim
+  marked unchecked, goes to the overview's Open list with what would settle it. Every
+  external claim carries its URL and the date checked, or is marked unchecked.
 - **Overview**, using the skeleton in the reference: principles that each rule something
   out, the domain → layer map, data, core flows, measurable quality targets.
 - **Roadmap**: Now = the MVP outcomes from the requirements, one to three, each with an
@@ -75,19 +91,20 @@ only about gaps the format has and the draft does not fill.
 - Match each document's length to its substance; no filler sections.
 
 Work that changes code — applying tokens, removing the sample, flipping an entitlement —
-is not done here. List it as follow-ups in the relevant ADR; it becomes an issue.
+is not done here. List it in the overview's Follow-ups; each becomes an issue.
 
 ## 4. Verify and commit
 
 Run the repository's documentation and harness checks (`just check-harness`, a docs
 build, a link check — whatever its `AGENTS.md` / `CLAUDE.md` lists for docs changes).
-Commit as `docs: architecture overview, ADRs, and roadmap for <App>` and push when
+Commit as `docs: architecture overview and roadmap for <App>` and push when
 authorized.
 
 ## Report
 
-The decisions made (ADR number, title, status), the ones deferred with what would settle
-them, the documents written, and the follow-ups that must become issues.
+The decisions made (each with where it is written), the ones deferred with what would
+settle them, the documents written, any ADR machinery removed, and the follow-ups that
+must become issues.
 
 ## Platform notes
 

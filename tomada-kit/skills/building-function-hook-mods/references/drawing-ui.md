@@ -5,8 +5,8 @@ the per-surface element tables, `Client` surface modules, `Raster` + `$.ui.blit`
 and the rest of `$.ui`. For colour/pixel-art/game recipes built on this, see
 references/playful-mods.md.
 
-EARLY ACCESS: this API only runs under `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` and
-may change between releases. Regenerate the declarations with `/plugin-types`
+The API may change between releases; where the official docs and the generated
+types disagree, trust the types. Regenerate the declarations with `/plugin-types`
 after every Claude Code update. Line citations below are into
 `.claude/types/claude-code.d.ts` as written by 2.1.271; the event and element
 surface is unchanged on 2.1.273.
@@ -239,7 +239,7 @@ Structural note: `EngineEventOf` (what `on(...)` can hook into — includes `ren
 | 6 | `Box` cannot overlap; `Raster` is a leaf | **Raster-is-leaf: authoritative. Box-can't-overlap: observed + inferred** | Raster leaf, `d.ts:5833-5838` and `6150-6156` ("A leaf, one node however many cells; hooks above wrap or replace it whole"). Box non-overlap is stated explicitly by `flowpane/docs/engine.md:14-16` / `hooks/tree.ts:122-125`: "`Box` lays out in a flex column with no way to overlap, so a Button cannot be put over [a Raster]." `d.ts`'s `BoxProps` (§2) has no `position`/`zIndex`/absolute-placement props, consistent with this but not stated as a rule in `d.ts` itself. |
 | 7 | Measured costs | **Mixed** | `flowpane`: blit ≈120ms/frame vs. re-render ≈320ms/frame (`CLAUDE.md`, `register.ts:68-71`); naive full-band send ≈1MB/s at 8fps for a 120×40 pane before diffing (`register.ts:126-137`). `claude-mods/budget-guard`: `$.session.usage()` read latency **5ms cold / 62ms reloaded worker**, threshold `SLOW_READ_MS=30`, cache `3000ms` (`budget-guard/README.md:130,134`, `register.tsx:43-45`). `d.ts` hard caps: `Code.source` ≤10,000 chars (`1138-1139`); `Svg.source` ≤131,072 chars (`7694`); `Link.href` ≤2048 chars (`3858-3872`); Raster 1–512 cols × 1–256 rows, palette "1024 distinct color pairs at once" (`5847-5854`, `5838`); Pane visible only ≥144 cols unasked / ≥110 cols once asked (`1940-1941`); Pane `id` 1–64 chars `[A-Za-z0-9_-]` (`1943`); `ui.message` one post/frame max (`1107-1108`); `$.store` cap "4 MiB for the whole plugin" (`claude-mods/token-ledger/hooks/register.tsx:23`). |
 
-Additional observed conventions worth keeping: all four community repos gate on `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` and require Claude Code ≥2.1.269 (`cc-storytime` states ≥2.1.272).
+Additional observed conventions worth keeping: all four community repos require Claude Code ≥2.1.269 (`cc-storytime` states ≥2.1.272).
 
 ---
 

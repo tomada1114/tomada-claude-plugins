@@ -3,13 +3,14 @@
 Walk this list against the requirements before asking anything. A row applies when the
 requirements or the template force a choice on it; skip rows the template already
 decides (its `docs/architecture.md`, README "Design Philosophy", or `AGENTS.md` settle
-them) and rows the MVP never touches. Each applicable row becomes one ADR.
+them) and rows the MVP never touches. Each applicable row becomes one decision, written
+in the present tense in the overview (or the home the repository gives its subject).
 
 | Decision | Applies when | What the options usually are |
 |---|---|---|
 | Design lock | any app with a UI | the direction in `design-direction.md`, written in the template's lock format |
 | App shape | desktop apps | windowed app vs menu-bar agent (tray, no Dock icon) vs both |
-| Sandbox and OS permissions | macOS apps | sandboxed vs not; each TCC permission (Accessibility, Screen Recording, Full Disk Access, notifications, calendars…) is its own ADR |
+| Sandbox and OS permissions | macOS apps | sandboxed vs not; each TCC permission (Accessibility, Screen Recording, Full Disk Access, notifications, calendars…) is its own decision |
 | Persistence | the app keeps any state | where (app support dir, browser storage, server DB), format (SQLite, JSON files, key-value), migration story |
 | Backend and sync | data leaves the device | none (local-only) vs own server vs BaaS; offline behavior; conflict handling |
 | Authentication | there are accounts | none vs provider (OAuth, passkeys, magic link) vs the template's default |
@@ -22,8 +23,8 @@ them) and rows the MVP never touches. Each applicable row becomes one ADR.
 
 Research every option before presenting it: current versions, licences, and platform
 support from primary sources (a library documentation lookup tool where the runtime has
-one, the official docs otherwise), with the URL and the date checked written into the
-ADR's Sources. A claim that could not be checked is written as unchecked, never dated.
+one, the official docs otherwise), with the URL and the date checked written beside
+the claim. A claim that could not be checked is written as unchecked, never dated.
 
 ## Overview document skeleton
 
@@ -43,7 +44,7 @@ How the app's domains map onto the template's layers (a table: domain → layer 
 path), and what crosses each boundary.
 
 ## Data
-Entities, their relationships, where each is stored (link the persistence ADR).
+Entities, their relationships, where each is stored (the persistence decision below).
 
 ## Core flows
 One short sequence per core interaction from the Product section: trigger → layers
@@ -54,5 +55,13 @@ Measurable: launch time, list size it stays smooth at, offline behavior, privacy
 guarantees — each with the check that proves it (a test, a smoke run, a gate).
 
 ## Decisions
-Links to the ADRs, one line each.
+One short subsection per hard-to-reverse choice, in the present tense: what the app
+does, why, and what it rules out; sources inline (URL + date checked). Rewritten in
+place when the decision changes — never a dated entry beside the old text.
+
+## Open
+Choices the user deferred, each with what would settle it.
+
+## Follow-ups
+Code work the decisions imply; each becomes an issue.
 ```

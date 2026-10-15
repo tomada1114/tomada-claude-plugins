@@ -24,10 +24,11 @@ kickoff, not this mode — say so and ask. Then read what constrains the answer,
 question re-asks something the repository settles:
 
 - `AGENTS.md` / `CLAUDE.md`, `README.md`, and the repository's skill index — note
-  `triaging-issues`, `shipping-issues`, `designing-ui`, `recording-architecture-decisions`,
-  `steering-the-roadmap`; the same precedence rule as a kickoff applies.
+  `triaging-issues`, `shipping-issues`, `designing-ui`, `steering-the-roadmap`; the same
+  precedence rule as a kickoff applies.
 - The product documents it has: requirements, UX flows and guidelines, design lock,
-  architecture overview, ADRs, roadmap.
+  architecture overview, roadmap — and ADRs only where an older repository still keeps
+  them.
 - The code the request touches — enough to know what exists, what it is named, and
   which files a change would land in. Delegate a wide sweep to a read-only search
   sub-agent and keep only its conclusions.
@@ -50,7 +51,7 @@ round, one recommendation when there is one).
 
 **F1.** Pass the request, the constraints read above, and an output path inside the
 temporary directory. Scrutiny is measured against the running app as well as the draft:
-contradictions with the requirements and ADRs already in the repository, flows the
+contradictions with the requirements and design documents already in the repository, flows the
 current UI cannot reach, data the current model does not hold, migration of existing
 users' data, scope that belongs in a separate request, and overlap with open issues.
 Loop until the user explicitly signs off. Then ask once, in one round, whether F2 and F3
@@ -61,11 +62,12 @@ touches, and the repository's UX guidelines (if any) so it does not restate them
 writes into the temporary directory.
 
 **F3.** For each hard-to-reverse choice (a new dependency, a schema or storage change, a
-new OS permission, an external service, a change that contradicts an existing ADR),
+new OS permission, an external service, a change that contradicts the documented design),
 research the options and settle it in an option round. Record each as a short
 "Decision — options considered — why" entry for the tracking issue. When the change
-supersedes an ADR, say so in that entry and add a follow-up sub-issue to amend the ADR
-through the repository's `recording-architecture-decisions`; this mode does not edit it.
+contradicts the documented design, say so in that entry and add a sub-issue that
+rewrites the affected design text in place, in the present tense, in the same change as
+the code; this mode does not edit it.
 
 **F4.** Run `planning-tickets`, told the repository's `triaging-issues` and
 `shipping-issues` exist (when they do) and told the sources are the temporary drafts,
@@ -77,8 +79,8 @@ Show the plan table and get one yes before creating anything; that yes is the on
 remote write this mode makes.
 
 **F5.** The tracking issue and its sub-issues as a table with numbers and links, the
-dependency layers, and anything left for a human (a `blocked: design` decision, an ADR
-to amend). Remove the temporary directory. The next move is the repository's
+dependency layers, and anything left for a human (a `blocked: design` decision, design
+text to rewrite). Remove the temporary directory. The next move is the repository's
 `shipping-issues`.
 
 ## Where the requirements go
@@ -92,7 +94,7 @@ section instead of restating it:
 - **Screens** — the F2 wireframes and flows, when F2 ran.
 - **Decisions** — the F3 entries, when F3 ran.
 - **Existing context** — the repository documents and code paths the change builds on,
-  as links, and any ADR it supersedes.
+  as links, and any documented design it changes.
 - **Done when** and the sub-issue checklist, in the shape `planning-tickets` and the
   repository's `triaging-issues` define.
 

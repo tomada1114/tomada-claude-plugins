@@ -27,7 +27,7 @@ Only when the repository has no title convention of its own.
 ## Background & Context
 
 Where this sits in the whole, in 2–3 lines, and the document sections the implementer
-reads (e.g. `docs/product/requirements.md §3.1`, ADR-0003).
+reads (e.g. `docs/product/requirements.md §3.1`, `docs/architecture.md` § Persistence).
 
 | Item | Value | Source |
 |------|-------|--------|

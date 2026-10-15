@@ -6,8 +6,6 @@ drawing pixel art, hosting a small game above the prompt, and decorating the
 band while Claude works. Builds on references/drawing-ui.md — read that
 for `ui.render`, the element tables, `Client` and `Raster` in full.
 
-EARLY ACCESS: runs only under `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`.
-
 ## Contents
 
 1. Recolouring Claude Code's own output — frozen trees, the `{type:'engine'}` marker, colour strings, free hover styling

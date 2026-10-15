@@ -4,9 +4,9 @@ Covers: hook execution model, return-value shaping, full event catalogue,
 the `$` object noun-by-noun, `engine.create` noun contracts, `on()`
 overloads, security model. UI/render-tree API: `references/drawing-ui.md`.
 
-**EARLY ACCESS**, behind `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` (session env
-or `~/.claude/settings.json` → `{"env":{"CLAUDE_CODE_ENABLE_FUNCTION_HOOKS":"1"}}`);
-"may change between releases without notice." Facts below are drawn from
+Mods are on by default (official docs:
+https://code.claude.com/docs/en/plugins/mods/api); the surface may change
+between releases, and the generated types win over the docs. Facts below are drawn from
 `claude-code.d.ts` written by **Claude Code 2.1.271** (10,736 lines); the
 installed declarations are now **2.1.273** (10,920 lines) — line numbers may
 have drifted. Regenerate with `/plugin-types` before trusting exact lines.
@@ -351,8 +351,6 @@ Moved to references/security-model.md — the static `PluginRegisterUses` scan,
 - **Default hook budget** — unstated for production; only `test()` states
   5000 ms as its own default. `HookFailure.budget` implies a real runtime
   number exists, unnamed.
-- **`CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` gate** — confirmed only via a
-  secondary community README, not inside `claude-code.d.ts` itself.
 - **`settings.read()` policy switch refusing `$.http.fetch`** — that such a
   policy can exist is stated; its name/shape is not.
 - **`user`-tier noun-name collision with an org noun** — fails only that

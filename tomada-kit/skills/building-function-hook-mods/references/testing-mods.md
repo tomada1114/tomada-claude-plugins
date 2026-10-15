@@ -10,7 +10,7 @@ The rule that governs everything here: hooks the **test** registers sit
 beneath them — so an unanswered call throws, naming its event. A passing test
 answers every `$` call the mod makes.
 
-EARLY ACCESS: requires `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`.
+Official docs: https://code.claude.com/docs/en/plugins/mods/test
 
 See also references/authoring-and-testing.md for the file layout and build loop.
 

@@ -80,7 +80,7 @@ order inside the clone, with these boundaries:
   verbatim, and where the decisions are recorded (`docs/product/requirements.md`). Show
   the draft to the user before writing.
 - **Leave for later stages:** the roadmap, the design lock and token edits, the app
-  shape and sandbox ADRs, removing the sample code (`designing-architecture` and the
+  shape and sandbox decisions, removing the sample code (`designing-architecture` and the
   issue backlog own these). Note each so nothing is dropped.
 - **Collect, never run:** steps the template reserves for a human or an admin — branch
   ruleset, repository security settings, signing and release secrets. Return them as

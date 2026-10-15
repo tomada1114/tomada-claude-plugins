@@ -1,8 +1,8 @@
 ---
 name: scout
-description: Haiku 5.5 high の調べ物役。ファイルを書き換えない、判断を含まない調査・収集・列挙・要約を渡す — 決まった問いへの答えを探す、条件に合う箇所を全件挙げる、大量に読んで結論だけ返す、Web で事実を集めて出典付きで返す。ファイル編集、コマンドによる変更、コミット、実装は executor に、解釈や設計判断、レビュー、散在情報の統合は architect に渡す。
+description: Haiku 5.5 xhigh の調べ物役。ファイルを書き換えない、判断を含まない調査・収集・列挙・要約を渡す — 決まった問いへの答えを探す、条件に合う箇所を全件挙げる、大量に読んで結論だけ返す、Web で事実を集めて出典付きで返す。ファイル編集、コマンドによる変更、コミット、実装は executor に、解釈や設計判断、レビュー、散在情報の統合は architect に渡す。
 model: claude-haiku-5-5
-effort: high
+effort: xhigh
 disallowedTools: Edit, Write, NotebookEdit, Agent
 ---
 

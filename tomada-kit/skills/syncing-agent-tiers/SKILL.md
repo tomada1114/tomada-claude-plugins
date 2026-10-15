@@ -34,7 +34,13 @@ the only place a tier's model or effort is written is `assets/tiers.json`.
    a temporary worktree of `origin/main`, with auto-merge queued when the repository
    allows it; the local checkout is not touched. Report every PR URL and every repo
    that printed a failure or "merge it yourself".
-4. To add a repository, add it to `assets/repos.json` after its one-time migration
+4. After the PRs merge, bring the local checkouts up to date:
+   `python3 scripts/pull_repos.py`. It fast-forwards a repo only when it is on `main`
+   with no uncommitted changes, and prints a skip or FAILED reason otherwise. For each
+   repo that did not update, inspect it read-only (`git status -sb`, ahead/behind
+   against `origin/main`, the branch's PR state), then propose the user a next action.
+   Never stash, reset, switch branches, or discard on the user's behalf.
+5. To add a repository, add it to `assets/repos.json` after its one-time migration
    (prose and tests follow the rules above).
 
 `--render <dir>` writes the files into a checkout without any git step, for a

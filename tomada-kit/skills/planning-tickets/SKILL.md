@@ -42,7 +42,7 @@ Before drafting, look for the repository's own issue skills in its skills direct
 ## 2. Plan the breakdown
 
 Sources are the documents, cited by path and section (`docs/product/requirements.md
-§3.2`, an ADR number), never copied wholesale. Where a repository rule asks for a
+§3.2`, `docs/architecture.md` § Persistence), never copied wholesale. Where a repository rule asks for a
 `path:line` and the code does not exist yet, point at the file or directory the change
 lands in and the document section it implements.
 

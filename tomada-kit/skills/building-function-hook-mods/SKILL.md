@@ -1,9 +1,9 @@
 ---
 name: building-function-hook-mods
-description: Build a Claude Mod — a Claude Code plugin whose behaviour lives in a TypeScript hooks module, registered as ($, e, next) function hooks behind CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1. Covers drawing on Claude Code's own UI (recolouring its output, pixel art with Raster, games and ambient bands above the prompt via Client surface modules), the 117-event API across the engine, op and classic families, and the validate/test/--plugin-dir loop. Use when asked to write, debug, review or publish a mod or function hook, when a hooks module silently does nothing, when changing how Claude Code itself looks or behaves, or when working with hooks/hooks.json, $.ui.render, $.ui.blit, /plugin-types, or claude plugin validate. Not for classic settings.json shell hooks, which are a separate mechanism.
+description: Build a Claude Mod — a Claude Code plugin whose behaviour lives in a TypeScript hooks module, registered as ($, e, next) function hooks (on by default since v2.1.286). Covers drawing on Claude Code's own UI (recolouring its output, pixel art with Raster, games and ambient bands above the prompt via Client surface modules), the 117-event API across the engine, op and classic families, and the validate/test/--plugin-dir loop. Use when asked to write, debug, review or publish a mod or function hook, when a hooks module silently does nothing (check directory trust, claude plugin validate, the /plugin Installed tab, claude --debug), when changing how Claude Code itself looks or behaves, or when working with hooks/hooks.json, $.ui.render, $.ui.blit, /plugin-types, or claude plugin validate. Not for classic settings.json shell hooks, which are a separate mechanism.
 metadata:
   platforms: claude-code
-when_to_use: "write a Claude Mod, function hooks, CLAUDE_CODE_ENABLE_FUNCTION_HOOKS, change Claude Code's colours, draw above the prompt, a game in the terminal, ui.render, hooks/hooks.json, plugin-types"
+when_to_use: "write a Claude Mod, function hooks, a mod that does nothing, disable a mod, change Claude Code's colours, draw above the prompt, a game in the terminal, ui.render, hooks/hooks.json, plugin-types"
 ---
 
 # Building Claude Mods
@@ -13,20 +13,28 @@ TypeScript module instead of a shell command. The module exports
 `register(on, options)` and hooks the engine's events as functions `($, e, next)`
 — Koa-style middleware over the whole engine, including its UI.
 
-"Claude Mods" is Anthropic's product name (committed 2026-09-09); "function
-hooks" is the implementation primitive. **EARLY ACCESS**: not in the published
-docs, and the surface may change between releases.
+"Claude Mods" is Anthropic's product name; "function hooks" is the
+implementation primitive. Mods are documented at
+https://code.claude.com/docs/en/plugins/mods/overview and are on by default
+since v2.1.286 (the overview says v2.1.287 for the terminal).
 
-## Before anything else: the gate
+## When a mod does nothing
 
-```bash
-CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude
-```
+Check, in this order:
 
-Without it a hooks module is **ignored with no warning** — no error, no log
-line, exit 0, the mod simply does nothing. This is the first thing to check
-when a mod appears dead. (`claude plugin validate` is the exception; it works
-either way.)
+1. **Directory trust** — the workspace must have been accepted as trusted.
+2. **`claude plugin validate .`** — confirms the hooks module loads and lists
+   every event hooked and every `$` call made.
+3. **`/plugin` → Installed tab** — the mod must be installed and enabled there.
+4. **`claude --debug`** — shows load failures and hook errors.
+
+Also make sure nothing is switching mods off: `claude --safe-mode` disables
+them for one session, and `"disableAllHooks": true` in settings disables them
+for every session. Individual mods are turned off from the `/plugin` Installed
+tab.
+
+`CLAUDE_CODE_ENABLE_FUNCTION_HOOKS` is ignored from v2.1.287 on — setting it to
+`0` does not stop mods; delete it if an older setup still sets it.
 
 ## Quickstart
 
@@ -36,14 +44,16 @@ Copy the starter, which is validated and has passing tests:
 cp -r assets/starter-mod ./my-mod        # relative to this skill's directory
 cd my-mod
 claude plugin validate .                 # prints every event hooked and every $ call made
-CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude plugin test .
-CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude --plugin-dir .
+claude plugin test .
+claude --plugin-dir .
 ```
 
-Then generate the types for your own machine, and point the tsconfig at them:
+Loading with `claude --plugin-dir` generates type declarations matched to the
+build you run; you can also regenerate them explicitly and point the tsconfig
+at them:
 
 ```bash
-CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude -p '/plugin-types'
+claude -p '/plugin-types'
 ```
 
 It writes `.claude/types/{claude-code,claude-code-mcp,claude-code-plugins}.d.ts`.
@@ -128,6 +138,21 @@ plugin path: `claude plugin marketplace add <owner/repo>`, then
 `claude plugin install <name>@<marketplace>`.
 
 ## References
+
+The primary sources are the official docs and the generated types; the files
+below supplement them. Where the docs and the types disagree, trust the types
+— they match your build.
+
+Official docs: [overview](https://code.claude.com/docs/en/plugins/mods/overview),
+[create](https://code.claude.com/docs/en/plugins/mods/create),
+[reference](https://code.claude.com/docs/en/plugins/mods/reference),
+[api](https://code.claude.com/docs/en/plugins/mods/api),
+[interface](https://code.claude.com/docs/en/plugins/mods/interface),
+[events](https://code.claude.com/docs/en/plugins/mods/events),
+[gallery](https://code.claude.com/docs/en/plugins/mods/gallery),
+[admin](https://code.claude.com/docs/en/plugins/mods/admin),
+[troubleshoot](https://code.claude.com/docs/en/plugins/mods/troubleshoot),
+[test](https://code.claude.com/docs/en/plugins/mods/test).
 
 | File | Read it for |
 |---|---|

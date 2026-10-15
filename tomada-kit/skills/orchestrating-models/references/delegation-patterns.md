@@ -31,7 +31,7 @@
 
 ## リレー編成
 
-1 タスクを 1 つの段に丸投げしない。段ごとに `scout`(Haiku 5.5 high)・`executor`(low)・`architect`(high)を当て分ける。サブエージェントの数が増えてもトータルでは安く速い。
+1 タスクを 1 つの段に丸投げしない。段ごとに `scout`(Haiku 5.5 xhigh)・`executor`(low)・`architect`(high)を当て分ける。サブエージェントの数が増えてもトータルでは安く速い。
 
 「判断」段の担当はメイン自身。実装段も自分で持つほうが速い場面が多い(委譲する理由は `references/delegation-triage.md`)。
 
@@ -82,7 +82,7 @@
 
 | 段の仕事 | `model` + `effort` | 例 |
 |---|---|---|
-| ファイルを書き換えない、判断を含まない収集・列挙・要約(ツールを使う) | `'haiku'` + `'high'`(= `scout`) | discover(対象ファイル・呼び出し箇所の洗い出し)、Understand の並列リーダー、Research の広域スイープ、ログやテスト結果の要約 |
+| ファイルを書き換えない、判断を含まない収集・列挙・要約(ツールを使う) | `'haiku'` + `'xhigh'`(= `scout`) | discover(対象ファイル・呼び出し箇所の洗い出し)、Understand の並列リーダー、Research の広域スイープ、ログやテスト結果の要約 |
 | プロンプトに渡した材料だけで答える判定・書き出し(ツールを使わず、`schema` で返す) | `'sonnet'` + `'medium'`(= `worker`) | 渡した finding を基準どおりに分類・ラベル付け、重複判定、決まった形式への書き出し |
 | 仕様が確定した書き換え | `'opus'` + `'low'`(= `executor`) | Migrate の各サイトの変換、一括修正 |
 | 判断・レビュー・統合・反証 | `'opus'` + `'high'`(= `architect`) | Review の検出段、adversarial verify、judge panel、最終の統合 |
