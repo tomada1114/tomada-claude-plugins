@@ -45,6 +45,8 @@ repo: tomada1114/habit-tracker
 repo_path: /Users/me/ghq/github.com/tomada1114/habit-tracker
 visibility: public
 identity: bundle-id=io.tomada.habittracker author="Jane Doe" contact=https://x.com/janedoe
+description: "【残す】習慣を記録して続けるためのデスクトップアプリ"
+topics: [keep]
 stage: 3
 ---
 

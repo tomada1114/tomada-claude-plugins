@@ -110,8 +110,11 @@ silent tweak. Tokens are not applied to code here; that is a stage 8 issue.
 repository name, visibility — public unless the user said otherwise — display name,
 bundle identifier where the template has one, author, and the public contact for any
 contact slot the template has: a profile URL, never an email address, which
-`bootstrapping-from-templates` does not publish) and listing every remote write stages 4–5
-will make: create the repository from the template, push to `main`, sync labels — and
+`bootstrapping-from-templates` does not publish, the repository's one-line description
+of what it is for, and whether it is a keeper — a repository a later cleanup must not
+delete, which gets `【残す】` in front of the description and the `keep` topic) and
+listing every remote write stages 4–5 will make: create the repository from the
+template, set its description and topics, push to `main`, sync labels — and
 running the template's bootstrap, which templates reserve for a human's request. A yes
 authorizes exactly that list; record it in `state.md`.
 

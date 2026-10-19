@@ -29,8 +29,11 @@ deletes a CI job the template's own smoke test expects.
 **Input:** the template (a local checkout path or `OWNER/NAME`), the new `OWNER/NAME`,
 visibility (public unless the user said otherwise), and the identity values the
 template's bootstrap asks for — display name, slug, bundle identifier, author, and a
-public contact. Author defaults to `git config user.name`. Optionally a drafts
-directory and a draft→repository path map (from `kicking-off-apps`).
+public contact. Author defaults to `git config user.name`. Also the repository's
+description — one line saying what the repository is for — and whether it is a keeper:
+something that must not be deleted in a later cleanup, such as a published app, or
+material a course, book, or article points readers to. Optionally a drafts directory and
+a draft→repository path map (from `kicking-off-apps`).
 
 **No email address is written into the repository.** Never pass the user's email to a
 bootstrap (an `--email` option, an email placeholder) and never take one from `git
@@ -44,8 +47,8 @@ identity.
 **Output:** a clone at `$(ghq root)/github.com/<owner>/<name>` whose `main` on GitHub
 holds the bootstrap commit, plus a list of the human-only steps the template reserves.
 
-**Authorization.** Creating the repository, pushing `main`, and syncing labels are
-remote writes. Run them only after the user approved that list (the kickoff gate counts;
+**Authorization.** Creating the repository, setting its description and topics, pushing
+`main`, and syncing labels are remote writes. Run them only after the user approved that list (the kickoff gate counts;
 standalone, present the list once — approve as listed, or adjust — and wait for the
 answer). A step the template marks as a human's — typically the bootstrap itself — runs
 only when the approval names it.
@@ -64,6 +67,17 @@ not contain those commits — ask whether to push the template first. Then run i
 without `--dry-run`, with `--json`, and keep the output (`kicking-off-apps` saves it as
 `init.json`). It waits for GitHub to finish copying the template before cloning, and a
 re-run reuses what already exists.
+
+Then set the description, so that anyone scanning the repository list later can tell
+what it is and whether it may be deleted without opening it:
+
+```bash
+gh repo edit <owner>/<name> --description "<purpose>"                        # ordinary repository
+gh repo edit <owner>/<name> --description "【残す】<purpose>" --add-topic keep  # keeper
+```
+
+Write the purpose in the user's language. Add a second topic when the repository serves
+a course or a book (`udemy-course`, `cc-book`).
 
 ## 2. Follow the template's procedure
 
@@ -111,7 +125,8 @@ the user about any hit whose right value is not obvious.
 
 ## Report
 
-Repository URL, clone path, the identity values used, checks run with their result,
+Repository URL, clone path, the identity values used, the description and topics set,
+checks run with their result,
 the steps deferred to later stages, and the human-only list.
 
 ## Platform notes
