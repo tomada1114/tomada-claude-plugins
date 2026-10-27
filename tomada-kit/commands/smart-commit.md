@@ -72,6 +72,7 @@ Analyze the current changes, group related ones together, and create appropriate
   - Environment files such as `.env`, `.env.local`, `.env.production`
   - Explicit secret files such as `**/credentials.json`, `**/secrets.json`, `**/private-key.json`
   - Filename patterns implying secrets, such as `**/*password*`, `**/*secret*`, `**/*key*.pem`
+    - Exception: `1password` is a tool name (1Password), not a secret. Files whose name matches `*password*` only because of `1password` (e.g. `*1password*.md` notes) are committable
 - **Default policy**: everything other than the secret files above **is committable**
   - Configuration (`.claude/`, `*.json`, `*.md`)
   - Documentation (`*.md`, `AGENTS.md`, `CLAUDE.md`, `README.md`)

@@ -1,0 +1,195 @@
+name: Security Fixes
+
+# Turns the open Dependabot alerts on uv.lock and pnpm-lock.yaml into one pull
+# request a day, and drops one-package window exceptions once the window admits
+# their fix (scripts/security_fixes.py; managing-dependencies). It never merges:
+# the owner does. A red scheduled run is the failure signal; GitHub emails it to
+# whoever last changed the cron line.
+#
+# Two jobs, so the write token never shares a runner with resolver code: `plan`
+# locks with read-only permissions and hands its diff over as an output;
+# `open-pr` runs no project code, applies that diff, and pushes it with a GitHub
+# App token. A pull request opened with GITHUB_TOKEN would start no workflow, so
+# its required checks would never report. The App and the `security-fixes`
+# environment holding its client ID variable and private key secret are an
+# owner setup step (managing-dependencies).
+on:
+  schedule:
+    - cron: "23 4 * * *"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Plan and print the change without pushing a branch or opening a PR
+        type: boolean
+        default: true
+  # Exercised on a pull request, as a dry run, only when the workflow or its
+  # script changes.
+  pull_request:
+    paths: [.github/workflows/security-fixes.yml, scripts/security_fixes.py]
+
+permissions:
+  contents: read
+
+concurrency:
+  # One scheduled or dispatched run at a time, so two runs never open two pull
+  # requests; superseded PR runs are cancelled.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || 'default' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  plan:
+    name: Plan security fixes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read # skip while an earlier run's pull request is open
+      vulnerability-alerts: read # list the open Dependabot alerts
+    outputs:
+      patch: ${{ steps.plan.outputs.patch }}
+      title: ${{ steps.plan.outputs.title }}
+      body: ${{ steps.plan.outputs.body }}
+      failed: ${{ steps.plan.outputs.failed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No dependency cache: what this job resolves becomes a pull request.
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      - name: Plan the lock change
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUT: ${{ runner.temp }}/security-fixes
+        # A failure in one lockfile still plans the other's change, so the
+        # status is recorded here and the `result` job fails the run after any
+        # pull request is open.
+        run: |
+          set -euo pipefail
+          status=0
+          uv run --locked python scripts/security_fixes.py --out "$OUT" || status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+            echo "::error::scripts/security_fixes.py exited $status; its report is in this step's log."
+          fi
+          if [ ! -f "$OUT/title.txt" ]; then
+            echo "No change to propose." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "patch=$(git diff --binary | gzip -9n | base64 -w0)"
+            echo "title=$(base64 -w0 < "$OUT/title.txt")"
+            echo "body=$(base64 -w0 < "$OUT/body.md")"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "# $(cat "$OUT/title.txt")"
+            cat "$OUT/body.md"
+            echo
+            echo '```diff'
+            git diff
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  open-pr:
+    name: Open the pull request
+    needs: plan
+    # Only from the default branch, never for a pull request or a dry run.
+    if: >-
+      needs.plan.outputs.patch != ''
+      && github.ref == 'refs/heads/main'
+      && github.event_name != 'pull_request'
+      && !(github.event_name == 'workflow_dispatch' && inputs.dry-run)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The App's client ID and private key live in this environment, limited to
+    # the main branch, so no other branch's workflow can read the key.
+    environment: security-fixes
+    permissions: {}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      # The plan job's diff may touch only the window's files and lockfiles.
+      - name: Apply the planned change
+        env:
+          PATCH: ${{ needs.plan.outputs.patch }}
+        run: |
+          set -euo pipefail
+          patch="${RUNNER_TEMP}/security-fixes.patch"
+          printf '%s' "$PATCH" | base64 -d | gunzip > "$patch"
+          allowed='^(pyproject\.toml|uv\.lock|pnpm-workspace\.yaml|pnpm-lock\.yaml)$'
+          if git apply --numstat "$patch" | cut -f3 | grep -Evq "$allowed"; then
+            echo "::error::The planned change touches a file outside the lockfiles and their window."
+            git apply --numstat "$patch"
+            exit 1
+          fi
+          git apply --index "$patch"
+
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app
+        with:
+          client-id: ${{ vars.SECURITY_FIXES_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SECURITY_FIXES_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Commit, push, and open the pull request
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+          TITLE: ${{ needs.plan.outputs.title }}
+          BODY: ${{ needs.plan.outputs.body }}
+        run: |
+          set -euo pipefail
+          branch="automation/security-fixes/${GITHUB_RUN_ID}"
+          printf '%s' "$TITLE" | base64 -d > "${RUNNER_TEMP}/title.txt"
+          printf '%s' "$BODY" | base64 -d > "${RUNNER_TEMP}/body.md"
+          bot_id=$(gh api "users/${APP_SLUG}[bot]" --jq .id)
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${bot_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -F "${RUNNER_TEMP}/title.txt"
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          echo "::add-mask::${auth}"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${auth}" \
+            push origin "HEAD:refs/heads/${branch}"
+          gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
+            --title "$(cat "${RUNNER_TEMP}/title.txt")" --body-file "${RUNNER_TEMP}/body.md"
+
+  # The run's verdict, after any pull request is open: red when the plan
+  # recorded a failure or either job did not succeed (a skipped `open-pr` is
+  # fine), so a scheduled failure still reaches the owner by email.
+  result:
+    name: Result
+    needs: [plan, open-pr]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail on a planning failure or a failed job
+        env:
+          PLAN: ${{ needs.plan.result }}
+          PLAN_FAILED: ${{ needs.plan.outputs.failed }}
+          OPEN_PR: ${{ needs.open-pr.result }}
+        run: |
+          if [ "$PLAN" != "success" ] || [ "$PLAN_FAILED" = "true" ]; then
+            echo "::error::Planning failed; read the Plan security fixes log."
+            exit 1
+          fi
+          if [ "$OPEN_PR" != "success" ] && [ "$OPEN_PR" != "skipped" ]; then
+            echo "::error::Opening the pull request ended as $OPEN_PR."
+            exit 1
+          fi

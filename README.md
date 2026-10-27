@@ -16,7 +16,9 @@ Run `/plugin` to browse interactively.
 | Skill | Description |
 |---|---|
 | **auditing-prompt-docs** | Audit and fix prompt-bearing documents — SKILL.md, CLAUDE.md, AGENTS.md, agent and command definitions… |
+| **auditing-repositories** | Audit the repository you are in, often a template or an app cut from one, for technical debt and room to… |
 | **authoring-goal-prompts** | Author a self-contained prompt for Claude Code's /goal command, run unattended in a separate session — a… |
+| **automating-security-fixes** | Set up, port, or maintain a daily GitHub Actions workflow that turns open Dependabot alerts into one… |
 | **bootstrapping-from-templates** | Cut a new GitHub repository from one of the user's template repositories and bring it to a clean first… |
 | **building-chat-uis** | Field notes for building LLM chat interfaces on the Vercel AI SDK (`ai` + `@ai-sdk/react`), whose API is… |
 | **building-function-hook-mods** | Build a Claude Mod — a Claude Code plugin whose behaviour lives in a TypeScript hooks module, registered as… |
