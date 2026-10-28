@@ -34,9 +34,11 @@ CONSTRAINTS:
   - [Process (TDD) — include for coding goals that add or change behavior:] For each new behavior
     write the test first, run it and paste the failing line, then implement to green. Test and
     implementation land in the same commit.
-  - Hygiene: write every temporary file (verification logs, drafts, throwaway scripts) into the
-    session's scratchpad directory — never bare /tmp or the repo tree. When delegating to
-    subagents, state this location explicitly in their instructions (they don't inherit it).
+  - Hygiene: write every temporary file (verification logs, drafts, throwaway scripts) into
+    [Claude Code: the session's scratchpad directory | Codex or either host: a gitignored folder
+    inside the workspace, e.g. <repo>/.drafts/<slug>/] — never the repo's tracked tree or the
+    bundle dir. When delegating to subagents, state this location explicitly in their
+    instructions (they don't inherit it).
   - [Divergence — include when bundled:] If the repo contradicts a fact in a support file, trust the
     repo and note the divergence in the final report. If a design element in design.md turns out
     impossible as specified, apply the fallback in decisions.md or stop and report — never silently
@@ -66,6 +68,7 @@ CONTEXT: [Project facts the goal session won't infer quickly. When bundled, list
        absolute path with a read-first order: "Before any work, read in order:
        1. ${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/<slug>/design.md — the target design; implement it, don't redesign
        2. .../examples.md — patterns to imitate verbatim  3. .../checklist.yaml — work queue".
+       The bundle is read-only; name where progress is recorded (commits, or a gitignored file).
        Keep inline context to a few lines; externalize anything bulky.]
 
 BASELINE: [The current, measured state so the terminal state is reachable. e.g. "As of now `npm test`

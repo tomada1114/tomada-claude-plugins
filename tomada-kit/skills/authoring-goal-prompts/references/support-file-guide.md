@@ -107,9 +107,11 @@ const page = await repo.orders.list({ offset: req.query.page * 20 });  // ✗
 
 ## checklist.yaml — a machine-checkable work queue
 
-YAML beats prose checklists for anything beyond a handful of items: statuses are grep-countable
-(`grep -c 'status: done'`), updates are clean diffs, and the whole-run rules live in one header
-instead of being repeated per item.
+YAML beats prose checklists for anything beyond a handful of items: items are grep-countable and
+the whole-run rules live in one header instead of being repeated per item. The bundle copy is the
+starting queue and stays read-only; the executor records progress where it can write (SKILL.md,
+"The bundle is read-only to the executor") — commits per item, or a copy of this file at a
+gitignored workspace path that it updates.
 
 ```yaml
 meta:
@@ -163,7 +165,7 @@ In `CONTEXT`, list every sibling by **absolute path** with a read-first order:
 CONTEXT: Before any work, read in order:
   1. ${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/<slug>/design.md    — the target design; implement it, don't redesign
   2. ${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/<slug>/examples.md  — patterns to imitate verbatim
-  3. ${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/<slug>/checklist.yaml — work queue; update statuses as you go
+  3. ${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/goal-prompts/<slug>/checklist.yaml — the work queue (read-only; progress per goal.md)
   decisions.md (same dir) pre-answers ambiguities — consult it before assuming.
 ```
 
@@ -194,4 +196,4 @@ unattended. Bundle at
 - `decisions.md` — 3 pre-answered questions, 2 fallback rules.
 
 The executor never designs, never hunts for patterns, and never guesses at ambiguities — it reads,
-implements, verifies, and updates statuses. That is the whole point of the handoff.
+implements, verifies, and records progress in the workspace. That is the whole point of the handoff.

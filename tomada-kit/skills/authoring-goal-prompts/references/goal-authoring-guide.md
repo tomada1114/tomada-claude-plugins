@@ -158,9 +158,10 @@ load-bearing sections (GOAL / DONE WHEN / VERIFY / CONSTRAINTS / TURN ENDINGS / 
 squeeze under.
 
 A self-maintained **checklist artifact** is the cleanest way to make "queue empty" measurable for
-backlog/migration goals: have the session maintain `checklist.md` and make `DONE WHEN` = "every item
-in `<abs path>/checklist.md` is checked and `<build>` passes." See the next section for how to keep
-that honest.
+backlog/migration goals: have the session maintain `checklist.md` at a path it can write (inside its
+workspace, gitignored — never the bundle dir) and make `DONE WHEN` = "every item in `<abs
+path>/checklist.md` is checked and `<build>` passes." When each item ends in a commit, the commit
+log can be the checklist instead. See the next section for how to keep that honest.
 
 ## Checklist bundles: evidence-anchored, skip-aware
 

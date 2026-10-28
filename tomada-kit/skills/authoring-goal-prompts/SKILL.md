@@ -66,6 +66,9 @@ unless the user names another. Gather, in order:
 4. **Environment preflight** — for outward-facing endings (push, PR, publish, deploy), verify the
    prerequisite now (`gh auth status`, `git remote -v`, required tools) and record it in `BASELINE`.
    If it can't be guaranteed, encode a **degraded terminal state** (see the guide) instead of thrashing.
+   Note which host runs the goal (Claude Code or Codex) and what it can write: Codex writes only
+   inside the workspace it was launched in. When the host is unknown, write for both
+   ([references/platform-notes.md](references/platform-notes.md)).
 5. **Design** — when the task involves choices (architecture, interfaces, naming, approach, library),
    make them now and record decision + rationale + rejected alternative. The lead designs; the executor executes.
 
@@ -95,12 +98,25 @@ Pick siblings from the standard menu — create only those that earn their place
 | `design.md` | target design: interfaces/schemas as code blocks, decisions + rationale + rejected alternatives | you made any design choice the executor could plausibly make differently |
 | `examples.md` | patterns to imitate as fenced code blocks — verbatim repo snippets, Before/After pairs | "follow the style of X" is not enough; show, don't point |
 | `research.md` | distilled findings: current behavior, root causes, repro commands, verified-vs-inferred | you learned non-obvious facts the executor would burn turns rediscovering |
-| `checklist.yaml` (`.md` for short queues) | work queue with one acceptance criterion per item, machine-checkable statuses | multi-item work — migrations, audits, content production, coding or not |
+| `checklist.yaml` (`.md` for short queues) | the starting work queue, one acceptance criterion per item | multi-item work — migrations, audits, content production, coding or not |
 | `decisions.md` | pre-answered questions + fallback rules ("if X, do Y") | any run long enough to hit an ambiguity you can predict |
 
 `<slug>` is a deterministic kebab-case summary of the goal (~4–6 words); re-running the same goal
-overwrites the same dir (idempotent). **Overwrite guard**: if the dir already holds a run in progress
-(e.g. a checklist with done/skip items), don't clobber it — pick a new slug or confirm with the user.
+overwrites the same dir (idempotent). **Overwrite guard**: if a run of this goal is in progress
+(its progress file or commits exist), don't clobber the bundle — pick a new slug or confirm with the user.
+
+**The bundle is read-only to the executor.** The state dir sits outside the target repository, and
+a Codex goal session cannot write there. Nothing in the run may require writing the bundle; put
+mutable run state where the executor can write, lightest first:
+
+1. **Derive it from the repo** — commits with a fixed message per item, or the files' own state,
+   so a rerun resumes by `git log --grep` or `git status` with no ledger at all.
+2. **A progress file inside the workspace**, at a gitignored path named in `goal.md`, never staged.
+3. **The final message** for the run report; no report file.
+
+GitHub issues and PRs (read and write) are reachable from both hosts and may carry state when the
+goal already works through them; don't add them just for bookkeeping. Keep bookkeeping as light
+as resuming needs — the checks prove the work, not the ledger.
 
 ## Phase 3: Draft goal.md + support files
 
