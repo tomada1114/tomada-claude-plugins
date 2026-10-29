@@ -2,9 +2,9 @@
 
 How the code is divided, which way dependencies run, and whether the patterns in use
 earn their keep. The most valuable findings here are **drift**: the repository states a
-design (AGENTS.md, `docs/architecture/`, a skill's "Owns" line) and the code does
-something else. Decide which side is wrong before proposing anything. Sometimes the
-code is right and the document is stale.
+design (AGENTS.md's Architecture section, a skill's "Owns" line and the design it
+records) and the code does something else. Decide which side is wrong before proposing
+anything. Sometimes the code is right and the skill is stale.
 
 ## Survey (facts to collect, no judgment)
 
@@ -46,9 +46,10 @@ code is right and the document is stale.
 - **AR7 Pattern fit.** A pattern heavier than the problem, such as a factory for one
   product or an event bus with one subscriber. A known pattern that would remove
   repeated branching: a table, a strategy, a state machine.
-- **AR8 Fitness for what comes next.** Read the roadmap or "Next" items, if the
-  repository has them. Say whether the current structure absorbs them or will need the
-  change anyway. Prefer findings that unblock planned work.
+- **AR8 Fitness for what comes next.** Read the open issues — tracking parents and the
+  highest priority tiers — and the Product section. Say whether the current structure
+  absorbs that planned work or will need the change anyway. Prefer findings that
+  unblock it.
 
 ## What a good proposal looks like here
 

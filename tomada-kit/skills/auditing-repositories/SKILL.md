@@ -66,9 +66,11 @@ day overwrites that day's run.
    `reachable: false`, which means fall back to a full audit.
 4. Read the repository's **declared intent** yourself, because every lens is judged
    against it: AGENTS.md and nested AGENTS.md (the Product section and its non-goals
-   above all), `docs/architecture/` or the equivalent, the roadmap, and the
-   one-line "Owns / Does not own" of each repository skill. Keep the excerpts; they
-   go into every brief.
+   above all), the one-line "Owns / Does not own" of each repository skill, and the
+   design each skill records (its body and `references/`), which is where the owner
+   keeps how the app is built and why. Keep the excerpts; they go into every brief. A
+   leftover architecture document or roadmap is itself a finding (stale design kept
+   outside the skills), not declared intent.
 5. Read the previous run's `report.md` and `filed.json` if they exist, so known and
    already-filed findings are not rediscovered as new.
 

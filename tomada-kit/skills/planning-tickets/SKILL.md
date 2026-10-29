@@ -42,7 +42,7 @@ Before drafting, look for the repository's own issue skills in its skills direct
 ## 2. Plan the breakdown
 
 Sources are the documents, cited by path and section (`docs/product/requirements.md
-§3.2`, `docs/architecture.md` § Persistence), never copied wholesale. Where a repository rule asks for a
+§3.2`, `.agents/skills/persisting-data/SKILL.md` § Schema changes), never copied wholesale. Where a repository rule asks for a
 `path:line` and the code does not exist yet, point at the file or directory the change
 lands in and the document section it implements.
 
@@ -54,7 +54,7 @@ lands in and the document section it implements.
   repository's rubric allows for groundwork; parallel issues must not touch the same
   files; every convergence of streams gets an integration issue.
 - **Hierarchy is a judgment call.** Group issues under a tracking parent when they
-  together deliver one outcome (a roadmap Now item, an MVP feature area) — the parent
+  together deliver one outcome (an MVP feature area, a requested capability) — the parent
   holds the checklist and the "done when", never work of its own. Skip the parent for a
   handful of unrelated issues.
 - **Every issue** states concrete values with their source, EARS requirements
@@ -75,7 +75,6 @@ IDs, create in dependency order, backfill real numbers into `Depends on` / `Bloc
 blocked-by relationships — so the edges show in GitHub's UI as well as in the bodies.
 Body lines stay the source automation parses; native links mirror them.
 
-When the repository has a roadmap page, fill each outcome's issue links after creation.
 
 ## Report
 

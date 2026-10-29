@@ -3,7 +3,8 @@ name: kicking-off-apps
 description: >-
   Take a rough app idea ("I want an app that…") to a new public GitHub repository cut
   from one of the user's template repositories, with signed-off requirements, UX flows,
-  a researched design system, architecture docs (no ADRs), loose project permissions,
+  a researched design system, design decisions in the template's skills (no
+  architecture docs), loose project permissions,
   and a dependency-ordered issue backlog for the template's shipping-issues.
   Orchestrates one child skill per stage — refining-requirements, designing-wireframes,
   ui-ux-designing, refero-design, bootstrapping-from-templates,
@@ -11,7 +12,7 @@ description: >-
   defers to the template's own skills. Resumable; hands off to a fresh session in the
   new repository. A `feature` mode scrutinizes a request for an app that already runs
   and files it as a tracking issue with sub-issues. Use when starting a new app from a
-  template, when the user describes an app to build while in a template, when resuming
+  template, when the user describes an app to build in a template, when resuming
   a kickoff, or when turning a feature request for an existing app into parent and
   sub-issues.
 argument-hint: "[app idea, free-form | resume | feature <request>]"
@@ -63,9 +64,11 @@ defines every artifact path used below. Read it before stage 1.
    this template", and the index of the repository's skill frontmatter
    (`.claude/skills/*/SKILL.md` or `.agents/skills/*/SKILL.md`). Note which of these
    exist, because they replace a global default later: `starting-an-app`,
-   `designing-ui`, `steering-the-roadmap`, `triaging-issues`, `shipping-issues`. A
-   `recording-architecture-decisions` skill or an ADR tree is not one of them: the
-   owner does not keep ADRs, so stage 7 removes it from the new app. When the host
+   `designing-ui`, `triaging-issues`, `shipping-issues`, and the skills that own each
+   subject (stage 7 writes decisions into them). A `recording-architecture-decisions`
+   skill, an ADR tree, a roadmap page or `steering-the-roadmap` skill, or a
+   `docs/architecture*` tree is not one of them: the owner keeps design only in skills
+   and no roadmap, so stage 7 removes it from the new app. When the host
    does not load a repository skill by name, read its `SKILL.md` and follow it the
    same way. The template fixes the stack; questions it already answers are not asked.
 
@@ -84,7 +87,7 @@ recommended option when there is a real recommendation; then wait for the answer
 | 4 | Init | `bootstrapping-from-templates` | the repository, Product section, drafts copied in, labels |
 | 5 | Permissions | `configuring-project-permissions` | `.claude/settings.local.json` and `.codex/rules/local.rules`, gitignored |
 | 6 | Handoff | this skill | resume prompt |
-| 7 | Architecture docs | `designing-architecture` | architecture overview with every decision in it, design lock, roadmap — no ADRs |
+| 7 | Design decisions | `designing-architecture` | each decision and the design lock written into the skill that owns it — no architecture docs, ADRs, or roadmap |
 | 8 | Issues | `planning-tickets` (repository conventions first) | tracking issues, sub-issues, dependencies |
 | 9 | Wrap-up | this skill | report and human-only steps |
 
@@ -139,10 +142,11 @@ cd <repo_path> && codex
 $kicking-off-apps resume
 ```
 
-**Stage 7.** `designing-architecture` turns the drafts into the stable documents; commit
-and push to `main` directly — the branch ruleset is not applied until wrap-up. No ADRs:
-every decision is written as present state, and ADR machinery the template still ships
-is removed in the same change.
+**Stage 7.** `designing-architecture` settles the decisions and writes each into the
+skill that owns its subject; commit and push to `main` directly — the branch ruleset is
+not applied until wrap-up. Every decision is written as present state in a skill, and an
+architecture document, roadmap, or ADR machinery the template still ships is removed in
+the same change.
 
 **Stage 8.** `planning-tickets`, told the repository's own `triaging-issues` and
 `shipping-issues` exist (when they do) so their label vocabulary, body rules, and
@@ -156,13 +160,14 @@ next move is the template's `shipping-issues`.
 
 ## Where decisions live
 
-Stable things become documents — what the app is and is not (the Product section at
-stage 4, the requirements it cites), and at stage 7 the architecture's philosophy and
-patterns, each hard-to-reverse choice as present-state text in those documents (never
-an ADR — git holds what a decision used to say), the direction as a roadmap. Units of
-work become issues at stage 8, and every issue cites the document section it
-implements rather than restating it. A decision that changes
-later is rewritten in place in its document, never only in an issue thread.
+What the app is and is not becomes the Product section at stage 4, with the
+requirements it cites. How it is built and why becomes skills at stage 7: each
+hard-to-reverse choice as present-state text in the skill that owns its subject, where
+an agent loads it when it touches that code — never an architecture overview, an ADR,
+or a roadmap (git holds what a decision used to say; direction is the Product section
+and the open issues). Units of work become issues at stage 8, and every issue cites the
+requirements section or skill it implements rather than restating it. A decision that
+changes later is rewritten in place in its skill, never only in an issue thread.
 
 ## Delegation
 

@@ -93,9 +93,11 @@ order inside the clone, with these boundaries:
   requirements: what the app is and for whom, the core interaction, the non-goals
   verbatim, and where the decisions are recorded (`docs/product/requirements.md`). Show
   the draft to the user before writing.
-- **Leave for later stages:** the roadmap, the design lock and token edits, the app
+- **Leave for later stages:** the design lock and token edits, the app
   shape and sandbox decisions, removing the sample code (`designing-architecture` and the
-  issue backlog own these). Note each so nothing is dropped.
+  issue backlog own these). Note each so nothing is dropped. A template step that fills
+  a roadmap page or opens a roadmap issue is skipped and reported: the owner keeps no
+  roadmap.
 - **Collect, never run:** steps the template reserves for a human or an admin — branch
   ruleset, repository security settings, signing and release secrets. Return them as
   the human-only list.

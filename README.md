@@ -26,7 +26,7 @@ Run `/plugin` to browse interactively.
 | **configuring-cloud-environments** | Inspect, create, and edit Claude Code cloud environments (the Name, Network access, Allowed domains, Setup… |
 | **configuring-project-permissions** | Set up a repository's personal, uncommitted agent permissions so development runs without prompts: Claude… |
 | **creating-agent-skills** | Create or improve Agent Skills (the shared SKILL.md format read by Claude Code and OpenAI Codex CLI —… |
-| **designing-architecture** | Turn signed-off requirements and UX drafts into a new app's stable design documents before any issue is… |
+| **designing-architecture** | Decide a new app's hard-to-reverse design choices from its signed-off requirements and UX drafts before any… |
 | **designing-wireframes** | Create ASCII wireframes for every screen and window, user flow diagrams, and per-screen states (empty… |
 | **dual-platform-skills** | Convert one existing skill (Claude Code origin or Codex origin) into a layout that works on both Claude Code… |
 | **find-skills** | Helps users discover and install agent skills when they ask questions like "how do I do X", "find a skill for… |

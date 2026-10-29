@@ -24,11 +24,13 @@ kickoff, not this mode — say so and ask. Then read what constrains the answer,
 question re-asks something the repository settles:
 
 - `AGENTS.md` / `CLAUDE.md`, `README.md`, and the repository's skill index — note
-  `triaging-issues`, `shipping-issues`, `designing-ui`, `steering-the-roadmap`; the same
+  `triaging-issues`, `shipping-issues`, `designing-ui`, and the skills whose Owns lines
+  cover what the request touches (they hold the design it builds on); the same
   precedence rule as a kickoff applies.
-- The product documents it has: requirements, UX flows and guidelines, design lock,
-  architecture overview, roadmap — and ADRs only where an older repository still keeps
-  them.
+- The product documents it has — requirements, UX flows and guidelines — and the open
+  issues, which are its only record of direction. An older repository may still keep an
+  architecture overview, a roadmap, or ADRs; read them, but treat the owning skill and
+  the code as authoritative where they disagree.
 - The code the request touches — enough to know what exists, what it is named, and
   which files a change would land in. Delegate a wide sweep to a read-only search
   sub-agent and keep only its conclusions.
@@ -62,12 +64,12 @@ touches, and the repository's UX guidelines (if any) so it does not restate them
 writes into the temporary directory.
 
 **F3.** For each hard-to-reverse choice (a new dependency, a schema or storage change, a
-new OS permission, an external service, a change that contradicts the documented design),
+new OS permission, an external service, a change that contradicts the design a skill records),
 research the options and settle it in an option round. Record each as a short
 "Decision — options considered — why" entry for the tracking issue. When the change
 contradicts the documented design, say so in that entry and add a sub-issue that
-rewrites the affected design text in place, in the present tense, in the same change as
-the code; this mode does not edit it.
+rewrites the affected design text in the owning skill, in place, in the present tense,
+in the same change as the code; this mode does not edit it.
 
 **F4.** Run `planning-tickets`, told the repository's `triaging-issues` and
 `shipping-issues` exist (when they do) and told the sources are the temporary drafts,
