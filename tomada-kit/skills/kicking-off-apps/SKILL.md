@@ -102,9 +102,11 @@ settles the working title, which fixes `<slug>`: create `$STATE/state.md` then.
 platform and that the other document exists, so neither restates the other.
 
 **Stage 3.** Read the template's `designing-ui` first: its lock format and its token
-files are the target shape. Run `refero-design` for the research and the direction, and
-write the result — primary reference, what is preserved and borrowed, role rules, token
-values for light and dark — to `$STATE/design-direction.md` in that shape. Measure the
+files are the target shape. When `applying-design-systems` is available, choose one
+system with it and take the system's lock, ledger and tokens as the direction; otherwise
+run `refero-design` for the research and the direction. Write the result — primary
+reference, what is preserved and borrowed, role rules, token values for light and dark —
+to `$STATE/design-direction.md` in that shape. Measure the
 palette with `ui-ux-designing`'s contrast pass (`contrast <palette-source> into
 $STATE/design-direction.md`); a failing pair goes back to the direction, not to a
 silent tweak. Tokens are not applied to code here; that is a stage 8 issue.

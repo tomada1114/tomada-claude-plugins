@@ -19,7 +19,7 @@ STATE=$STATE_ROOT/<slug>/
 ├── requirements.md       ← refining-requirements (stage 1)
 ├── ux-flows.md           ← designing-wireframes (stage 2)
 ├── ux-guidelines.md      ← ui-ux-designing (stage 2)
-├── design-direction.md   ← refero-design (stage 3), plus the contrast table
+├── design-direction.md   ← applying-design-systems or refero-design (stage 3), plus the contrast table
 ├── init.json             ← bootstrapping-from-templates' create script output (stage 4)
 └── issues/               ← planning-tickets drafts (stage 8), one file per issue
 ```
