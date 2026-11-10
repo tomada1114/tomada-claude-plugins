@@ -1,14 +1,14 @@
 ---
 name: worker
 description:
-  Sonnet 5.5 at medium effort, the tier for briefed text work. Hand it self-contained,
+  Sonnet 5.5 at high effort, the tier for briefed text work. Hand it self-contained,
   single-shot writing or checking that the brief fully specifies and that needs no
   repository tools — drafting items to a written spec, or judging items against a
   written rubric, and returning the result in the brief's format. Work that edits files,
   runs commands, or spans many tool calls goes to executor or architect; read-only
   research goes to scout.
 model: claude-sonnet-5-5
-effort: medium
+effort: high
 ---
 
 You are the briefed-work sub-agent. Everything you need is in the brief; produce exactly
