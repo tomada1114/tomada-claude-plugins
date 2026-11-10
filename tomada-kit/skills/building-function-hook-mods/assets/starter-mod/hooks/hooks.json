@@ -1,4 +1,0 @@
-{
-  "description": "Draws a band above the prompt while Claude is working",
-  "modules": ["./register.tsx"]
-}

@@ -18,10 +18,7 @@ Run `/plugin` to browse interactively.
 | **auditing-prompt-docs** | Audit and fix prompt-bearing documents — SKILL.md, CLAUDE.md, AGENTS.md, agent and command definitions… |
 | **auditing-repositories** | Audit the repository you are in, often a template or an app cut from one, for technical debt and room to… |
 | **authoring-goal-prompts** | Author a self-contained prompt for Claude Code's /goal command, run unattended in a separate session — a… |
-| **automating-security-fixes** | Set up, port, or maintain a daily GitHub Actions workflow that turns open Dependabot alerts into one… |
 | **bootstrapping-from-templates** | Cut a new GitHub repository from one of the user's template repositories and bring it to a clean first… |
-| **building-chat-uis** | Field notes for building LLM chat interfaces on the Vercel AI SDK (`ai` + `@ai-sdk/react`), whose API is… |
-| **building-function-hook-mods** | Build a Claude Mod — a Claude Code plugin whose behaviour lives in a TypeScript hooks module, registered as… |
 | **codex-cli-config** | Reference for OpenAI Codex CLI configuration, permissions, sandboxing, and autonomy — sandbox_mode and… |
 | **configuring-cloud-environments** | Inspect, create, and edit Claude Code cloud environments (the Name, Network access, Allowed domains, Setup… |
 | **configuring-project-permissions** | Set up a repository's personal, uncommitted agent permissions so development runs without prompts: Claude… |
@@ -29,15 +26,14 @@ Run `/plugin` to browse interactively.
 | **designing-architecture** | Decide a new app's hard-to-reverse design choices from its signed-off requirements and UX drafts before any… |
 | **designing-wireframes** | Create ASCII wireframes for every screen and window, user flow diagrams, and per-screen states (empty… |
 | **dual-platform-skills** | Convert one existing skill (Claude Code origin or Codex origin) into a layout that works on both Claude Code… |
-| **find-skills** | Helps users discover and install agent skills when they ask questions like "how do I do X", "find a skill for… |
 | **kicking-off-apps** | Take a rough app idea ("I want an app that…") to a new public GitHub repository cut from one of the user's… |
 | **orchestrating-models** | Decide which model and effort runs a piece of work, and whether to delegate it at all. |
 | **planning-tickets** | Break requirements and design documents into GitHub Issues an implementing agent can ship without asking… |
 | **refero-design** | Primary/default skill for UI design, product design, web design, landing pages, dashboards, product screens… |
 | **refining-prompts** | Polish a rough instruction (often dictated by voice) into a precise prompt that can be handed straight to… |
 | **refining-requirements** | Turn a vague app idea or an incomplete spec into a signed-off, implementation-ready requirements document… |
+| **rethinking-prompt-assets** | Rethink a set of prompt assets from zero — memory files (CLAUDE.md, AGENTS.md), skills, sub-agent… |
 | **syncing-agent-tiers** | Push the canonical sub-agent tier definitions (executor, architect, scout, worker) into every listed… |
-| **transplanting-harnesses** | Translate a reference repository's development harness — policy docs (AGENTS.md / CLAUDE.md), agent skills… |
 | **ui-ux-designing** | Produces one app-wide UX guidelines document (docs/design/ux-guidelines.md or a caller-named path) fixing… |
 
 ## Commands

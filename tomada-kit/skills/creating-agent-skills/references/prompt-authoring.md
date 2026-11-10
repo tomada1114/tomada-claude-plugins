@@ -79,14 +79,14 @@ Keep sub-agent prompts free of the legacy phrasings above. A parent skill that t
 
 ## Assigning models and effort
 
-A skill that spawns sub-agents says which tier each one runs on. Left unspecified, the mechanical specialist and the hard one both run on whatever the session happens to be.
+A skill that spawns sub-agents says which tier each one runs on, by agent name. Which model and effort a tier means is written only in the agent definitions and explained in the `orchestrating-models` skill; this file names no model. Left unspecified, the mechanical specialist and the hard one both run on whatever the session happens to be.
 
 | Sub-agent's job | Tier |
 |---|---|
-| A hard problem a brief can carry (multistep reasoning, a non-obvious algorithm, root-cause analysis), code review and bug-finding, synthesizing a large set of scattered findings | `architect` (Fable 5.2 high) |
-| Fully specified work with a clear pass/fail (settled-spec implementation, run the tests, add coverage, make CI green, commit, open the PR, bulk replace) | `executor` (Opus 5.5 low) |
-| Read-only, judgment-free research, collection, enumeration and summarizing — work that changes no files | `scout` (Haiku 5.5 xhigh) |
-| Single-shot, tool-free writing or checking from a complete brief, whose output a later stage checks (drafting items to a spec, judging items against a rubric) | `worker` (Sonnet 5.5 high) |
+| A hard problem a brief can carry (multistep reasoning, a non-obvious algorithm, root-cause analysis), code review and bug-finding, synthesizing a large set of scattered findings | `architect` |
+| Fully specified work with a clear pass/fail (settled-spec implementation, run the tests, add coverage, make CI green, commit, open the PR, bulk replace) | `executor` |
+| Read-only, judgment-free research, collection, enumeration and summarizing — work that changes no files | `scout` |
+| Single-shot, tool-free writing or checking from a complete brief, whose output a later stage checks (drafting items to a spec, judging items against a rubric) | `worker` |
 
 The dividing line for `executor` is **spec completeness, not size**. If the sub-agent could plausibly come back asking what you meant, the spec was not settled: the main session settles it first, or keeps the step. `architect` is the most expensive tier, so a skill gives it only the steps that need more reasoning than the session itself, and as few spawns as the work allows. The lower the tier, the more self-contained the prompt must be: an `executor` spawn needs explicit paths, an explicit output shape, and no open questions; an `architect` spawn can be handed the goal and the constraints.
 

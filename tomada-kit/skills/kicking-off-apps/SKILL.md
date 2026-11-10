@@ -7,7 +7,7 @@ description: >-
   architecture docs), loose project permissions,
   and a dependency-ordered issue backlog for the template's shipping-issues.
   Orchestrates one child skill per stage — refining-requirements, designing-wireframes,
-  ui-ux-designing, refero-design, bootstrapping-from-templates,
+  ui-ux-designing, a design skill, bootstrapping-from-templates,
   configuring-project-permissions, designing-architecture, planning-tickets — and
   defers to the template's own skills. Resumable; hands off to a fresh session in the
   new repository. A `feature` mode scrutinizes a request for an app that already runs
@@ -83,7 +83,7 @@ recommended option when there is a real recommendation; then wait for the answer
 |---|---|---|---|
 | 1 | Hearing and scrutiny | `refining-requirements` (hearing mode) | `requirements.md` |
 | 2 | UX | `designing-wireframes`, then `ui-ux-designing` | `ux-flows.md`, `ux-guidelines.md` |
-| 3 | Design system | `refero-design`, then the contrast pass of `ui-ux-designing` | `design-direction.md` |
+| 3 | Design system | `applying-design-systems` (or `refero-design` when it is not installed), then the contrast pass of `ui-ux-designing` | `design-direction.md` |
 | 4 | Init | `bootstrapping-from-templates` | the repository, Product section, drafts copied in, labels |
 | 5 | Permissions | `configuring-project-permissions` | `.claude/settings.local.json` and `.codex/rules/local.rules`, gitignored |
 | 6 | Handoff | this skill | resume prompt |

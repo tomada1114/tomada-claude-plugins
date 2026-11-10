@@ -3,7 +3,7 @@
 Rounds in order; skip a round the platform excludes or the inputs already answer.
 Rounds marked **(UX stage)** are skipped when `ui-ux-designing` runs afterwards, as it
 does in `kicking-off-apps`; rounds marked **(visual stage)** are skipped when a visual
-design stage (`refero-design`) follows.
+design stage (`applying-design-systems`, or `refero-design`) follows.
 
 **Round 0 — Product and scope** (all; hearing mode starts here)
 - Who uses it, in what situation, and what do they do today instead?

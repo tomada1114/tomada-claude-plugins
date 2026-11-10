@@ -66,10 +66,10 @@ metadata:
 
 **他スキルからの参照:** このスキルがモデル割当の正本。
 
-- **グローバルスキル**(`~/.claude/skills`)は割当をコピーしない。段をエージェント名(`executor` / `architect` / `scout` / `worker`)で指し、選び方はこのスキルへのポインタで済ませる。`~/.claude/CLAUDE.md` の Model Roles だけは毎セッション読まれる要約として割当を 1 段落持つ
+- **グローバルスキル**(`~/.claude/skills`)は割当をコピーしない。段をエージェント名(`executor` / `architect` / `scout` / `worker`)で指し、選び方はこのスキルへのポインタで済ませる。`~/.claude/CLAUDE.md` の Model Roles も段を名前で指すだけで、モデル名と effort は書かない
 - **リポジトリ**(公開リポジトリ、テンプレート、他人も使うもの)は、クラウドセッションと Codex がリポジトリ内の定義しか読まないので、段の定義ファイルを `.claude/agents/`(と `.codex/agents/`)に持つ。ただしそれは `syncing-agent-tiers` が正本 `assets/tiers.json` から生成して PR で配るコピーで、手で直さない。リポジトリの文章(AGENTS.md・CLAUDE.md・スキル)は段を名前と役割で指し、モデル名と effort を書かない。Workflow の `agent()` でモデルが要るなら、スキル内の 1 か所の定数にまとめる
 
-モデルや effort を変えるときは、エージェント定義(`~/.claude/agents`)、このスキル、`~/.claude/CLAUDE.md` の Model Roles、settings.json の `modelSettings`、`syncing-agent-tiers` の `tiers.json` を直し、`syncing-agent-tiers` で配る。取り残しは `grep -rln 'orchestrating-models' ~/.claude/skills ~/.claude/CLAUDE.md` と `grep -rlE 'model: *.?(sonnet|haiku|opus|fable)' ~/ghq/github.com/tomada1114/*/.claude/skills` で洗い出す。
+モデルや effort を変えるときは、エージェント定義(`~/.claude/agents`)、このスキル、settings.json の `modelSettings`、`syncing-agent-tiers` の `tiers.json` を直し、`syncing-agent-tiers` で配る。取り残しは `grep -rln 'orchestrating-models' ~/.claude/skills ~/.claude/CLAUDE.md` と `grep -rlE 'model: *.?(sonnet|haiku|opus|fable)' ~/ghq/github.com/tomada1114/*/.claude/skills` で洗い出す。
 
 段ごとの癖に合わせた委譲プロンプトの書き方は [references/model-playbooks.md](references/model-playbooks.md) を読む。
 

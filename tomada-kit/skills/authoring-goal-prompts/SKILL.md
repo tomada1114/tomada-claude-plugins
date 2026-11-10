@@ -73,8 +73,8 @@ unless the user names another. Gather, in order:
 5. **Design** — when the task involves choices (architecture, interfaces, naming, approach, library),
    make them now and record decision + rationale + rejected alternative. The lead designs; the executor executes.
 
-For a broad/uncertain scope, run items 1 and 3 in parallel as `executor` sub-agents (tier choice:
-the `orchestrating-models` skill); where that isn't available, read them sequentially in
+For a broad/uncertain scope, run items 1 and 3 in parallel as `scout` sub-agents, since both only read (tier choice:
+the `orchestrating-models` skill); name the files and the question for each, and re-request an empty reply; where that isn't available, read them sequentially in
 the main context — same result, more time (see [references/platform-notes.md](references/platform-notes.md)).
 
 Resolve everything you can here by investigation — only genuine, goal-defining unknowns reach Phase 4.

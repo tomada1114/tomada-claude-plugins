@@ -1,6 +1,6 @@
 # Accessibility
 
-The targets a product's UX guidelines commit to, how to set each one to a concrete value, and how to measure contrast on a palette decided elsewhere. The palette itself is chosen by `refero-design` (and the repository's `designing-ui` skill when it has one); this file only checks it.
+The targets a product's UX guidelines commit to, how to set each one to a concrete value, and how to measure contrast on a palette decided elsewhere. The palette itself is chosen by `applying-design-systems`, or `refero-design` when it is not installed (and the repository's `designing-ui` skill when it has one); this file only checks it.
 
 ## Contents
 
@@ -68,7 +68,7 @@ WCAG 2.x ratios are the floor that law and audits reference. APCA Lc may be used
 
 ## Contrast pass
 
-Run this on any palette decided elsewhere: the token values in a `design-direction.md` from `refero-design`, a template's `tokens.css` / `globals.css`, or a Tailwind `@theme` block.
+Run this on any palette decided elsewhere: the token values in a `design-direction.md` from `applying-design-systems` or `refero-design`, a template's `tokens.css` / `globals.css`, or a Tailwind `@theme` block.
 
 1. **List the pairs**, in light and in dark separately:
    - body text / background, and on every surface it sits on (card, elevated, sidebar)
@@ -94,7 +94,7 @@ Run this on any palette decided elsewhere: the token values in a `design-directi
    `kind` is `text` (body), `large` (large text), or `ui` (boundaries, icons, focus).
 4. **Run** from the target repository root `python3 {SKILL_DIR}/scripts/check_contrast.py <pairs.json>`, with `{SKILL_DIR}` resolved to this skill's absolute directory (add `--level AAA` for an AAA target, `--json` for machine-readable output; `--pair FG BG --kind ui` checks one pair ad hoc). Exit 0 = all pass, 1 = at least one FAIL, 2 = input error.
 5. **Paste the table** the script prints, unedited, into the target document under a "Measured contrast" heading, with the pairs file path. Why: ratios written from memory or copied from elsewhere are often wrong (a common one: `#71717A` on `#0A0A0B` quoted as 4.6:1 measures 4.09:1), and a wrong ratio marked as passing ships an unreadable UI.
-6. **On FAIL**, report each failing pair with the smallest change that passes (usually lowering or raising OKLCH L on one side, or switching to a dark on-color) and hand it to the palette owner — the `refero-design` direction or the user. Re-run after the palette changes until exit 0.
+6. **On FAIL**, report each failing pair with the smallest change that passes (usually lowering or raising OKLCH L on one side, or switching to a dark on-color) and hand it to the palette owner — the design direction's author skill or the user. Re-run after the palette changes until exit 0.
 
 Known failures worth checking first: white text on Tailwind 500-level fills fails (amber 2.15, green 2.28, orange 2.80, blue 3.68, red 3.76, violet 4.23; blue-600 passes at 5.17), and light gray on white fails (`#9CA3AF` on `#FFFFFF` = 2.54).
 

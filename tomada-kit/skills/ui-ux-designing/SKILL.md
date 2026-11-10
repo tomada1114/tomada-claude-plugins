@@ -1,6 +1,6 @@
 ---
 name: ui-ux-designing
-description: "Produces one app-wide UX guidelines document (docs/design/ux-guidelines.md or a caller-named path) fixing navigation, platform conventions, empty/loading/error/offline/permission states, feedback, form validation, motion and reduced-motion, UI language and i18n, and accessibility targets as concrete values, settled through batched option-question rounds; also runs a measured WCAG contrast pass on a palette decided elsewhere. Use when settling app-wide behavior, deciding state handling, validation timing, motion policy, or accessibility targets, when a kickoff needs UX guidelines, or when a palette or tokens file needs its contrast measured. Not for visual direction — palette, typography, tokens (refero-design, plus the repository's designing-ui skill); not for wireframes, screen layouts, or user flows (designing-wireframes); not for product requirements (refining-requirements)."
+description: "Produces one app-wide UX guidelines document (docs/design/ux-guidelines.md or a caller-named path) fixing navigation, platform conventions, empty/loading/error/offline/permission states, feedback, form validation, motion and reduced-motion, UI language and i18n, and accessibility targets as concrete values, settled through batched option-question rounds; also runs a measured WCAG contrast pass on a palette decided elsewhere. Use when settling app-wide behavior, deciding state handling, validation timing, motion policy, or accessibility targets, when a kickoff needs UX guidelines, or when a palette or tokens file needs its contrast measured. Not for visual direction — palette, typography, tokens (applying-design-systems, or refero-design when it is not installed, plus the repository's designing-ui skill); not for wireframes, screen layouts, or user flows (designing-wireframes); not for product requirements (refining-requirements)."
 argument-hint: "[output-path] | contrast <palette-source> [into <doc>]"
 metadata:
   platforms: claude-code, codex
@@ -10,7 +10,7 @@ metadata:
 
 Settles app-wide UX policy and writes it to one document. The reader is a later session implementing UI, so the document holds values it can use directly — durations in ms, sizes in pt/px, exact copy patterns, which state shows what — not adjectives. Why: "friendly errors" or "AA compliant" cannot be implemented, so the implementing session would decide on the spot anyway.
 
-Visual direction (references, palette, typography, spacing, tokens, the design lock) belongs to `refero-design` and, when the repository has one, its own `designing-ui` skill. This skill only measures a palette's contrast.
+Visual direction (references, palette, typography, spacing, tokens, the design lock) belongs to `applying-design-systems` (or `refero-design` when it is not installed) and, when the repository has one, its own `designing-ui` skill. This skill only measures a palette's contrast.
 
 ## Contract
 
@@ -21,7 +21,7 @@ Visual direction (references, palette, typography, spacing, tokens, the design l
 
 **Output:** the one document, from [templates/ux-guidelines-template.md](templates/ux-guidelines-template.md). If the repository already has a UX home — an existing `ux-guidelines.md`, or UX sections in an older `docs/design/design-concept.md` / `design-system.md` — update that file in place instead of creating a second one. Why: two sources split the implementing session's reference, and the stale one gets read. When it is unclear which file is canonical, ask once: present the candidate files as options with a recommendation and wait for the answer.
 
-**Boundaries:** screen layouts, wireframes, and user flows → `designing-wireframes`; product requirements → `refining-requirements`; visual direction → `refero-design`. When one of those documents exists, link to it and write only policy it does not already fix.
+**Boundaries:** screen layouts, wireframes, and user flows → `designing-wireframes`; product requirements → `refining-requirements`; visual direction → `applying-design-systems` (or `refero-design` when it is not installed). When one of those documents exists, link to it and write only policy it does not already fix.
 
 ## Workflow
 
@@ -41,7 +41,7 @@ A single, local question ("how should this list behave when empty?") gets one re
 
 ## Contrast pass
 
-Runs on any palette decided elsewhere — the token values in a `refero-design` direction, a template's `tokens.css` / `globals.css`, a Tailwind `@theme` block. Follow the pair checklist and value-resolution rules in [references/accessibility.md § Contrast pass](references/accessibility.md#contrast-pass): list light and dark pairs, resolve `var()` / `light-dark()` to literal colors, composite any alpha onto its background, write a pairs JSON next to the target document, then run:
+Runs on any palette decided elsewhere — the token values in a design direction from `applying-design-systems` or `refero-design`, a template's `tokens.css` / `globals.css`, a Tailwind `@theme` block. Follow the pair checklist and value-resolution rules in [references/accessibility.md § Contrast pass](references/accessibility.md#contrast-pass): list light and dark pairs, resolve `var()` / `light-dark()` to literal colors, composite any alpha onto its background, write a pairs JSON next to the target document, then run:
 
 ```bash
 python3 {SKILL_DIR}/scripts/check_contrast.py <pairs.json>            # AA; add --level AAA, --json
@@ -52,7 +52,7 @@ python3 {SKILL_DIR}/scripts/check_contrast.py --pair "#FFFFFF" "#2563EB" --kind 
 
 The JSON is an array of `{"name", "fg", "bg", "kind"}`; `kind` is `text`, `large`, or `ui`. Accepted colors: `#RRGGBB`, `#RGB`, `rgb()`, `oklch()`, no alpha. Exit 0 = all pass, 1 = a pair fails, 2 = bad input.
 
-Paste the printed table unedited under "Measured contrast" in the document the caller named (default: the Accessibility targets section of the UX guidelines), with the pairs file path. Why: ratios from memory are often wrong, and a wrong ratio marked PASS ships unreadable UI. On FAIL, report each failing pair with the smallest passing change and hand it to the palette owner — `refero-design`'s direction or the user — then re-run until exit 0. This skill does not change the palette itself.
+Paste the printed table unedited under "Measured contrast" in the document the caller named (default: the Accessibility targets section of the UX guidelines), with the pairs file path. Why: ratios from memory are often wrong, and a wrong ratio marked PASS ships unreadable UI. On FAIL, report each failing pair with the smallest passing change and hand it to the palette owner — the design direction's author skill or the user — then re-run until exit 0. This skill does not change the palette itself.
 
 ## Asking questions
 
