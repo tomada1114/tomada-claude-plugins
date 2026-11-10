@@ -1,5 +1,5 @@
 <!-- audit-ignore-file: A006 -->
-<!-- prompt-lint-ignore-file: P001,P002,P003,P004,P005,P008,P012 -->
+<!-- prompt-lint-ignore-file: P001,P002,P003,P004,P005,P008,P012,P016 -->
 # General prompting practices
 
 What holds across current Claude models. The anti-patterns and their rewrites
@@ -15,6 +15,7 @@ divergences that decide which model file to open next.
 - [Output and formatting](#output-and-formatting)
 - [Long context](#long-context)
 - [Tool use](#tool-use)
+- [Instructions that carry over](#instructions-that-carry-over)
 - [Thinking and effort](#thinking-and-effort)
 - [Agentic and long-horizon work](#agentic-and-long-horizon-work)
 - [Scope control](#scope-control)
@@ -26,20 +27,20 @@ divergences that decide which model file to open next.
 The single table worth consulting during an audit. Open the per-model file when
 the document targets one model specifically.
 
-| Behavior | Fable 5.1 | Opus 5.5 | Sonnet 5.5 | Haiku 5.5 |
+| Behavior | Fable 5.2 | Opus 5.5 | Sonnet 5.5 | Haiku 5.5 |
 |---|---|---|---|---|
-| Conversational length | dense prose; asks for shorter sentences, not less structure | reports plainly; Opus 5's length problem not restated — re-test before adding conciseness text | not restated; carried over from Sonnet 5: calibrated to task complexity | not restated; xhigh/max replies get much longer |
-| Formatting in chat | under-formats; anti-formatting blocks must go | standard | standard | standard; reasoning-like text can leak into the reply with thinking off or at `low` |
-| Progress updates during tool chains | fewer than expected; ask for them | writes them by default, as `thinking` blocks (`display: "updates"`); may end unattended turns early with a report — name the unwanted stops | writes them; longer notes as `thinking` blocks (`display: "updates"`, or `between_tools`); remove hold-findings text; harness reminder after ~5 silent steps | not restated |
-| Initiative and scope | may stop to ask or describe next steps instead of doing them; extends scope on open-ended feature work | expands scope on narrow tasks (measured on Opus 5) | checks in early at `low`/`medium`; adds tests and docs at every level; own review rounds at `xhigh`/`max` | stops early and hands back on long agent prompts at `low` — use the keep-working text or raise effort |
-| Self-verification | standard | strong — remove verification instructions (measured on Opus 5) | checks its work, but at `low` may report done without a real check — keep a concrete check instruction | at `low`/`medium` may report code done without a check — keep a concrete check instruction |
-| Search in chat and knowledge work | searches less at `low` | may miss context the request did not point to in multi-app work | answers from training knowledge where a search would catch changes — remove tool-discouraging text | give it today's date; needs a nudge at `low` and with long system prompts; blanket search rules overtrigger |
-| Subagent delegation | delegates readily; let the lead keep working | delegates readily; cap it; responds to elapsed-time budgets | may launch reviewer subagents at `xhigh`/`max` unprompted | not restated; positioned as the narrowly scoped subagent, not the lead |
-| Instruction literalism | standard | high on review-bar wording (measured on Opus 5) | not restated; carried over from Sonnet 5: high — state scope explicitly | use `high` when strict instruction following matters |
-| Thinking | always on, adaptive only | always on; remove "think carefully" and write-out-your-reasoning lines | on by default; lowest setting `between_tools` (`disabled` returns 400); asking to think less is unreliable | on by default; `disabled` accepted at `high` or below (400 above); asking to answer directly does not stop it; at `xhigh` multi-turn can end with no visible text |
-| Effort default | `high` | `medium` (≈ Opus 5 `high`); thinks more per level — re-sweep | `high`, recalibrated — agentic coding from `medium`, chat `medium`/`low`; re-sweep | `medium` (first Haiku with effort); `xhigh`/`max` only for measured gains — compare with Sonnet 5.5 |
+| Conversational length | effort barely changes reply length — prompt for it; final reports need the low-context-reader text | reports plainly; Opus 5's length problem not restated — re-test before adding conciseness text | not restated; carried over from Sonnet 5: calibrated to task complexity | not restated; xhigh/max replies get much longer |
+| Formatting in chat | not restated (5.1 under-formatted — re-test); follows style rules closely, so hard limits make prose choppy | standard | standard | standard; reasoning-like text can leak into the reply with thinking off or at `low` |
+| Progress updates during tool chains | long silent tool chains, no opening line; updates arrive as `thinking` blocks (`display: "updates"`); harness reminder, or ask for an opening line and recap | writes them by default, as `thinking` blocks (`display: "updates"`); may end unattended turns early with a report — name the unwanted stops | writes them; longer notes as `thinking` blocks (`display: "updates"`, or `between_tools`); remove hold-findings text; harness reminder after ~5 silent steps | not restated |
+| Initiative and scope | ends turns early at `low`/`medium` — use the finishing-work text; scope follows what the prompt says about code ownership | expands scope on narrow tasks (measured on Opus 5) | checks in early at `low`/`medium`; adds tests and docs at every level; own review rounds at `xhigh`/`max` | stops early and hands back on long agent prompts at `low` — use the keep-working text or raise effort |
+| Self-verification | standard; reviews its own work with subagents at `xhigh`/`max` | strong — remove verification instructions (measured on Opus 5) | checks its work, but at `low` may report done without a real check — keep a concrete check instruction | at `low`/`medium` may report code done without a check — keep a concrete check instruction |
+| Search in chat and knowledge work | not restated (5.1 searched less at `low`) | may miss context the request did not point to in multi-app work | answers from training knowledge where a search would catch changes — remove tool-discouraging text | give it today's date; needs a nudge at `low` and with long system prompts; blanket search rules overtrigger |
+| Subagent delegation | depends on the harness — readily where prompts invite it; remove standing delegate lines first, then put cost first in the spawn-tool description | delegates readily; cap it; responds to elapsed-time budgets | may launch reviewer subagents at `xhigh`/`max` unprompted | not restated; positioned as the narrowly scoped subagent, not the lead |
+| Instruction literalism | highest of the four: approval rules, cautions, "never" rules, and style limits are applied as written — name exact actions, write the exception into the rule | high on review-bar wording (measured on Opus 5) | not restated; carried over from Sonnet 5: high — state scope explicitly | use `high` when strict instruction following matters |
+| Thinking | always on, adaptive only; thinks before almost every reply at `high`+; "answer directly" has no effect at `medium`+ | always on; remove "think carefully" and write-out-your-reasoning lines | on by default; lowest setting `between_tools` (`disabled` returns 400); asking to think less is unreliable | on by default; `disabled` accepted at `high` or below (400 above); asking to answer directly does not stop it; at `xhigh` multi-turn can end with no visible text |
+| Effort default | `high`; most of the gain is present at `high`; `medium` for interactive work; re-sweep | `medium` (≈ Opus 5 `high`); thinks more per level — re-sweep | `high`, recalibrated — agentic coding from `medium`, chat `medium`/`low`; re-sweep | `medium` (first Haiku with effort); `xhigh`/`max` only for measured gains — compare with Sonnet 5.5 |
 
-Detail: `model-fable-5-1.md`, `model-opus-5-5.md`, `model-sonnet-5-5.md`, `model-haiku-5-5.md`.
+Detail: `model-fable-5-2.md`, `model-opus-5-5.md`, `model-sonnet-5-5.md`, `model-haiku-5-5.md`.
 
 ## Clarity
 
@@ -148,6 +149,21 @@ Tool definitions do the heavy lifting: a tool that is not triggering usually
 needs a clearer description of when and why to use it, not a louder instruction
 in the system prompt.
 
+## Instructions that carry over
+
+Instruction files, memory, notes, and messages between agents collect cautions
+over time, and the newest models apply them as written — Fable 5.2 most of all.
+When a prompt moves to a newer model, expect to delete: cautions whose reason no
+longer holds, standing orders to delegate, lines that ask for less thinking, and
+hard style limits. Give each surviving absolute rule its scope, its reason, and
+its exception inside the rule itself ("get a go-ahead before X", not "never X"
+plus a separate line about approvals). Approval rules name the exact actions
+they cover. Detail: `model-fable-5-2.md#caution-that-piles-up`.
+
+Prompt changes go into new conversations. On current models, changing `system`,
+`tools`, or an earlier message mid-conversation invalidates the thinking blocks
+after it; put a mid-conversation change in the newest turn instead.
+
 ## Thinking and effort
 
 Adaptive thinking is the current mode: the model decides how much to think based
@@ -167,8 +183,10 @@ answer quality — typically for problems that require multistep reasoning. When
 in doubt, respond directly.
 ```
 
-On Opus 5.5 and Sonnet 5.5, lowering effort beats this instruction; on Sonnet
-5.5, asking to think less does not reliably reduce thinking.
+On Opus 5.5 and Sonnet 5.5, lowering effort beats this instruction. On Sonnet
+5.5 and Haiku 5.5 asking to think less does not reliably reduce thinking, and on
+Fable 5.2 it has no effect at `medium` and above — lower the effort and delete
+the line (`rules.md` P016).
 
 To improve use of it after tool calls: "After receiving tool results, reflect on
 their quality and determine the best next step before proceeding."

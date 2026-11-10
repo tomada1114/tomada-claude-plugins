@@ -29,6 +29,7 @@ is prompting (`<!-- prompt-lint-ignore-file: P002,P003 -->` at the top, or
 - [P013 narration-suppression](#p013-narration-suppression)
 - [P014 forced-tool-choice](#p014-forced-tool-choice)
 - [P015 tool-discouragement](#p015-tool-discouragement)
+- [P016 think-less-instruction](#p016-think-less-instruction)
 - [D001 doc-size-budget](#d001-doc-size-budget)
 - [D002 duplicate-directive](#d002-duplicate-directive)
 - [What the linter cannot see](#what-the-linter-cannot-see)
@@ -190,9 +191,12 @@ rule across every task it is a cost with no ceiling.
 **Fires on:** "use subagents whenever ...", "delegate liberally", "spawn
 multiple agents".
 
-Opus 5.5 and Fable-class models delegate readily without being asked. An
-open-ended nudge produces sub-agents for work a single search would finish, and
-each spawn multiplies cost and wall-clock time.
+Opus 5.5 and Fable-class models delegate readily without being asked, and Fable
+5.2 delegates as much as the harness invites. An open-ended nudge produces
+sub-agents for work a single search would finish, and each spawn multiplies cost
+and wall-clock time. On Fable 5.2 the guide's first fix for over-delegation is
+removing these lines from system prompts, skills, and agent files — before
+touching the spawn tool's description.
 
 **Rewrite:**
 
@@ -214,7 +218,7 @@ prefill", "prefilled response".
 These patterns are removed, not merely discouraged. Manual extended thinking with
 `budget_tokens` returns 400 on current models; a prefilled assistant message on
 the final turn returns 400 from the 4.6 generation onward. Thinking cannot be
-turned off on most models this skill tracks: Fable 5.1 is adaptive only, Opus 5.5
+turned off on most models this skill tracks: Fable 5.2 is adaptive only, Opus 5.5
 does not accept `disabled`, and Sonnet 5.5 returns 400 with a message pointing
 to `between_tools`. Haiku 5.5 is the exception — it accepts `disabled` at
 `high` effort or below (400 at `xhigh`/`max`) — but its guide still prefers a
@@ -246,8 +250,9 @@ distinct directions and pick one; for tone, describe the voice in the prompt.
 
 Two problems. Prohibitions steer formatting weakly — describing the output you
 want works better. And the models these rules were written against are gone:
-Fable 5.1 already formats sparsely, so an inherited anti-formatting block
-suppresses structure the content needed.
+Fable 5.1 formatted sparsely, so an inherited anti-formatting block suppressed
+structure the content needed; Fable 5.2 follows style rules closely enough that
+a hard limit makes its prose choppy.
 
 **Rewrite:** "Do not use markdown" becomes "Write in flowing prose paragraphs."
 Where some structure is right, say when: "Use lists when the content is
@@ -259,9 +264,9 @@ prose." On a model that already under-formats, delete the block outright.
 **Fires on:** "hold all findings for the final response", "do not provide
 progress updates", "no running commentary".
 
-Written for models that over-narrated. Fable 5.1 writes *fewer* user-facing
-updates during long tool chains than its predecessor, so inherited suppression
-produces a run that goes silent for minutes. The Sonnet 5.5 guide names "hold
+Written for models that over-narrated. Fable 5.2 can run long tool chains with
+little user-facing text and no opening line, so inherited suppression produces a
+run that goes silent for minutes. The Sonnet 5.5 guide names "hold
 all findings for the final response" as an instruction to remove.
 
 **Rewrite:** remove the suppression first, then check whether you still need
@@ -274,10 +279,10 @@ important or change direction; close with a recap that stands on its own."
 **Fires on:** `tool_choice` with type `any` or `tool`, and SDK
 `ToolChoiceAny` / `ToolChoiceTool`.
 
-Sonnet 5.5 rejects forced tool use with a 400, including on the token-counting
-endpoint; earlier models accepted it. `auto` (the default) and `none` still
+Sonnet 5.5 and Fable 5.2 reject forced tool use with a 400 (Sonnet 5.5 also on
+the token-counting endpoint); earlier models accepted it. `auto` (the default) and `none` still
 work. Severity is `warn` rather than `error` because the call is valid on other
-models — confirm the document targets Sonnet 5.5. Haiku 5.5 accepts forced
+models — confirm the document targets Sonnet 5.5 or Fable 5.2. Haiku 5.5 accepts forced
 tool use but then skips thinking before the call.
 
 **Rewrite:** `tool_choice: {"type": "auto"}` plus `strict: true` on the tool for
@@ -291,7 +296,7 @@ without the tool, so say in the prompt when to call it.
 
 The reverse of P005. Sonnet 5.5 sometimes answers chat and knowledge-work
 questions from training knowledge when a search would catch details that have
-changed, and Fable 5.1 searches less at `low` effort. A standing instruction to
+changed, and Fable 5.1 searched less at `low` effort (not re-measured on 5.2). A standing instruction to
 hold back on tools makes that worse. The Sonnet 5.5 guide names exactly these
 phrases as the first thing to remove.
 
@@ -300,6 +305,23 @@ check: "Use the search tool to check specifics that may have changed since your
 training, such as what is allowed, required or charged, even when you feel
 confident." Where cost is the real concern, lower effort or cap the budget
 instead of discouraging tools in prose.
+
+## P016 think-less-instruction
+
+**Fires on:** "answer directly without deliberating", "respond without
+thinking", "do not think before answering", "minimize your thinking", "think
+less".
+
+A prompt line is the wrong lever for thinking depth on current models. On Fable
+5.2 it did not stop thinking at `medium` effort and above (and at `high` the
+model thinks before almost every reply); on Sonnet 5.5 and Haiku 5.5 it is
+unreliable. The line stays in the prompt, costs tokens, and changes nothing.
+
+**Rewrite:** delete the line and lower `effort` for the affected turns — a
+per-message effort change keeps the prompt cache. The related chat lines from
+the Opus 5.5 guide ("treat that answer as done") do reduce follow-up thinking on
+Fable 5.2, but make it far less likely to point out mistakes in its earlier
+answers; keep them only where that trade is acceptable.
 
 ## D001 doc-size-budget
 
@@ -346,5 +368,24 @@ Judgment items for the reviewing pass. None are detectable by pattern:
   output: state the goal, the constraints, and the output contract.
 - **A missing output contract.** Exact section names and finding format, where
   anything downstream merges the result mechanically.
+- **A caution whose reason is gone.** Memory files, notes, and instruction files
+  collect "never" rules, some written by the model itself. Fable 5.2 applies
+  them as written and starts asking for approvals nobody needs. For each one,
+  ask whether the incident behind it can still happen; delete it if not.
+- **An absolute rule without its exception.** "Never push" plus a separate
+  "approved steps may proceed" line leaves the model refusing an approved step.
+  Put the exception in the rule: "get a go-ahead before pushing."
+- **An approval rule that names a category instead of actions.** "Ask before
+  sending messages outside this conversation" also blocks routine requests to
+  colleagues. Name the exact actions that need approval, and the routine ones
+  (safe retries, for instance) that do not.
+- **A hard style limit.** Word counts per sentence and one-idea-per-line rules
+  are followed to the letter and make prose choppy. Describe the reader instead.
+- **A token budget written into the prompt.** Its size changes how much Fable
+  5.2 spends; test the task without it.
+- **Silence about code ownership.** Whether the model merges duplicated code and
+  fixes nearby problems, or adds beside the existing structure and reports them,
+  follows what the prompt says about whose code it is. A document for a coding
+  agent should say which one it wants.
 - **Uncalibrated length.** Documents the model writes run long by default; if a
   document is a deliverable, say how long it should be.

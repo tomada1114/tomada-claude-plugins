@@ -1,5 +1,5 @@
 <!-- audit-ignore-file: A006 -->
-<!-- prompt-lint-ignore-file: P001,P002,P010,P013,P014,P015 -->
+<!-- prompt-lint-ignore-file: P001,P002,P010,P013,P014,P015,P016 -->
 # Prompting Claude Sonnet 5.5
 
 Pitched as the best combination of speed and intelligence; for the hardest

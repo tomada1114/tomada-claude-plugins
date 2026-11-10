@@ -1,5 +1,5 @@
 <!-- audit-ignore-file: A006 -->
-<!-- prompt-lint-ignore-file: P001,P002,P010,P011,P013,P014,P015 -->
+<!-- prompt-lint-ignore-file: P001,P002,P010,P011,P013,P014,P015,P016 -->
 # Prompting Claude Haiku 5.5
 
 Built for high-volume, latency-sensitive work: classification, routing,

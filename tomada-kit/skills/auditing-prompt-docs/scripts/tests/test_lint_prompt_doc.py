@@ -128,6 +128,15 @@ class LineRuleTests(unittest.TestCase):
     def test_conditioned_tool_use_is_not_discouragement(self):
         self.assertNotIn("P015", rules_in("Use the search tool to check specifics that may have changed."))
 
+    def test_think_less_instruction(self):
+        self.assertIn("P016", rules_in("Answer directly without deliberating."))
+        self.assertIn("P016", rules_in("Respond without thinking for simple questions."))
+        self.assertIn("P016", rules_in("Minimize your thinking on easy turns."))
+
+    def test_thinking_guidance_is_not_think_less(self):
+        self.assertNotIn("P016", rules_in("Think the problem through before you answer."))
+        self.assertNotIn("P016", rules_in("Lower the effort level for easy turns."))
+
     def test_sampling_params(self):
         self.assertIn("P011", rules_in("temperature: 0.7"))
 

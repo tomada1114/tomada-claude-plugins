@@ -12,7 +12,7 @@ metadata:
 
 # orchestrating-models
 
-どのモデルに何をやらせるかを決めるための運用手順。エージェント作業(ツールを使って進める作業)は Opus 5.5 で行い、段は effort で分ける。例外が 2 段あり、ファイルを書き換えない調べ物は Haiku 5.5 xhigh の `scout`、ツールを使わない一発の文章仕事は Sonnet 5.5 high の `worker` に渡す。安さだけで段を選ばない。難しい実装を low に渡して手戻りするほうが、最初から high に渡すより高くつく。
+どのモデルに何をやらせるかを決めるための運用手順。メインセッションは Fable 5.2 medium で、計画・判断・実行を自分で持つ。委譲先は仕事の形で 4 段に分かれる。確定仕様の機械的作業は Opus 5.5 low の `executor`、ブリーフに書き出せる難所とレビューは Fable 5.2 high の `architect`、ファイルを書き換えない調べ物は Haiku 5.5 xhigh の `scout`、ツールを使わない一発の文章仕事は Sonnet 5.5 high の `worker`。安さだけで段を選ばない。難しい実装を low に渡して手戻りするほうが、最初から自分でやるより高くつく。
 
 **使わない場面:** 会話的な質問への回答、単一ファイルの小さな編集、対話で細かく舵取りしたい作業。委譲のオーバーヘッドが本体コストを上回る。
 
@@ -20,61 +20,58 @@ metadata:
 
 | 役 | モデル × effort | 実現手段 |
 |---|---|---|
-| メインセッション | Opus 5.5 **medium** | settings.json の `model` と `modelSettings.claude-opus-5-5.effortLevel` |
+| メインセッション | Fable 5.2 **medium** | settings.json の `model` と `modelSettings.claude-fable-5-2.effortLevel` |
 | 実行役サブエージェント | Opus 5.5 **low** | 名前付きエージェント `executor`(`~/.claude/agents/executor.md`) |
-| 難所担当サブエージェント | Opus 5.5 **high** | 名前付きエージェント `architect`(`~/.claude/agents/architect.md`) |
+| 難所担当サブエージェント | Fable 5.2 **high** | 名前付きエージェント `architect`(`~/.claude/agents/architect.md`) |
 | 調べ物サブエージェント | Haiku 5.5 **xhigh** | 名前付きエージェント `scout`(`~/.claude/agents/scout.md`) |
 | 文章仕事サブエージェント | Sonnet 5.5 **high** | 名前付きエージェント `worker`(`~/.claude/agents/worker.md`) |
 
-**既定の姿勢は「自分でやる」。** Opus はコーディングとエージェント作業そのものが最も強く、仕様を全部持ったまま走るときに一番よく働く。委譲するのは §3 の 4 つの理由があるときだけ。主な失敗は過剰委譲と過剰検証。
+**既定の姿勢は「自分でやる」。** Fable 5.2 は計画と統率が強く、仕様を全部持ったまま走るときに一番よく働く。公式ガイドも、委譲の量はハーネスの文言しだいで増え、サブエージェントがセッション費用の大きな割合を占めうるとしている。委譲するのは §3 の理由があるときだけ。主な失敗は過剰委譲と過剰検証。
 
-**大事な場面は常に Opus 5.5 high。** 文脈と切り離せるなら `architect`、切り離せないならメインの `/effort` を high に上げる。Opus 5.5 の xhigh / max は使わない。
+**大事な場面は Fable 5.2 high。** 文脈と切り離せるなら `architect`、切り離せないならメインの `/effort` を high に上げる。長い無人の区間に入る前も high に上げる(公式が挙げる使い方で、medium は途中で止まりやすい)。終わったら medium に戻す。上げるのは effort であってモデルではない。会話の途中で `/model` を Fable 5.2 から他のモデルへ切り替えると、それまでの Fable の思考ブロックは切り替え先で読まれない。
 
-**エージェント作業のサブエージェントは Opus 5.5 の low と high の 2 段だけ。** メインが medium なので、委譲を決めた時点で「仕様確定済み・機械的なら low、複雑・設計判断を含む・レビューなら high」の二択で足りる。medium のサブを作るくらいならメインがやる。
+**委譲する価値があるのは、メインより安い段か、メインより賢い段だけ。** `executor`(Opus 5.5 low、$0.98/task)はメイン($3.80)の約 1/4 で済む段、`architect`(Fable 5.2 high、Index 62)はメイン(56)より賢い段。メインと同格の段(Fable 5.2 medium、Opus 5.5 xhigh)は作らない。メインがやっても同じ品質で、委譲の固定費だけが余分にかかる。
 
-**`scout` と `worker` は、仕事の形で選ぶ段で、賢さの段ではない。** どちらも Opus 5.5 low の代わりに賢さを買う段ではなく、形が合う仕事だけを流す段。
+**`architect` は高い。** $9.08/task はメインの 2.4 倍、Opus 5.5 high($3.46)の 2.6 倍。渡すのは、medium では落ちそうな難所、レビュー・バグ発見、散在情報の統合に限る。仕様が固まった複数ファイルの実装は、まとまった量なら `executor`、判断が残るならメインが自分で持つ。
 
-- **`scout`(Haiku 5.5 xhigh)** は、ファイルを書き換えない、判断を含まない調査・収集・列挙・要約。読むだけで成否が決まり、間違えても何も壊れない仕事。Anthropic 自身が Haiku 5.5 の用途に「狭い範囲のサブエージェント・要約・分類」を挙げ、複雑なエージェント型コーディングには Sonnet / Opus を勧めている(公式ベンチの Terminal-Bench 4.0 は Haiku 5.5 39.2% 対 Sonnet 5.5 70.6%)。だから実装・CI・コミットは `executor` に残す。xhigh にするのは、ユーザーの指定(Haiku 5.5 は常に xhigh)による。公式ガイドが low で長いエージェント作業の早期停止や検索の省略を挙げていることとも整合する
-- **`worker`(Sonnet 5.5 high)** は、完全なブリーフに 1 回の返答で答え、ツールを使わない仕事。仕様どおりの項目の書き出しや、書かれた基準での判定で、出力を後段の検査(lint・別レビュー・人)が受け止めるもの。AA-Briefcase は Sonnet 5.5 medium 1440 < Haiku 5.5 xhigh 1525 < Sonnet 5.5 high 1635 の順で、AutomationBench 0.59・GDP.pdf 0.25 でも Sonnet 5.5 high が Haiku 5.5 xhigh(0.36・0.18)を上回る。公式ガイドは low / medium で手順を要する JSON 判定に考えずに答えやすいとし、high が API の既定。費用は $1.64/task(AA)。`worker` の主な仕事は、後段のエージェントが聞き返さずに実装する Issue 本文などの書き出しで、中身が薄いと 1 往復の手戻りが価格差より高くつく
+**`scout` と `worker` は、仕事の形で選ぶ段で、賢さの段ではない。**
 
-Haiku 5.5 はプロンプトが 100k トークンを超えると、そのリクエスト全体の単価が 5 倍($0.10 / $0.50 → $0.50 / $2.50)になる。それでも Opus 5.5 の 1/8 だが、AA の Cost per Task はこれを含まない暫定値なので、エージェント作業での Haiku の安さは表の数字ほどではない。`scout` のブリーフは読む範囲を絞る。
+- **`scout`(Haiku 5.5 xhigh、$0.25/task)** は、ファイルを書き換えない、判断を含まない調査・収集・列挙・要約。読むだけで成否が決まり、間違えても何も壊れない仕事。Anthropic 自身が Haiku 5.5 の用途に「狭い範囲のサブエージェント・要約・分類」を挙げ、複雑なエージェント型コーディングには Sonnet / Opus を勧めている。xhigh はユーザーの指定で、公式ガイドが low で早期停止や検索の省略を挙げていることとも整合する。プロンプトが 100k トークンを超えるとリクエスト全体の単価が 5 倍になるので、ブリーフは読む範囲を絞る
+- **`worker`(Sonnet 5.5 high、$1.64/task)** は、完全なブリーフに 1 回の返答で答え、ツールを使わない仕事。仕様どおりの項目の書き出しや、書かれた基準での判定で、出力を後段の検査(lint・別レビュー・人)が受け止めるもの
 
-**Sonnet 5.5 の high 以外・Fable 5.1・Opus 5・Sonnet 5 は使わない。** Artificial Analysis Intelligence Index v5.0 × Cost per Task(2026-11-03 取得、エージェント作業の指標)で、Haiku 5.5 の暫定コストを含むパレート最適は Haiku 5.5 の全 5 段、Sonnet 5.5 high、Opus 5.5 の medium / high / xhigh / max。Haiku を除くと Sonnet 5.5 low / medium と Opus 5.5 low も残る。Sonnet 5.5 の xhigh / max は Opus 5.5 の high / xhigh に劣位。`executor` が Opus 5.5 low なのは、速くて安い(149 秒、$0.98)うえ、ファイルを書き換えるコーディングを公式が Haiku に勧めていないから。ただし FrontierCode 0.16・Briefcase 1279 と低いので、確定仕様の機械的作業に限り、文章を書かせる仕事は `worker` に渡す。ファイルを書き換えるエージェント作業は Opus 5.5 のままで、Sonnet 5.5 high は `worker` の段に限る。Fable の利用枠は Max プランの同一リミットの内数で、別枠ではない。数値の詳細は [references/model-playbooks.md](references/model-playbooks.md#effort-とコスト) と出典ノート `~/ghq/github.com/tomada1114/iobsidian/Content/_material/claude-model-effort-cost-performance.md`。
-
-姿勢の根拠、委譲する理由ごとの判断、executor・architect・scout・worker の分水嶺は [references/delegation-triage.md](references/delegation-triage.md) を読む。
+数値は Artificial Analysis Intelligence Index × Cost per Task(Fable 5.2 は v5.0.1・2026-11-10 取得、ほかは v5.0・2026-11-03 取得)。Fable の利用枠は Max プランの同一リミットの内数で、トークン単価は Opus 5.5 より高い。段ごとの数値と根拠は [references/model-playbooks.md](references/model-playbooks.md#effort-とコスト)、姿勢の根拠と分水嶺は [references/delegation-triage.md](references/delegation-triage.md) を読む。
 
 ## 2. 役割分担
 
 | タスクの性質 | 担当 |
 |---|---|
-| 要件解釈・設計・トレードオフ判断・分解と委譲設計・ユーザーとの確認・最終レビュー | メイン(委譲しない) |
-| 複雑な実装(複数ファイルにまたがる機能、大きなリファクタ、e2e、非自明なアルゴリズム)、設計判断を含む作業、コードレビュー/バグ発見、散在情報の統合、仕様に穴が残る作業 | **`architect`**(Opus 5.5 high) |
+| 要件解釈・設計・トレードオフ判断・分解と委譲設計・ユーザーとの確認・最終レビュー、判断が残る実装 | メイン(委譲しない) |
+| ブリーフに書き出せる難所(多段の推論が要る実装・原因究明)、コードレビュー/バグ発見、散在情報の統合 | **`architect`**(Fable 5.2 high) |
 | 仕様が確定した実装、機械的作業(テスト追加、CI を通す、コミット、PR 作成、一括置換・整形) | **`executor`**(Opus 5.5 low) |
 | ファイルを書き換えない、判断を含まない調査・収集・列挙・要約(コード検索、条件に合う箇所の全件列挙、大量に読んで結論だけ返す、Web で事実を集める) | **`scout`**(Haiku 5.5 xhigh) |
 | ツールを使わない一発の文章仕事: ブリーフだけから項目を書き出す、書かれた基準で項目を判定して決まった形式(JSON など)で返す。後段に検査があるもの | **`worker`**(Sonnet 5.5 high) |
 
-判断基準は**仕様の確定度であって作業の大きさではない**。委譲先が「どういう意味か」と聞き返してきそうなら、それは architect に渡すべきだった合図。実装だからといって一律に executor ではない。既存パターンの反復なら executor、どこかで設計判断が要るなら architect。
+判断基準は**仕様の確定度であって作業の大きさではない**。`executor` が「どういう意味か」と聞き返してきそうなら、仕様がまだ固まっていない合図で、メインが固めるか自分で実装する。難所だから一律に `architect` でもない。会話の文脈が要るなら、メインの effort を上げて自分でやる。
 
 **選ばない組み合わせ:**
 
-- Fable 5.1 の全段、Opus 5 の全段: 同じか安いコストで Opus 5.5 がより賢い(2026-10-08 の Index v4.3.2 での比較。v5.0 では確かめていない)
-- Sonnet 5.5 の high 以外: low / medium は `worker` の仕事で考えずに答えやすく、Haiku を含むパレート最適に残らない。xhigh / max は Opus 5.5 の high / xhigh に劣位。Sonnet 5 も使わない
-- ファイルを書き換えるエージェント作業に `worker`(Sonnet 5.5 high): ファイルを書き換えるエージェント作業は Opus 5.5 に置く。FrontierCode と Terminal-Bench は Sonnet 5.5 high 0.26・0.44 対 Opus 5.5 medium 0.33・0.53
-- ファイルを書き換える作業に Haiku 5.5(`scout`): 公式が複雑なエージェント型コーディングには Sonnet / Opus を勧めている。`scout` は書き込みツールを持たない
-- Haiku 5.5 の max: 公式ガイドは「評価で品質の上積みを確かめたときだけ」としている。xhigh は `scout` に固定(ユーザー指定)。xhigh では複数ターンで本文が空のまま終わることがあるので、空の返答は再依頼する
-- Opus 5.5 のサブエージェントの medium: 2 段構成の設計上作らない
-- Opus 5.5 と Sonnet 5.5 の xhigh / max: メインでもサブでも使わない。崖は Opus 5.5 の xhigh → max(+1.4pt に +$3.99)で、high → xhigh も +5.3pt に +$2.59 を払う段になる
+- Fable 5.2 の xhigh / max: xhigh は high と同じ Index 62 で +$5.75、max は +3pt に +$11.71($26.54/task)。公式も「上積みを測って確かめたときだけ」としている
+- Fable 5.2 の low / medium のサブエージェント: low は Index 54 でメインとほぼ同格(Cost per Task は未取得)。公式は low を「速くて賢いサブエージェント向け」とするが、この構成ではメインがやるのと変わらないので作らない
+- Opus 5.5 の medium 以上: メインでも名前付きサブでも使わない。medium(48.1 / $2.45)と high(51.7 / $3.46)はメインより賢くなく、executor ほど安くない。例外は Workflow で多数並列に回す検出段の `'opus'` + `'high'` だけ([references/delegation-patterns.md](references/delegation-patterns.md#workflow-の段の割当))
+- Sonnet 5.5 の high 以外、Fable 5.1・Opus 5・Sonnet 5 の全段
+- ファイルを書き換えるエージェント作業に `worker` や `scout`: `scout` は書き込みツールを持たない。`worker` はツールなしの一発仕事に限る
+- Haiku 5.5 の max: xhigh は `scout` に固定(ユーザー指定)。xhigh では複数ターンで本文が空のまま終わることがあるので、空の返答は再依頼する
 
-**effort の届け方:** Agent ツールは `model` しか取らず effort を取らない。**`model: opus` だけで起動すると、サブエージェントは `modelSettings` の Opus 5.5 = medium で走る**(2 段構成が崩れる)。段は必ず `subagent_type: executor` / `architect` / `scout` / `worker` で指定する。定義の frontmatter が `model: claude-opus-5-5` と `effort: low` / `high`、`scout` は `model: claude-haiku-5-5` と `effort: xhigh`、`worker` は `model: claude-sonnet-5-5` と `effort: high` を持っている。`model: haiku` / `model: sonnet` だけの起動は effort がセッションから決まるので、段の指定に使わない(Haiku 5.5 には Claude Code v2.1.293 以上が要る)。組み込みの `Explore`・`Plan`・`general-purpose` は effort を持たずメインから引き継ぐので、委譲先には選ばない。Workflow の `agent()` は `model` と `effort` を段ごとに取るので、どちらも必ず添える。省くとメインのモデルと effort(Opus 5.5 medium)を引き継ぐ。段ごとの当て方は [references/delegation-patterns.md](references/delegation-patterns.md#workflow-の段の割当) を読む。
+**effort の届け方:** Agent ツールは `model` しか取らず effort を取らない。**`model: fable` や `model: opus` だけで起動すると、effort は `modelSettings` から決まり、段が崩れる。** 段は必ず `subagent_type: executor` / `architect` / `scout` / `worker` で指定する。定義の frontmatter が `model` と `effort` を持っている(`architect` は `claude-fable-5-2` + `high`、`executor` は `claude-opus-5-5` + `low`、`scout` は `claude-haiku-5-5` + `xhigh`、`worker` は `claude-sonnet-5-5` + `high`)。組み込みの `Explore`・`Plan`・`general-purpose` は effort を持たずメインから引き継ぐので、委譲先には選ばない。Workflow の `agent()` は `model` と `effort` を段ごとに取るので、どちらも必ず添える。省くとメインのモデルと effort(Fable 5.2 medium)を引き継ぐ。段ごとの当て方は [references/delegation-patterns.md](references/delegation-patterns.md#workflow-の段の割当) を読む。
 
 **他スキルからの参照:** このスキルがモデル割当の正本。
 
-- **グローバルスキル**(`~/.claude/skills`)と `~/.claude/CLAUDE.md` は割当をコピーしない。段をエージェント名(`executor` / `architect` / `scout` / `worker`)で指し、選び方はこのスキルへのポインタで済ませる。モデルや effort を変えるときは、エージェント定義とこのスキルだけを直せばよい
+- **グローバルスキル**(`~/.claude/skills`)は割当をコピーしない。段をエージェント名(`executor` / `architect` / `scout` / `worker`)で指し、選び方はこのスキルへのポインタで済ませる。`~/.claude/CLAUDE.md` の Model Roles だけは毎セッション読まれる要約として割当を 1 段落持つ
 - **リポジトリ**(公開リポジトリ、テンプレート、他人も使うもの)は、クラウドセッションと Codex がリポジトリ内の定義しか読まないので、段の定義ファイルを `.claude/agents/`(と `.codex/agents/`)に持つ。ただしそれは `syncing-agent-tiers` が正本 `assets/tiers.json` から生成して PR で配るコピーで、手で直さない。リポジトリの文章(AGENTS.md・CLAUDE.md・スキル)は段を名前と役割で指し、モデル名と effort を書かない。Workflow の `agent()` でモデルが要るなら、スキル内の 1 か所の定数にまとめる
 
-モデルや effort を変えるときは、エージェント定義(`~/.claude/agents`)とこのスキルと `syncing-agent-tiers` の `tiers.json` を直し、`syncing-agent-tiers` で配る。取り残しは `grep -rln 'orchestrating-models' ~/.claude/skills ~/.claude/CLAUDE.md` と `grep -rlE 'model: *.?(sonnet|haiku|opus)' ~/ghq/github.com/tomada1114/*/.claude/skills` で洗い出す。
+モデルや effort を変えるときは、エージェント定義(`~/.claude/agents`)、このスキル、`~/.claude/CLAUDE.md` の Model Roles、settings.json の `modelSettings`、`syncing-agent-tiers` の `tiers.json` を直し、`syncing-agent-tiers` で配る。取り残しは `grep -rln 'orchestrating-models' ~/.claude/skills ~/.claude/CLAUDE.md` と `grep -rlE 'model: *.?(sonnet|haiku|opus|fable)' ~/ghq/github.com/tomada1114/*/.claude/skills` で洗い出す。
 
-Opus 5.5 の癖に合わせた委譲プロンプトの書き方は [references/model-playbooks.md](references/model-playbooks.md) を読む。
+段ごとの癖に合わせた委譲プロンプトの書き方は [references/model-playbooks.md](references/model-playbooks.md) を読む。
 
 ## 3. 委譲トリアージ
 
@@ -84,14 +81,14 @@ Opus 5.5 の癖に合わせた委譲プロンプトの書き方は [references/m
 | 手順が直列で並列化の余地がない | 自分でやる |
 | 読んだ内容を後の判断で使う | 自分でやる(委譲すると要約しか戻らない) |
 | 仕様がまだ固まっていない / 「何を作るべきか」自体が未確定 | 自分で固める(固めるのがメインの仕事) |
-| 自分の成果の検証 | 自分でやる(指示しなくても既定でやる) |
+| 自分の成果の検証 | 自分でやる。検証用のサブエージェントを足さない |
 | 数行の修正・一言の追記など、ブリーフより短い書き込み | 自分でやる |
 | 独立した大きめのトラックが複数本 | 並列に委譲。各トラックを下の行で段に振る |
-| 仕様が確定した機械的作業、まとまった量の書き出し(確定仕様の実装、ドキュメント、長いファイル生成、複数ファイル編集) | `executor`(low は medium の半額以下: $0.98 対 $2.45/task。文章を書かせる仕事は `worker` へ) |
+| 仕様が確定した機械的作業、まとまった量の書き出し(確定仕様の実装、ドキュメント、長いファイル生成、複数ファイル編集) | `executor`(メインの約 1/4: $0.98 対 $3.80/task。文章を書かせる仕事は `worker` へ) |
 | 大量に読むが読んだ内容自体は後で使わない | `scout`(コンテキスト隔離。書き換えが要るなら `executor`) |
-| 難しい実装・レビュー・散在情報の統合で、ブリーフに書き出せるもの | `architect` |
-| ファイルを書き換えない調査・収集・列挙・要約 | `scout`(トークン単価が Opus 5.5 の 1/40、100k 超で 1/8) |
-| ツールを使わず、1 回の返答で済む書き出し・判定を大量にこなす(後段に検査あり) | `worker`(トークン単価が Opus 5.5 の半額) |
+| medium では落ちそうな難所・レビュー・散在情報の統合で、ブリーフに書き出せるもの | `architect`($9.08/task。本数は最小限) |
+| ファイルを書き換えない調査・収集・列挙・要約 | `scout`($0.25/task。100k トークン超で単価 5 倍) |
+| ツールを使わず、1 回の返答で済む書き出し・判定を大量にこなす(後段に検査あり) | `worker`($1.64/task) |
 | 難所だが会話の文脈と切り離せない | 委譲せず、メインの `/effort` を一時的に high へ上げる |
 | 数時間以上の無人走行 | /goal(`authoring-goal-prompts`)へ |
 
@@ -124,18 +121,21 @@ Opus 5.5 の癖に合わせた委譲プロンプトの書き方は [references/m
 ### 統合とレビュー
 
 - サブエージェントからは要約(結論・変更点・未解決事項)だけ受け取り、生ログや全文 diff をメインのコンテキストへ戻さない
-- 複数の調査結果を突き合わせて整理する作業は、読んだ中身を自分の判断で使わないなら architect に委譲してよい
+- 複数の調査結果を突き合わせて整理する作業は、読んだ中身を自分の判断で使わず、量が多いときに限って architect に委譲する
 - 自分で実行した分と委譲分の整合を取り、報告の整合性・設計判断・逸脱(implementation-notes.md の Deviations)をレビューする
 - 検証はサブエージェント側で完結させ、実行したコマンドと結果を報告させる。ただし検証手順そのものは指示しない(過剰検証になる)
+- `architect` の要約は大きな変更を挙げるが小さな変更を落としやすい。コードを書き換えさせたら要約だけでなく diff を見る
 - ユーザー向けの最終要約は結論から。作業中の略語を持ち込まず、長さは中身に見合わせる
 
 ## Critical Rules
 
 - 委譲プロンプトに前提知識と**依頼の意図**を含め、サブエージェントに会話内容の再調査をさせない
 - ユーザーとの要件確認・最終判断を委譲しない
-- 段は `subagent_type` で指定する。`model` だけの起動は medium で走る
+- 段は `subagent_type` で指定する。`model` だけの起動は effort が `modelSettings` から決まり、段が崩れる
 - サブエージェントに「検証ステップを入れよ」「ダブルチェックせよ」と書かない。過剰検証になる <!-- audit-ignore: A006 -->
 - 検出・レビューを委譲するとき「重大なものだけ」「保守的に」と書かない <!-- audit-ignore: A006 -->。忠実に絞られて取りこぼす。全件報告 + confidence/severity を付けさせ、選別は別段に置く
 - 頼まれた範囲を、頼まれた粒度で。より良い方法があるなら一言添えたうえで依頼どおり進める
 - 委譲先にもサブエージェント生成の上限を書く。executor / architect の定義本文にも入れてあるが、ブリーフで本数を指定する
+- ブリーフに慎重さを積まない。Fable 5.2 は「絶対に〜するな」「最初のエラーで止まれ」を書かれたとおりに守り、必要のない確認待ちや手控えになる。禁止を書くなら対象の操作を名指しし、理由と例外(「〜の前に確認を取る」)を同じ文に入れる。再試行してよい操作は再試行してよいと書く
+- 続行や承認を伝えるときは中身を言う。「続けて」ではなく「ステージングで migration を実行して」
 - 進捗を報告する前に、各主張をこのセッションのツール結果と突き合わせる。サブエージェントの報告を検証せずに転記しない

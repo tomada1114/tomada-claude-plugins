@@ -7,7 +7,7 @@ modes and worked examples that make a goal robust.
 
 - [How `/goal` actually runs](#how-goal-actually-runs)
 - [The two failure modes](#the-two-failure-modes)
-- [Early turn endings (Opus 5.5)](#early-turn-endings-opus-55)
+- [Early turn endings](#early-turn-endings)
 - [Designing for the small evaluator](#designing-for-the-small-evaluator)
 - [Anti-cheat: why and how](#anti-cheat-why-and-how)
 - [No human mid-run: encode fallbacks](#no-human-mid-run-encode-fallbacks)
@@ -48,20 +48,31 @@ Every weak goal fails in one of two ways. Design against both:
   **sentinel line tied to fresh command output**; keep the success check to one unambiguous clause;
   forbid claiming success without showing current output.
 
-## Early turn endings (Opus 5.5)
+## Early turn endings
 
-The goal session is typically Opus 5.5. On long multi-part work it ends some turns with a text-only
-progress report while work is still owed. `/goal` absorbs this — the evaluator answers "no" and the
+The goal session is typically Opus 5.5, or Fable 5.2 at high effort for the hardest runs. On long
+multi-part work both end some turns while work is still owed: Opus 5.5 with a text-only progress
+report, Fable 5.2 (more often at `low` and `medium` effort) with a list of what remains, an offer to
+continue, or a stop at an ordinary obstacle such as a timeout. `/goal` absorbs this — the evaluator answers "no" and the
 session continues — but each such stop costs an evaluator round and a turn from the ceiling, and a
 confident-sounding summary is exactly what a small evaluator can misread as done.
 
-Opus 5.5 responds to instructions that **name the specific early stops** to avoid and the stops that
+Both respond to instructions that **name the specific early stops** to avoid and the stops that
 are wanted, so the template's `TURN ENDINGS` section does both: it lists the four unwanted endings
 (a summary announcing the next step, an offer to continue, a non-blocking decision list, a
 milestone/long-turn pause), asks for status notes to ride along with the next tool call, and names
 the wanted stops (the sentinel, a STOP RULE). Keep it in `goal.md` itself, not a sibling: it works
 when present from the first request, and `goal.md` is that request. It adds a few tool calls; it
 does not waive CONSTRAINTS on risky or destructive actions.
+
+For a Fable 5.2 goal session, three more things carry weight, because it applies what the goal says
+as written. Keep CONSTRAINTS specific: name the exact actions that are off limits and give each its
+reason, since a broad or bare "never" also blocks routine steps and safe retries. Say what needs no
+approval (local edits, test runs, retries of calls that are safe to repeat). And state code
+ownership when the goal expects restructuring — "this codebase is yours" makes it merge duplicated
+code and fix nearby problems, at more output and with unrequested extras; leave it out when the goal
+wants a minimal diff. Do not write a token budget into the goal: its size changes how much the
+session spends.
 
 A checklist the session updates (next sections) is the other half: open items are visible in the
 transcript, so an early stop reads as unfinished rather than done. Add "never print the sentinel

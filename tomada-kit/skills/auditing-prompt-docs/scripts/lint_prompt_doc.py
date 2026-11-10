@@ -222,7 +222,7 @@ LINE_RULES: list[LineRule] = [
         id="P014",
         name="forced-tool-choice",
         severity="warn",
-        why="Sonnet 5.5 returns 400 for tool_choice type any or tool, including on token counting.",
+        why="Sonnet 5.5 and Fable 5.2 return 400 for tool_choice type any or tool (Sonnet 5.5 also on token counting).",
         fix="Send tool_choice auto, mark the tool strict: true, and say in the prompt when to call it.",
         patterns=[
             r"\btool_choice\b[^\n]{0,20}\btype[\"']?\s*[:=]\s*[\"']?(any|tool)\b",
@@ -240,6 +240,20 @@ LINE_RULES: list[LineRule] = [
             r"\bminimi[sz]e\s+(the\s+(number|use)\s+of\s+)?tool\s+(calls|use|usage)\b",
             r"\buse\s+tools\s+sparingly\b",
             r"\bavoid\s+(using|calling)\s+tools\s+unless\b",
+        ],
+    ),
+    LineRule(
+        id="P016",
+        name="think-less-instruction",
+        severity="warn",
+        why="A prompt line does not reduce thinking on current models (no effect on Fable 5.2 at medium effort and above); it only costs tokens.",
+        fix="Delete it and lower the effort level for those turns.",
+        patterns=[
+            r"\b(answer|respond|reply)\s+(directly\s+)?without\s+(deliberating|thinking|reasoning)\b",
+            r"\b(do\s+not|don'?t|never)\s+(think|deliberate|reason)\s+(before|about|through)\b",
+            r"\bminimi[sz]e\s+(your\s+)?(thinking|reasoning|deliberation)\b",
+            r"\bthink\s+less\b",
+            r"\bskip\s+(the\s+)?(thinking|deliberation)\b",
         ],
     ),
     LineRule(

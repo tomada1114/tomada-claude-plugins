@@ -48,7 +48,9 @@ TURN ENDINGS: A message with no tool call ends your turn, and the work stalls un
   sends you back. While work remains, do not end a turn with a summary that announces the next step,
   an offer to continue unless told otherwise, a list of decisions none of which blocks the rest, or a
   pause because a milestone is done or the turn ran long. Put status notes and recommendations in the
-  same message as your next tool call. The wanted stops: GOAL_DONE after fresh verification output,
+  same message as your next tool call. Diagnose ordinary obstacles (errors, timeouts, empty results)
+  and work through them with the access you have; leave deliberate blockers (a protected file,
+  withheld access) alone and report them. The wanted stops: GOAL_DONE after fresh verification output,
   or a STOP RULE firing. Never print GOAL_DONE while a background command or subagent is still running.
 
 STOP RULES:

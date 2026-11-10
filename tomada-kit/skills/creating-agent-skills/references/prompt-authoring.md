@@ -1,12 +1,12 @@
 <!-- audit-ignore-file: A006 -->
-<!-- prompt-lint-ignore-file: P001,P002,P003,P004,P005,P006,P008,P009,P013 -->
+<!-- prompt-lint-ignore-file: P001,P002,P003,P004,P005,P006,P008,P009,P013,P016 -->
 # Prompt Authoring Inside Skills
 
 A skill is a prompt. Structure (frontmatter, `references/`, `scripts/`) decides *when* text reaches the model; this file decides whether that text still *helps* once it gets there. Quoted phrasings below are anti-patterns shown for recognition, not instructions.
 
 Several instructions that were load-bearing for earlier generations now measurably reduce output quality or trigger refusals. Audit skill prose against this file whenever you write or review one.
 
-Sources: Anthropic's [prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices) and the per-model guides for Opus 5.5, Fable 5.1, and Sonnet 5. Where a behavior was measured on Opus 5 and carried over to Opus 5.5, the row says so.
+Sources: Anthropic's [prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices) and the per-model guides for Fable 5.2, Opus 5.5, Sonnet 5.5, and Haiku 5.5. Where a behavior was measured on Opus 5 and carried over to Opus 5.5, the row says so.
 
 ## Table of Contents
 
@@ -25,14 +25,17 @@ Sources: Anthropic's [prompting best practices](https://platform.claude.com/docs
 |---|---|---|
 | "Add a final verification step", "use a sub-agent to double-check", "re-verify before responding" | Opus self-verifies and self-corrects by default (measured on Opus 5, carried to 5.5). These compound with it: more tokens, no quality gain. | Nothing. If you need evidence, ask for it: "State the commands you ran and their output." |
 | "Only report high-severity issues", "be conservative", "don't nitpick" | Opus 5.5 and Sonnet 5 follow this **literally**: they investigate just as deeply, then suppress findings. Recall drops while the model looks worse at reviewing. | "Report every issue you find, including low-severity and uncertain ones. Attach a confidence and severity to each. Filtering happens in a separate phase." |
-| "Show your reasoning", "explain how you arrived at this", "write out your thought process" | Can be declined under the `reasoning_extraction` refusal category (Opus 5.5 and Fable 5.1). | Ask for evidence, not thinking: `file:line` citations, command output, the artifact itself. |
+| "Show your reasoning", "explain how you arrived at this", "write out your thought process" | Can be declined under the `reasoning_extraction` refusal category (Fable 5.2, Opus 5.5, and Sonnet 5.5). | Ask for evidence, not thinking: `file:line` citations, command output, the artifact itself. |
 | "Think carefully", "think step by step before answering" | Thinking is always on and sized by effort. The line adds latency, not quality. | Delete. Raise effort where the task needs more thought. |
 | `CRITICAL:`, "You MUST", "NEVER EVER" | Written for models that undertriggered. Current models overtrigger on it: the rule fires where it should not. | Plain imperative plus the reason. Keep hard emphasis only for irreversible constraints, and say what breaks. |
 | "If in doubt, use X", "always use the X tool" | Same root cause as shouting, as a blanket default. | Name the condition: "Use X when it would change the answer." |
 | "After every 3 tool calls, summarize progress" | Opus 5.5 writes short updates between tool calls on its own; a fixed cadence adds noise. | Delete unless a harness needs a specific cadence. If the shape is wrong, show one example update. |
 | "Hold all findings for the final response", "no running commentary" | Opus 5-era narration damping. Opus 5.5 already reports plainly; suppression makes long runs look stalled. | Delete. Add it back only if output is still too chatty on re-test. |
 | A long list of "do NOT do X" clauses | Weaker than a positive example, and every clause costs context. | One or two positive examples in `<example>` tags. |
-| "Use sub-agents whenever helpful" | Opus 5.5 already delegates readily. An open-ended nudge spawns sub-agents for work a single grep would finish. | State when delegation is and isn't warranted, and cap the count. |
+| "Use sub-agents whenever helpful" | Opus 5.5 already delegates readily, and Fable 5.2 delegates as much as the prompt invites. An open-ended nudge spawns sub-agents for work a single grep would finish. | State when delegation is and isn't warranted, and cap the count. |
+| "Answer directly without deliberating", "don't overthink" | No effect: Fable 5.2 still thinks at `medium` effort and above, and Sonnet 5.5 and Haiku 5.5 follow it unreliably. | Delete. Thinking depth is set by the effort of the tier that runs the step. |
+| A bare "never do X", or "stop at the first error", with no reason or exception | Fable 5.2 applies it as written: it withholds approved steps and safe retries, and asks for approvals nobody needs. | Name the exact action, give the reason, and put the exception in the same sentence: "get a go-ahead before X". Say which routine steps need no approval. |
+| "One idea per sentence, 20 words or fewer" and other hard style limits | Followed to the letter; the prose turns choppy. | Describe the reader: someone who has not seen the tool calls or files and must understand the report on its own. |
 | Step-by-step scripting of work that has many valid routes | Over-prescription built for earlier models degrades output on current ones. | Reserve low-freedom instructions for fragile operations. Elsewhere give the goal, the constraints, and the output contract. |
 | "Be thorough and go above and beyond" on every task | Invites scope expansion the model already tends toward. | Say what "done" is. Ask for maximal coverage only on the one task that needs it. |
 
@@ -58,7 +61,11 @@ The rows most likely to hide in an older skill are the last two and restated def
 
 **Constrain scope for narrow tasks.** "Deliver what was asked, at the scope intended. If a better approach exists, say so in a sentence and continue as asked rather than quietly transforming the task."
 
-**Name the unwanted early stops in unattended skills.** On long multi-part runs Opus 5.5 can end a turn with a progress report and no tool call. A skill meant to run without a human says which stops it does not want (announcing the next step instead of doing it, offering to continue, listing non-blocking decisions) and which it does (blocked on the user, or on something deliberately protected).
+**Name the unwanted early stops in unattended skills.** On long multi-part runs Opus 5.5 can end a turn with a progress report and no tool call, and Fable 5.2 (more at `low` and `medium` effort) with a list of what remains, an offer to continue, or a stop at an ordinary obstacle such as a timeout. A skill meant to run without a human says which stops it does not want (announcing the next step instead of doing it, offering to continue, listing non-blocking decisions) and which it does (blocked on the user, or on something deliberately protected). Keep the two kinds of obstacle apart: ordinary ones (errors, timeouts, empty results) are diagnosed and worked through; deliberate ones (a file marked not to be touched, withheld access) are left alone and reported.
+
+**Say who owns the code, in a skill that edits code.** Fable 5.2 reads ownership from the prompt. Told nothing, it adds beside the existing structure and reports nearby problems instead of fixing them; told the codebase is its own, it merges duplicated code and makes related fixes, at about 1.5× the output and with unrequested tests and docs. A skill states which it wants, and a scope rule alone does not cancel an ownership sentence.
+
+**Prune cautions when a skill moves to a newer model.** Skills collect "never" lines from past incidents. Each one is applied as written on every run; delete those whose reason no longer holds.
 
 ---
 
@@ -76,12 +83,12 @@ A skill that spawns sub-agents says which tier each one runs on. Left unspecifie
 
 | Sub-agent's job | Tier |
 |---|---|
-| Complex implementation, design judgment, code review and bug-finding, synthesizing scattered findings, anything with unresolved spec | `architect` (Opus 5.5 high) |
+| A hard problem a brief can carry (multistep reasoning, a non-obvious algorithm, root-cause analysis), code review and bug-finding, synthesizing a large set of scattered findings | `architect` (Fable 5.2 high) |
 | Fully specified work with a clear pass/fail (settled-spec implementation, run the tests, add coverage, make CI green, commit, open the PR, bulk replace) | `executor` (Opus 5.5 low) |
 | Read-only, judgment-free research, collection, enumeration and summarizing — work that changes no files | `scout` (Haiku 5.5 xhigh) |
 | Single-shot, tool-free writing or checking from a complete brief, whose output a later stage checks (drafting items to a spec, judging items against a rubric) | `worker` (Sonnet 5.5 high) |
 
-The dividing line is **spec completeness, not size**. If the sub-agent could plausibly come back asking what you meant, it needed `architect`. The lower the tier, the more self-contained the prompt must be: an `executor` spawn needs explicit paths, an explicit output shape, and no open questions; an `architect` spawn can be handed the goal and the constraints.
+The dividing line for `executor` is **spec completeness, not size**. If the sub-agent could plausibly come back asking what you meant, the spec was not settled: the main session settles it first, or keeps the step. `architect` is the most expensive tier, so a skill gives it only the steps that need more reasoning than the session itself, and as few spawns as the work allows. The lower the tier, the more self-contained the prompt must be: an `executor` spawn needs explicit paths, an explicit output shape, and no open questions; an `architect` spawn can be handed the goal and the constraints.
 
 Where the skill lives decides how to write this in. A skill installed alongside `orchestrating-models` (the user's global skills) names the tier by agent name and points to that skill for the criteria — it does not copy them, so a model change touches only the agent definitions and `orchestrating-models`. A skill that must stand alone (a public repository, a plugin others install) writes the dividing lines in with `<!-- derived from orchestrating-models §2 -->` but still names tiers by agent name and role only — never a model or an effort level. The repository's `.claude/agents/` tier files are generated by the `syncing-agent-tiers` skill, so a model change reaches the repository as an automatic PR rather than an edit to its prose. When a Workflow `agent()` stage needs a model, define it once as a constant at the top of the script.
 

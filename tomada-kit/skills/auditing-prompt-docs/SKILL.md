@@ -5,7 +5,7 @@ description: >-
   command definitions, reference files, whole repositories — against Anthropic's
   published prompting guidance for current Claude models, proposing edits for approval
   before writing anything. Also answers how to prompt a specific model: holds the per-
-  model guidance for Claude Fable 5.1, Claude Opus 5.5, Claude Sonnet 5.5, and
+  model guidance for Claude Fable 5.2, Claude Opus 5.5, Claude Sonnet 5.5, and
   Claude Haiku 5.5 alongside the cross-model practices. Use when reviewing or slimming an
   instruction file, when instructions are ignored or fire too often, when migrating a
   prompt to a newer model, or when refreshing this guidance after a model release.
@@ -104,8 +104,9 @@ compose: run its structural pass, this skill's wording pass.
   table. Read first on any question or audit.
 - [references/rules.md](references/rules.md) — every linter rule with its rationale and rewrite, plus
   the judgment items no pattern can catch. Read before proposing changes.
-- [references/model-fable-5-1.md](references/model-fable-5-1.md) — Claude Fable 5.1 and Mythos 5.1: progress
-  updates, batching, append-only history, writing density, task completion.
+- [references/model-fable-5-2.md](references/model-fable-5-2.md) — Claude Fable 5.2 and Mythos 5.2: effort,
+  early stopping, approvals, code ownership, progress updates, subagents, caution
+  that piles up, instructions carried over from earlier models, final reports.
 - [references/model-opus-5-5.md](references/model-opus-5-5.md) — Claude Opus 5.5: effort calibration, thinking
   always on, unattended runs, progress updates, pasted text, plus carried-over Opus 5 items.
 - [references/model-sonnet-5-5.md](references/model-sonnet-5-5.md) — Claude Sonnet 5.5: API changes from

@@ -3,8 +3,8 @@ name: authoring-goal-prompts
 description: >-
   Author a self-contained prompt for Claude Code's /goal command, run unattended in a
   separate session — a lead-to-staff handoff where this session researches, designs, and
-  decides with full context, and a fresh executor session (typically Opus 5.5 at a lower
-  effort, with none of that context) implements. Drafts a
+  decides with full context, and a fresh executor session (Opus 5.5 or Fable 5.2, with
+  none of that context) implements. Drafts a
   goal with measurable done-criteria, transcript-verifiable checks, scope + anti-cheat
   constraints, and stop rules; packages design intent, code examples, research findings,
   checklists, and pre-answered decisions as support files in a per-goal state directory
@@ -35,10 +35,11 @@ faster than setting up a goal; subjective goals with no measurable end state ("m
    tests, weaken assertions, or stub implementations. Forbid this explicitly.
 4. **The executor knows nothing you don't write down.** This is a lead-engineer → staff-engineer
    handoff: this session investigates, designs, and decides; the goal session — fresh, with zero
-   shared context, typically Opus 5.5 at a lower effort than this one — executes. It is capable,
+   shared context, typically Opus 5.5, or Fable 5.2 at high effort for the hardest runs — executes. It is capable,
    but it spends its effort on execution under a turn ceiling; whatever it has to re-derive costs
    turns and may come out differently. Never make the executor redo lead work.
-5. **Opus 5.5 ends some long-run turns early** with a text-only progress report. Under `/goal` each
+5. **Opus 5.5 and Fable 5.2 end some long-run turns early** — a text-only progress report, a
+   list of what remains, or a stop at an ordinary obstacle such as a timeout. Under `/goal` each
    one costs an evaluator round and a turn from the ceiling. The goal names the unwanted stops and
    the wanted ones (template: `TURN ENDINGS`).
 
