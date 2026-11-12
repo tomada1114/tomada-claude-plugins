@@ -18,6 +18,7 @@ confidence, and the cost it causes today.
 - [X6: Flow waste](#x6-flow-waste)
 - [X7: Leftovers](#x7-leftovers)
 - [X8: Memory files against skills](#x8-memory-files-against-skills)
+- [X9: Coordination fit](#x9-coordination-fit)
 
 ## X1: Overlap
 
@@ -115,6 +116,7 @@ A job that spans assets takes more stages, hand-offs or user stops than it needs
   - a session boundary or hand-off falls where nothing needs a fresh context.
 - Usage shows which stages are skipped in practice: a child that is never loaded
   while its parent is used often is a stage people route around.
+- Whether the contexts in a stage exchange information in the right shape is X9.
 
 ## X7: Leftovers
 
@@ -140,3 +142,61 @@ The always-loaded files carry what belongs in an on-demand asset, or the reverse
 - Finding when: a memory file holds a procedure used in a minority of sessions (it
   costs context in all of them); a rule every session needs lives only in a skill that
   may not load; a memory file restates a skill.
+
+## X9: Coordination fit
+
+A stage that uses more than one context moves information between them in a shape
+that does not match the work: who hands what to whom, and whether anything is shared
+before the final result. X6 asks whether a stage should exist; this check asks whether
+the contexts inside a flow are wired the right way.
+
+The criteria for choosing a shape (lead and sub-agents that only return results, a
+checker loop, long-lived workers, workers that exchange findings mid-run, and what
+each costs) live in the estate's model-assignment source; in the user-level estate
+that is the coordination section of the `orchestrating-models` skill's delegation
+patterns. Read it before judging and point at it in the move; do not restate it. Its
+default is the simplest shape, a lead with sub-agents, so a move toward a heavier
+shape needs evidence that the simple one is struggling, while a move toward a lighter
+one needs only evidence that the extra channel is unused.
+
+- Start from: the cards' `Coordination` and `Delegations` fields; the blind design's
+  `Coordination` line per flow; `environment` in the needs document for which
+  mechanisms exist and whether agent teams are enabled
+  (`claude-code.md`, "Coordination mechanisms").
+- For each multi-context stage, write down three facts before judging: what each
+  worker must know from the others while it works (nothing, or which findings); what
+  comes back to the lead (a summary, a file, pointers); and where the stage has to
+  run (interactive only, or also unattended, scheduled, or on another runtime).
+- Finding when the shape is too light for the work:
+  - the lead carries one worker's findings into another worker's brief, round after
+    round, or the instructions have one context play several roles and stage a debate
+    between them, where the job is one of competing hypotheses, cross-examined
+    review, or implementation and verification that go back and forth;
+  - a later stage needs detail that the summary dropped, and the hand-off returns no
+    pointer (file path and line, URL) for the lead to open;
+  - a worker is re-spawned cold for each of a series of related tasks and re-reads
+    the same material each time, where continuing the same worker would keep it.
+- Finding when the shape is too heavy:
+  - teammates, a shared task list or a shared document are prescribed, yet the
+    workers are independent and only their results are combined at the end;
+  - workers that can message each other are given the same file to edit, or work
+    that is sequential;
+  - several contexts are spawned for one decision with no dependency between them
+    and nothing gained from running side by side.
+- Finding when a shape is used without what makes it work:
+  - a checker with no written criteria, a check-and-fix loop with no cap on rounds
+    or no rule for what happens at the cap;
+  - a shared file with two writers and no owner, or an exchange between workers with
+    no end condition (time, agreement, a deciding role);
+  - a stage that depends on agent teams inside an asset that also runs unattended,
+    on a schedule, or on a runtime without them: teammates start only in an
+    interactive Claude Code session with the feature enabled, so elsewhere the
+    stage silently runs as something else;
+  - teammates named without a sub-agent definition, or expected to run at a
+    definition's effort in split panes, where that is not documented to apply; this
+    is tier drift (X5) caused by the shape, so report it once, here.
+- A stage with one context has no coordination to judge. Record "single context"
+  and move on; do not propose a pattern for work that does not need dividing.
+- The cure is a `reroute` move. When it adopts agent teams, the move names the
+  setting it depends on and where that would be enabled, as a follow-up for the user
+  (`claude-code.md`, "Follow-ups after applying moves").

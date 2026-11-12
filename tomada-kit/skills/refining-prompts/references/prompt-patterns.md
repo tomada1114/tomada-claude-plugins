@@ -3,7 +3,7 @@
 # 引き渡しプロンプトの作法
 
 このファイルは `refining-prompts` が出力する**引き渡しプロンプト本文**の書き方。
-スキル自体の書き方は [../creating-agent-skills/references/prompt-authoring.md](../creating-agent-skills/references/prompt-authoring.md)。
+スキル自体の書き方は [../creating-agent-skills/references/prompt-authoring.md](../../creating-agent-skills/references/prompt-authoring.md)。
 
 出典: Anthropic [prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)
 と各モデル別ガイド（Fable 5.2 / Opus 5.5 / Sonnet 5.5 / Haiku 5.5）。
@@ -63,7 +63,7 @@
 | 「重要なものだけ報告して」「些末な指摘はしないで」 | 文字通り従い、同じだけ調べた上で結果を隠す。取りこぼしが増える | 「見つけたものは全部、確信度と重要度を付けて報告して」。選別は受け取ってから |
 | 「思考過程を書き出して」「どう考えたか説明して」 | Fable 5.2 / Opus 5.5 / Sonnet 5.5 では `reasoning_extraction` 拒否を踏む可能性がある | 思考ではなく根拠を求める: `path:line` の引用、コマンド出力、成果物そのもの |
 | 「よく考えてから答えて」「ステップバイステップで考えて」 | 思考は常時オンで量は effort が決める。遅くなるだけ | 何も書かない |
-| 「考え込まずに直接答えて」「熟慮は不要」 | 効かない。Fable 5.2 は medium 以上でこの指示があっても考える | 何も書かない。軽く済ませたいなら受け手の effort を下げる |
+| 「考え込まずに直接答えて」「熟慮は不要」 | Fable 5.2 は medium 以上で効かない。Sonnet 5.5 / Haiku 5.5 でも当てにならない。Opus 5.5 では低い effort で思考を減らすが、品質は要計測 | 何も書かない。軽く済ませたいなら受け手の effort を下げる |
 | 理由も例外もない「絶対に〜しないで」 | Fable 5.2 は書かれたとおりに守り、承認済みの操作や通常の再試行まで手控える | 対象の操作を名指しし、理由と例外を同じ文に入れる:「〜の前に確認を取って。理由は…」 |
 | 「1 文 20 語以内で」などの硬い文体上限 | 忠実に守られ、文章がぶつ切りになる | 読み手を説明する:「作業を見ていない人がこれだけ読んで分かるように」 |
 | 「CRITICAL: 必ず〜しなければならない」 | 現行モデルは通常の指示で従う。強調は過剰発火を招く | 「〜して」で足りる |

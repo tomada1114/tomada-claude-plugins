@@ -60,6 +60,12 @@ Return the design as text in exactly these sections.
 ### F1: <name>
 <the ordered stages for a job that spans units: which unit runs each stage, what file
 or decision is handed to the next, and where the user is asked something>
+- Coordination: <for each stage that needs more than one context: what a worker must
+  learn from the others while it works (nothing, or which findings), what comes back
+  to the lead, and the lightest shape that provides it: a lead with sub-agents that
+  only return results, a checker loop with written criteria and a cap, a worker
+  continued across tasks, or workers that exchange findings mid-run through messages
+  or a shared file. "Single context" when the stage needs no dividing>
 
 ## Jobs that need no asset
 - <job id>: <why the model's default behavior is enough>

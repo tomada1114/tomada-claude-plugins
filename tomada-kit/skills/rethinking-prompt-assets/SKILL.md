@@ -4,14 +4,15 @@ description: >-
   Rethink a set of prompt assets from zero — memory files (CLAUDE.md, AGENTS.md),
   skills, sub-agent definitions, and the flows they form — and propose large changes:
   delete, merge, split, rebuild, reroute. A sub-agent blind to the current
-  assets designs the ideal set for the jobs they serve; the current set is then compared
-  with it and with usage evidence from session transcripts. Finds what a
+  assets designs the ideal set for the jobs they serve; the current set is compared
+  with it and with usage evidence from transcripts. Finds what a
   one-file review cannot: overlap and contradiction between skills, unclear ownership,
   skills unused or never firing, delegation that drifted from the model-assignment
-  source, wasted stages in multi-skill flows, cautions that outlived their reason.
+  source, flows with wasted stages or ill-fitting agent coordination, cautions that
+  outlived their reason.
   Applies the moves the user approves. Use when asked to rethink, consolidate, prune
   or overhaul all skills or the agent setup, to check a multi-skill flow's shape,
-  or to find unused or redundant skills. Not for one document's wording
+  or find unused or redundant skills. Not for one document's wording
   (auditing-prompt-docs), one skill's structure (creating-agent-skills), or a
   repository's code (auditing-repositories).
 argument-hint: "[scope: empty | asset names | flow <entry skill> | a job in words | repository path] [report-only]"
@@ -104,7 +105,10 @@ who had never seen it.
 - For each job: an id (`J1`…), what prompts it, what done looks like, how often it
   happens (with the window), and any hard fact about the environment it depends on.
 - Add environment facts separately: the tools the session has, what kinds of model and effort
-  can be bought and their relative cost, standing preferences the user has stated.
+  can be bought and their relative cost, how contexts can pass information to each
+  other and whether agent teams are enabled
+  ([references/claude-code.md](references/claude-code.md#coordination-mechanisms)), where the jobs run
+  (interactive, unattended, another runtime), standing preferences the user has stated.
 - Leave out every asset name, stage count, file layout and tier name. Check the result
   with one question: could a reader reconstruct today's list of skills from this
   document? If so, the jobs are still shaped like the assets; regroup.
@@ -133,16 +137,18 @@ reply under `$RUN/cards/`; a `scout` cannot write files. Cards extract what each
 says and judge nothing. Afterwards open the full text of any asset a check implicates:
 a move is never proposed from a card alone.
 
-Tier criteria live in the `orchestrating-models` skill.
+Tier criteria, and the criteria for how contexts coordinate, live in the
+`orchestrating-models` skill.
 
 ## Phase 4: Compare
 
 1. **Design against estate.** Map each unit of the blind design to current assets:
    same shape; one unit spread over several assets; several units inside one asset; a
    unit with no asset; an asset with no unit. Do the same for flows, stage by stage.
-2. **Cross-checks.** Run X1–X8 in [references/cross-checks.md](references/cross-checks.md): overlap,
+2. **Cross-checks.** Run X1–X9 in [references/cross-checks.md](references/cross-checks.md): overlap,
    contradiction, unclear boundary, unused or unreachable, tier drift, flow waste,
-   leftovers, memory files against skills. Call a part where a check says to.
+   leftovers, memory files against skills, coordination fit. Call a part where a
+   check says to.
 3. **Verdict per asset:** keep, or one of the move kinds in
    [references/proposal.md](references/proposal.md#moves). A difference from the blind design is a reason to
    look, not a finding. A move needs evidence of a present cost and an honest cost of
@@ -167,14 +173,15 @@ no commit or remote write unless asked.
 
 ## Resources
 
-- [references/cross-checks.md](references/cross-checks.md): the eight cross-asset checks, the evidence each
+- [references/cross-checks.md](references/cross-checks.md): the nine cross-asset checks, the evidence each
   starts from, and what makes a finding. Read at Phase 4.
 - [references/proposal.md](references/proposal.md): move kinds and sizing, the proposal format, the approval
   round, the ledger, and the rules for applying moves. Read at Phase 4.3 and after.
 - [references/agents/blind-designer.md](references/agents/blind-designer.md), [references/agents/card-writer.md](references/agents/card-writer.md): the two
   sub-agent briefs.
 - [references/claude-code.md](references/claude-code.md): configuration roots and the transcript location,
-  the tool for each step, the listing budget, the limits of blindness, how each part
+  the tool for each step, the listing budget, coordination mechanisms and how to tell
+  whether agent teams are enabled, the limits of blindness, how each part
   is called, and the follow-ups a move creates in published copies.
 - `scripts/collect_estate.py`: run it, do not read it. Standard library only; tests
   in `scripts/tests/`.

@@ -4,7 +4,7 @@ description: >-
   Polish a rough instruction (often dictated by voice) into a precise prompt that can be
   handed straight to another agentic coding session (Claude Code, Codex CLI, etc.), and
   print it in the CLI as a single code block (no file is saved). Runs a light scouting
-  pass with a scout sub-agent only when needed, and questions the user only when
+  pass only when needed, and questions the user only when
   needed; the investigating and the thinking are deliberately left as work for the
   receiving session. When the user wants a /goal prompt for an unattended run, use
   authoring-goal-prompts instead. Use when asked to write, tidy up, or sharpen a prompt
@@ -32,7 +32,7 @@ metadata:
    経緯、却下された案）は、プロンプトに書かない限り失われる。
 3. **渡し先は同格の「考える相手」** — 調べること・設計を決めること・検証することは渡し先の仕事。
    ここで結論まで出して手順書を渡すのではなく、良い問いと正しい入口を渡す。
-   （`authoring-goal-prompts` は逆の設計思想。無人・弱いモデル向けに判断を前倒しして潰す。混同しない）
+   （`authoring-goal-prompts` は逆の設計思想。無人実行向けに判断を前倒しして潰す。混同しない）
 4. **調査は「当たり付け」であって前倒しではない** — 受け手が同じ場所を調べ直すのは正常で歓迎。
    トークンや時間の節約はこのスキルの目的ではない。目的はプロンプトが的を外さないこと
    （正しい語彙・正しい入口・見落としやすい注意点）と、受け手が実際に調べて考えるよう仕向けること。
@@ -58,8 +58,10 @@ metadata:
 
 対象プロジェクトの実態でプロンプトの**向き**が変わるときだけ調査する。汎用的な相談はスキップ。
 
-この調査はファイルを書き換えない読み取りなので、委譲できる環境では `scout` サブエージェントに委譲する（段の選び方は
-`orchestrating-models` スキル）。読むファイルと問いを絞って渡す。入力が大きいと `scout` は割高になるため。返答が空なら同じ依頼をもう一度出す。委譲できない環境では逐次インラインで行う
+既定は自分で読む。数回の検索と読み取りで済む当たり付けや、「ここは罠がある」という判断が要る読みは
+委譲しない。大量に読んで要約だけ使う場合に限り `scout` サブエージェントに渡す（委譲するかどうかと段の
+選び方は `orchestrating-models` スキル）。渡すときは読むファイルと問いを絞る。入力が大きいと `scout` は
+割高になるため。返答が空なら同じ依頼をもう一度出す。委譲できない環境では逐次インラインで行う
 （[references/platform-notes.md](references/platform-notes.md)）。
 
 いずれの場合も、受け取る（残す）のは要約だけ: 関連パス、現状の挙動・エラー、既存の慣習。
@@ -82,7 +84,6 @@ metadata:
 ### 4. 起草
 
 **長すぎず、限定しすぎず。** 目的・制約・完了の形を固定し、手段と判断は受け手に委ねる。
-ステップバイステップの手順書やマイクロマネジメントはしない。
 
 初回起草の前に [references/prompt-patterns.md](references/prompt-patterns.md) を読む
 （効く書き方・入れてはいけない定型句・受け手に調べさせる書き方・完成例）。
@@ -99,13 +100,15 @@ metadata:
 - **制約・スコープ** — 触らない範囲、守る慣習、明確な NG。少数精鋭。適用範囲は明示的に書く
   （受け手は文字通り読む。「全セクションに適用、最初だけではない」は冗長ではない）。
 - **成果物・完了の目安** — 何が出てきたら成功か。作業依頼では検証方法も一言。
-- **不明時の挙動** — 「不明点や大きな分岐は進める前にユーザーに確認して」を入れる。確認手段の
+- **不明時の挙動** — 設計・計画や相談のように途中で合意を取りたい依頼には、確認してほしい分岐を
+  名指しして入れる（例:「データモデルの方針を決める前に確認して」）。作業依頼では、解釈が割れると
+  作業が大きく変わる点だけを挙げ、それ以外は自分で判断して進めるよう書く。確認手段の
   書き分けは [references/platform-notes.md](references/platform-notes.md) を参照。
 
 貼り付ける長い材料（エラーログ、コード抜粋、仕様の断片）があるならプロンプトの**上部**に置き、
 依頼を末尾にする。材料と指示が混ざるなら見出しか XML タグ（`<error_log>` 等）で区切る。
 
-長さの目安は 15〜40 行。超えて膨らむなら、細部を固定しすぎているか、受け手が自分で調べれば
+長さの目安は 40 行まで。短く済むなら短いままでよい。超えて膨らむなら、細部を固定しすぎているか、受け手が自分で調べれば
 済む事実を詰め込んでいるサイン。
 
 ### 5. 出力

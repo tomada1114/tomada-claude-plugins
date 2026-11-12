@@ -63,6 +63,8 @@ Analyze the current changes, group related ones together, and create appropriate
 
 5. **Push**
    - Once all groups are committed, run `git push` once
+   - If the push is rejected because the remote has new commits, run `git pull --no-rebase --no-edit`, then `git push` again (one command per Bash call, no `&&`)
+   - If the pull hits a merge conflict, stop and report the conflicting files; do not resolve or abort on your own
 
 ## Important notes
 

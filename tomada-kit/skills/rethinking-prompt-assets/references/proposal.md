@@ -22,7 +22,7 @@ edits and never to the proposal as a whole.
 | `split` | Divide one asset along a boundary. Names both results. |
 | `rebuild` | Replace an asset with one written from the blind design's unit, not edited from the old text. |
 | `restructure` | Keep the asset, change its shape: move content between body, references and scripts, reorder or remove phases. |
-| `reroute` | Change a flow: drop, reorder or combine stages across assets; change a hand-off artifact. |
+| `reroute` | Change a flow: drop, reorder or combine stages across assets; change a hand-off artifact; change how the contexts in a stage coordinate (who returns what to whom, what is shared mid-run). |
 | `retier` | Change which tier a hand-off uses, or change the tier set. |
 | `relocate` | Move a rule between a memory file and a skill. |
 | `reword` | Wording fixes within one document. One `reword` move per document, however many lines. |
@@ -58,7 +58,7 @@ matches it, and the handful of moves that matter most.>
 
 ### M01 <kind>: <targets>
 - Change: <what will exist afterwards>
-- Why: <the check ids (X1–X8) or the blind-design unit behind it>
+- Why: <the check ids (X1–X9) or the blind-design unit behind it>
 - Evidence: <path:line for each claim; usage numbers with the window>
 - Cost of leaving it: <what goes wrong or is paid today, and how often>
 - Cost of moving: <files touched, what the user must relearn, what could break>
@@ -150,4 +150,4 @@ so that a declined move is not raised again on the next run.
    applied, what was not and why, the validator results, and the follow-ups the moves
    created (see `claude-code.md`): copies of the changed assets held by a published
    plugin, or by repositories that receive synced tier
-   definitions.
+   definitions, and a setting an approved move depends on (agent teams).

@@ -28,7 +28,7 @@ Anthropic 公式のプロンプトガイド(Fable 5.2 / Opus 5.5 / Sonnet 5.5 / 
 
 Fable 5.2 は書かれたことを前のモデルより忠実に守る。承認・所有・慎重さ・文体のどれも、書いたとおりに効く。直し方の多くは「足す」より「消す」。
 
-- **途中で止まる**: 長い多段タスクで、残作業の一覧・「続けますか」・タイムアウトのような通常の障害でターンを終えることがある。low / medium で多い。メインは medium なので、無人で走らせる区間の前に `/effort high` に上げる。architect の定義本文には「通常の障害は診断して越える、意図的なブロッカーは触らず報告する」を入れてある。
+- **途中で止まる**: 長い多段タスクで、残作業の一覧・「続けますか」・タイムアウトのような通常の障害でターンを終えることがある。low / medium で多い。メインは high なので、無人で走らせる区間でも通常は上げずに走れる。architect の定義本文には「通常の障害は診断して越える、意図的なブロッカーは触らず報告する」を入れてある。
 - **承認ルールは書かれたとおりに適用する**: 「会話の外の人へのメッセージ送信は承認が要る」と書くと、同僚への通常の依頼まで半分ほど手控える。承認が要る操作は名指しする。
 - **慎重さが積もる**: メモ・ノート・指示ファイル・エージェント間のメッセージに溜まった「〜するな」を忠実に守り、不要な確認待ちになる。一般的な「もっと自由に動いてよい」は効かない。効くのは、(1) 理由のなくなった注意書きを消す、(2) 承認不要の操作(安全な再試行など)を名指しする、(3) 例外を規則の文そのものに入れる(「〜するな」+ 別行の「承認済みなら可」ではなく「〜の前に確認を取る」)。レビュー役が添える「最初のエラーで止まれ」も同じ効き方をする。
 - **コードの所有で動きが変わる**: 所有について何も書かないか他人のコードとして渡すと、既存構造に足す(重複してでも)うえ、近くの問題は直さず報告する。構造も直してほしいなら「このコードベースはあなたのもの。目的も作りもあなたが決め、今後も育てていく」と書く。出力は約 1.5 倍になり、頼んでいないテストや文書が増え、既存機能の挙動を変えることもある。最小の変更が欲しいなら書かない。「ついでのリファクタ禁止」を併記しても所有の一文は打ち消せない。
@@ -42,7 +42,7 @@ Fable 5.2 は書かれたことを前のモデルより忠実に守る。承認�
 
 ## architect に渡すとき
 
-Fable 5.2 high。$9.08/task と高いので、渡すのは medium では落ちそうな難所・レビュー・統合に限り、本数は最小限にする。**ゴールと制約**を渡し、手順は縛りすぎない。
+Fable 5.2 high。$9.08/task と高いので、渡すのはメインでは落ちそうな難所・レビュー・統合に限り、本数は最小限にする。**ゴールと制約**を渡し、手順は縛りすぎない。
 
 - 何が決着済みで何が未決かを分けて書く。決着済みの判断を蒸し返させない
 - コードを書き換えさせるなら、所有の扱いを決めて書く。構造ごと任せるなら所有の一文を入れ、頼んだ箇所だけ直してほしいなら入れずに触ってよい範囲を書く
@@ -54,7 +54,7 @@ Fable 5.2 high。$9.08/task と高いので、渡すのは medium では落ち�
 
 ## executor に渡すとき
 
-Opus 5.5 low。思考量が少ないので、**仕様の穴を自分で埋めない**前提で渡す。Opus 5.5 は完全な仕様を最初に全部渡して走らせるのが最も強く、小出しの指示で弱くなる。
+Opus 5.5 medium。思考量は多くないので、**仕様の穴を自分で埋めない**前提で渡す。Opus 5.5 は完全な仕様を最初に全部渡して走らせるのが最も強く、小出しの指示で弱くなる。
 
 - 触るファイル・パス・出力形式を明示し、未解決の問いを残さない。穴が埋まらないなら、先にメインで仕様を確定させるか、メインが自分で実装する
 - 適用範囲は「全件に」と言い切る
@@ -96,15 +96,15 @@ Artificial Analysis Intelligence Index × Cost per Task。Fable 5.2 は v5.0.1(2
 | Haiku 5.5 max | 36.2 | $0.41* | 使わない |
 | Sonnet 5.5 low | 25.3 | $0.51 | 使わない |
 | Sonnet 5.5 medium | 30.3 | $0.78 | 使わない |
-| Opus 5.5 low | 34.5 | $0.98 | `executor`(下記) |
+| Opus 5.5 low | 34.5 | $0.98 | 使わない |
 | Sonnet 5.5 high | 41.1 | $1.64 | `worker`(ツールなしの一発仕事だけ。下記) |
-| Opus 5.5 medium | 48.1 | $2.45 | 使わない |
-| Opus 5.5 high | 51.7 | $3.46 | Workflow の多数並列の検出段だけ |
+| Opus 5.5 medium | 48.1 | $2.45 | `executor`(下記) |
+| Opus 5.5 high | 51.7 | $3.46 | メインセッション、Workflow の多数並列の検出段 |
 | Fable 5.2 low | 54 | 未取得 | 使わない |
-| Fable 5.2 medium | 56 | $3.80 | メインセッション |
+| Fable 5.2 medium | 56 | $3.80 | 使わない |
 | Sonnet 5.5 xhigh | 49.6 | $4.09 | 使わない |
 | Opus 5.5 xhigh | 57.0 | $6.05 | 使わない |
-| Fable 5.2 high | 62 | $9.08 | `architect`、大事な場面と無人区間のメイン |
+| Fable 5.2 high | 62 | $9.08 | `architect` |
 | Sonnet 5.5 max | 54.2 | $10.02 | 使わない |
 | Opus 5.5 max | 58.4 | $10.04 | 使わない |
 | Fable 5.2 xhigh | 62 | $14.83 | 使わない |
@@ -112,13 +112,13 @@ Artificial Analysis Intelligence Index × Cost per Task。Fable 5.2 は v5.0.1(2
 
 Index v5.0 系は Science と General が半分を占め、難しい課題が多い。低い effort の不利は日常の作業より大きく出ている可能性がある。
 
-**メインを Fable 5.2 medium に置く理由。** Opus 5.5 high(51.7 / $3.46)より +4.3pt を +$0.34 で買え、Opus 5.5 xhigh(57.0 / $6.05)とほぼ同じ賢さを 2/3 以下の費用で得られる。公式ガイドも medium を対話的なコーディング・チャット・日常の知識労働の段とし、「medium で計画と反復をし、長い無人の区間で effort を上げる」使い方を挙げている。medium → high は +6pt に +$5.28($0.88/pt)で、1 タスクの時間も AA の計測で約 2 倍(8.3 分 → 17.4 分)になるので、常用せず場面で上げる。
+**メインを Opus 5.5 high に置く理由。** ユーザーの指定。Fable 5.2 medium(56 / $3.80)より Index は 4.3pt 低く、費用は $0.34 安い。Opus 5.5 は完全な仕様を最初に全部持ったまま走る使い方で強く、計画・判断・実行を一つの文脈で持つ段になる。effort は会話の途中で変えない(キャッシュが切れるおそれがある)。xhigh(57.0 / $6.05)・max(58.4 / $10.04)は使わない。
 
-**崖は Fable 5.2 の high の上。** high → xhigh は Index が同じ 62 のまま +$5.75、xhigh → max は +3pt に +$11.71。公式も「能力の伸びの大半は high で出ている」としている。大事な場面は high で受け、xhigh / max は使わない。
+**崖は Fable 5.2 の high の上。** high → xhigh は Index が同じ 62 のまま +$5.75、xhigh → max は +3pt に +$11.71。公式も「能力の伸びの大半は high で出ている」としている。Fable は `architect` の high だけで使い、xhigh / max は使わない。
 
-**`architect` を Fable 5.2 high に置く理由。** メイン(56)より賢い段でなければ、難所を委譲する意味がない。Opus 5.5 high(51.7)はメインより低く、Opus 5.5 xhigh(57.0 / $6.05)は同格にとどまる。Fable 5.2 high(62 / $9.08)は Opus 5.5 max(58.4 / $10.04)を賢さでも費用でも上回る。高いので本数を絞る。
+**`architect` を Fable 5.2 high に置く理由。** メイン(51.7)より賢い段でなければ、難所を委譲する意味がない。Opus 5.5 のどの段もメインを大きくは上回らない(xhigh 57.0、max 58.4)。Fable 5.2 high(62 / $9.08)は Opus 5.5 max(58.4 / $10.04)を賢さでも費用でも上回る。メインの 2.6 倍かかるので本数を絞る。
 
-**`executor` を Opus 5.5 low に置く理由。** 速くて安い(149 秒、$0.98。メインの約 1/4)。ただし FrontierCode 0.16・Briefcase 1279 と低いので、確定仕様の機械的作業に限り、文章を書かせる仕事は `worker` に渡す。Haiku にしないのは、Anthropic が Haiku 5.5 の用途を要約・compaction・分類・狭い範囲のサブエージェントとし、複雑なエージェント型コーディングには Sonnet / Opus を勧めているから(Terminal-Bench 4.0 は Haiku 5.5 39.2% 対 Sonnet 5.5 70.6%)。Fable 5.2 low にしないのは、Cost per Task が未取得で、トークン単価が Opus 5.5 より高く、安い段にならない見込みだから。
+**`executor` を Opus 5.5 medium に置く理由。** メインより安い($2.45。メインの約 7 割)。low(34.5 / $0.98、FrontierCode 0.16・Briefcase 1279)より Index が 13.6pt 高く、仕様の小さな穴や手戻りが出にくい。それでもメイン(56)より賢くないので、確定仕様の機械的作業に限り、文章を書かせる仕事は `worker` に渡す。Haiku にしないのは、Anthropic が Haiku 5.5 の用途を要約・compaction・分類・狭い範囲のサブエージェントとし、複雑なエージェント型コーディングには Sonnet / Opus を勧めているから(Terminal-Bench 4.0 は Haiku 5.5 39.2% 対 Sonnet 5.5 70.6%)。Fable 5.2 low にしないのは、Cost per Task が未取得で、トークン単価が Opus 5.5 より高く、安い段にならない見込みだから。
 
 **`worker` を Sonnet 5.5 high に置く理由。** 文章の評価 AA-Briefcase は Sonnet 5.5 medium 1440 < Haiku 5.5 xhigh 1525 < Sonnet 5.5 high 1635 の順で、AutomationBench 0.59・GDP.pdf 0.25 でも Sonnet 5.5 high が Haiku 5.5 xhigh(0.36・0.18)を上回る。公式ガイドは low / medium で手順を要する JSON 判定に考えずに答えやすいとし、high が API の既定。`worker` の主な仕事は、後段のエージェントが聞き返さずに実装する Issue 本文などの書き出しで、中身が薄いと 1 往復の手戻りが価格差より高くつく。
 
@@ -130,8 +130,8 @@ Fable 5.1・Opus 5・Sonnet 5 は使わない。Fable 5.2 の単価は $8 / $40 
 
 | 手段 | 段の指定 |
 |---|---|
-| メインセッション | settings.json の `model: claude-fable-5-2` と `modelSettings.claude-fable-5-2.effortLevel: medium`。一時的に上げるなら `/effort` |
+| メインセッション | settings.json の `model: opus` と `modelSettings.claude-opus-5-5.effortLevel: high` |
 | Agent ツール | `subagent_type: executor` / `architect` / `scout` / `worker`。定義 frontmatter の `model` と `effort`(`low` / `medium` / `high` / `xhigh` / `max` か整数)が効く。`model` だけの起動は effort が `modelSettings` から決まる。Fable 5.2 と Opus 5.5 は思考を切れず、Haiku 5.5 の既定 effort は medium |
-| Workflow の `agent()` | `model` と `effort` を段ごとに指定する(`'fable'` + `'high'`、`'opus'` + `'low'`、`'haiku'` + `'xhigh'`、`'sonnet'` + `'high'`) |
+| Workflow の `agent()` | `model` と `effort` を段ごとに指定する(`'fable'` + `'high'`、`'opus'` + `'medium'`、`'haiku'` + `'xhigh'`、`'sonnet'` + `'high'`) |
 
 数値は API 価格ベースの Cost per Task で、Max プランでは消費量の目安として使う。Opus 5.5・Sonnet 5.5・Haiku 5.5 の出典ノート: `~/ghq/github.com/tomada1114/iobsidian/Content/_material/claude-model-effort-cost-performance.md`(Fable 5.2 の数値は未記載)。

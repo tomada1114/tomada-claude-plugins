@@ -47,7 +47,7 @@ Run `/plugin` to browse interactively.
 | Agent | Description |
 |---|---|
 | **architect** | Fable 5.2 high の難所担当。 |
-| **executor** | Opus 5.5 low の実行役。 |
+| **executor** | Opus 5.5 medium の実行役。 |
 | **scout** | Haiku 5.5 xhigh の調べ物役。 |
 | **worker** | Sonnet 5.5 at high effort, the tier for briefed text work. |
 

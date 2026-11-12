@@ -34,6 +34,12 @@ One card per asset, in exactly this shape, with a `path:line` after every item.
   (this asset, another named asset, a sub-agent) and what is handed on>
 - Asks the user: <each point where it stops for an answer or an approval>
 - Delegations: <each hand-off to a fresh context: the tier or model named, the cap, the brief file>
+- Coordination: <for each step that uses more than one context: what each worker
+  returns and to whom; whether workers see each other's output before the end, and
+  through what (messages, a task list, a named shared file); whether a worker is
+  continued across tasks or spawned fresh each time; any check-and-fix loop with
+  its criteria and its cap on rounds; any mention of agent teams or teammates;
+  where the step is said to run (interactive, unattended, scheduled, another runtime)>
 - Names other assets: <each other skill or agent it mentions, and what for>
 - Restates: <facts or rules it states that it also attributes to another asset>
 - Cautions: <each prohibition, warning or "always/never" rule, quoted, with the reason
