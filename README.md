@@ -26,6 +26,7 @@ Run `/plugin` to browse interactively.
 | **designing-architecture** | Decide a new app's hard-to-reverse design choices from its signed-off requirements and UX drafts before any… |
 | **designing-wireframes** | Create ASCII wireframes for every screen and window, user flow diagrams, and per-screen states (empty… |
 | **dual-platform-skills** | Convert one existing skill (Claude Code origin or Codex origin) into a layout that works on both Claude Code… |
+| **evolving-skills** | Improve skills automatically from evidence, with no approval step: record what went wrong when a skill ran… |
 | **kicking-off-apps** | Take a rough app idea ("I want an app that…") to a new public GitHub repository cut from one of the user's… |
 | **orchestrating-models** | Decide which model and effort runs a piece of work, and whether to delegate it at all. |
 | **planning-tickets** | Break requirements and design documents into GitHub Issues an implementing agent can ship without asking… |

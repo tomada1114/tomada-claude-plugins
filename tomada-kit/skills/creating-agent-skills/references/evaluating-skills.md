@@ -10,6 +10,7 @@ Seeing a skill trigger tells you Claude found it — not that it did what you in
 - [Evaluation-driven authoring](#evaluation-driven-authoring)
 - [The baseline comparison](#the-baseline-comparison)
 - [Eval case format](#eval-case-format)
+- [claude plugin eval](#claude-plugin-eval)
 - [Running evals with skill-creator](#running-evals-with-skill-creator)
 - [The A/B iteration loop](#the-ab-iteration-loop)
 - [Reading how Claude navigates the skill](#reading-how-claude-navigates-the-skill)
@@ -39,7 +40,7 @@ The check for both selection and output is the same shape: run each prompt in a 
 
 ## Eval case format
 
-Store cases in `evals/evals.json` inside the skill directory. Each case is a prompt plus assertions about the observable result:
+Two tools run cases, with formats that are not interchangeable. Cases that a gate runs on every change to the skill use the [`claude plugin eval`](#claude-plugin-eval) layout (`evals/<case>/prompt.md` + `graders/`), because it runs from a shell, scores mechanically, and exits with a code. `skill-creator` keeps its cases in `evals/evals.json` and is for iterating inside a conversation:
 
 ```json
 {
@@ -57,6 +58,30 @@ Store cases in `evals/evals.json` inside the skill directory. Each case is a pro
 Write `expected_behavior` entries as things a grader can check from the transcript and the artifacts — files written, commands run, content present. "Handles the task well" is not gradable.
 
 For **selection** cases, pair should-trigger prompts with should-not-trigger prompts. The should-not set is what catches an over-broad description, and it is the half people forget.
+
+## claude plugin eval
+
+`claude plugin eval <plugin dir>` (Claude Code v2.1.269 or later) runs each case in a fresh, isolated headless session and scores it with graders. A case is a directory holding `prompt.md` (frontmatter: `tags`, `max_turns`, `allowed_tools`, `runs`; body: the request as a user would type it) and `graders/<name>.md`.
+
+| Grader `type` | Passes when |
+|---|---|
+| `regex` | `pattern` is found in the `target` (`last_message` by default, `trace`, `files`, or `{ source: file, path }`); `match: not_contains` or `count:N` invert or count |
+| `tool_used` | Calls to `tool` (optionally filtered by `input_match`) number between `min` and `max` |
+| `tool_order` | The first `before` call precedes the first `after` call |
+| `file_exists` | A file the run created matches `path` |
+| `llm` | A judge model passes the rubric in two of three votes |
+| `baseline` | A judge finds the run at least as good as a reference transcript |
+
+There are no custom-code graders. Give each case one grader on the result and one on the route; grade long output with `regex` over the file and keep `llm` for short output with concrete PASS and FAIL conditions. A case's score is the mean over its runs (three by default) of the share of graders passed.
+
+What decides how you use it:
+
+- **The target must be a plugin.** A plain skill folder is not one; it needs `.claude-plugin/plugin.json`, which also changes how the folder loads. Leave the skill as it is and evaluate a temporary wrapper: a scratch directory with a manifest, `skills/<name>/` holding a copy of the skill, and the skill's `evals/`. The `evolving-skills` gate (`scripts/gate.py check`) builds this wrapper for the committed and the changed version and compares them.
+- **Runs are isolated.** No user settings, memory files, other skills, sub-agent definitions or connectors load, and each run starts in an empty directory. A step that spawns a named tier fails there, so cases cover what a single context can do.
+- **With and without.** By default each case also runs with no plugin, and the report gives the difference. Use that once to confirm a new suite measures the skill; pass `--ablation none` when comparing two versions of the skill, which halves the cost.
+- **Side effects.** The HTML report is published to claude.ai unless `--no-publish` is passed. Runs cost model calls on your account: cases × runs, doubled by the comparison, plus three judge calls per `llm` grader per run. `--max-cost-usd` sets a ceiling.
+
+Reference: [Test plugins with evals](https://code.claude.com/docs/en/plugin-evals).
 
 ## Running evals with skill-creator
 

@@ -287,7 +287,7 @@ Pair any generation step that has an objective correctness criterion with a chec
 4. Only once validation passes: repack with `pack.py`
 ```
 
-The validator does not have to be a script. A style guide plus "review against the checklist, revise, review again" is the same pattern with a document as the validator.
+The validator does not have to be a script. A style guide plus "review against the checklist, revise, review again" is the same pattern with a document as the validator. For the check a skill applies to its own finished output (criteria, a cap on rounds, recording misses), see `self-evaluation.md` (load via SKILL.md).
 
 ---
 

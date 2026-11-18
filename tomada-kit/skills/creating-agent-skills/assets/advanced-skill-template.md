@@ -41,6 +41,10 @@ metadata:
 
 [Phases run in strict sequence; parallelism happens inside a phase. If this phase spawns sub-agents, name the tier for each — `architect` where the sub-agent could come back asking what you meant, `executor` for fully specified pass/fail work and judgment-free enumeration (criteria: the `orchestrating-models` skill). Give each spawn a self-contained prompt with an explicit output path; sub-agents never talk to each other.]
 
+## Self-check
+
+[Only for a skill that produces an artifact; delete otherwise. Before hand-off: (1) run the check script if there is one; (2) result criteria — at most five conditions observable in the output, taken from what the user has actually sent back; (3) route expectations — the steps that must have happened, in order; (4) on a miss, fix and repeat, twice at most, then hand off naming what still fails and record the miss as a signal. Contract and example: references/self-evaluation.md in creating-agent-skills.]
+
 ## Resources
 
 - `references/[name].md` — [what it covers, and the condition under which to read it]
@@ -48,6 +52,7 @@ metadata:
 - `scripts/[name].py` — run as `python3 ${CLAUDE_SKILL_DIR}/scripts/[name].py <args>`; never a hardcoded `~/.claude/skills/...` path <!-- neutrality-ignore: N2 -->
 - `scripts/tests/test_[name].py` — stdlib `unittest`, discovered with `python3 -m unittest discover -s scripts/tests -p 'test_*.py'` from the skill directory; coverage ≥ 90% (see `references/scripts-guide.md#conventions` for the authoritative rules, checked by `scripts/check_scripts.py`). Generated files (`__pycache__/`, `.pytest_cache/`, `.coverage*`) belong in the enclosing repository's `.gitignore`.
 - `assets/[name]` — [boilerplate copied into the output]
+- `evals/<case>/prompt.md` + `graders/` — the cases a change to this skill is measured against (two tagged `gate`, one `holdout`); see references/self-evaluation.md in creating-agent-skills
 
 Markdown links to bundled files use relative paths (`references/foo.md`) so the validator can resolve them. Commands and sub-agent prompts use `${CLAUDE_SKILL_DIR}/...`, which expands to an absolute path before the model sees it. The two are not interchangeable.
 

@@ -1,19 +1,18 @@
-# The proposal, its approval, and applying it
+# The proposal, what gets applied, and applying it
 
 ## Table of Contents
 
 - [Moves](#moves)
 - [proposal.md](#proposalmd)
-- [Asking for approval](#asking-for-approval)
+- [Choosing what to apply](#choosing-what-to-apply)
 - [The ledger](#the-ledger)
-- [Applying approved moves](#applying-approved-moves)
+- [Applying moves](#applying-moves)
 
 ## Moves
 
-The unit of approval is the **move**: one structural change, together with every
-edit needed to leave the estate consistent after it, that can be approved, declined
-and reverted on its own. The user says yes or no to moves, never to individual line
-edits and never to the proposal as a whole.
+The unit is the **move**: one structural change, together with every
+edit needed to leave the estate consistent after it, that can be applied, left out
+and reverted on its own. A move is applied or not as a whole, never line by line.
 
 | Kind | What it is |
 |---|---|
@@ -58,13 +57,13 @@ matches it, and the handful of moves that matter most.>
 
 ### M01 <kind>: <targets>
 - Change: <what will exist afterwards>
-- Why: <the check ids (X1–X9) or the blind-design unit behind it>
+- Why: <the check ids (X1–X10) or the blind-design unit behind it>
 - Evidence: <path:line for each claim; usage numbers with the window>
 - Cost of leaving it: <what goes wrong or is paid today, and how often>
 - Cost of moving: <files touched, what the user must relearn, what could break>
 - Blast radius: <every asset, memory file or published copy that names a
   target, from the reference graph, with path:line>
-- Revert: <what copying the snapshot back restores, and anything it cannot (a remote
+- Revert: <what reverting the move's commit restores, and anything it cannot (a remote
   copy already synced, a follow-up already run)>
 - Confidence: high | medium | low, and what would raise it
 - Requires: <move ids, or none>
@@ -88,17 +87,32 @@ Listed, not re-proposed, unless the evidence has changed; then say what changed.
 Order the moves by what they unblock, then by cost of leaving it. Every in-scope
 asset appears exactly once across Moves, Questions, and Examined and kept.
 
-## Asking for approval
+## Choosing what to apply
 
-Show the Summary and the Moves table in the conversation, with the path to
-`proposal.md`, then ask which moves to apply with `AskUserQuestion`. Offer a
-recommended set (the moves with high confidence and evidence of a present cost) as
-the first option, and put the Questions to the user in the same call. Wait for the
-answer.
+The user has approved applying moves without asking first; what they asked for in
+exchange is that each applied move is well evidenced, mechanically checked, and one
+revertable commit. So the proposal is sorted, not voted on.
 
-Approval covers exactly the named moves as written. A move whose `Requires` was not
-approved is not applied; say so and ask about the pair. Declining needs no reason,
-but record one if the user gives it.
+**This run applies** a move when all hold: confidence is high; the evidence shows a
+cost paid today (not only a difference from the blind design); every move it
+`Requires` is also being applied; and none of its targets has uncommitted changes.
+
+**Left for the user**, listed in the conversation with the reason for each:
+
+- a move with medium or low confidence, or resting on a "Questions only the user can
+  answer" item;
+- a move the ledger shows was declined before, unless the evidence changed;
+- a move the gate reports as `blocked` (it rewrites or removes an existing check,
+  test, eval case or hook) or as failing;
+- a move whose target holds the user's uncommitted work;
+- anything outside this machine: published plugin copies, repositories that receive
+  synced tier definitions, a setting the move depends on. These are follow-ups
+  (`claude-code.md`), never applied here.
+
+Show the Summary, the Moves table marked with which list each move is on, and the path
+to `proposal.md`. With `report-only`, stop here. Otherwise go on to apply without
+waiting; put any question only the user can answer in the closing report, where a yes
+or no decides a left-over move.
 
 ## The ledger
 
@@ -106,48 +120,54 @@ but record one if the user gives it.
 
 ```json
 {"date": "2026-11-10", "id": "M04", "kind": "merge", "targets": ["a", "b"],
- "one_line": "…", "decision": "approved | declined | deferred",
- "reason": "…", "applied": true}
+ "one_line": "…", "decision": "applied | left-for-user | gate-failed | blocked | declined",
+ "reason": "…", "commit": "<sha or null>", "run": "<gate run directory or null>"}
 ```
 
-Append after the approval round and update `applied` as moves land. Phase 0 reads it
+Append one row per move as it is sorted or lands. `declined` is recorded when the
+user says no to a left-over move, or reverts an applied one. Phase 0 reads the ledger
 so that a declined move is not raised again on the next run.
 
-## Applying approved moves
+## Applying moves
 
-1. Order the approved moves by `Requires`. Apply one move at a time, and finish all
-   of its edits, including its blast radius, before starting the next, so that
-   stopping between moves always leaves a consistent estate.
-2. Before a move's first edit, copy every file and directory it will change or
-   remove to `$RUN/snapshots/<move-id>/`, keeping paths relative to the configuration
-   root. This is what makes a move revertable: git cannot be relied on, because
-   files in the estate often carry uncommitted work, and a snapshot preserves that
-   work exactly as it was. To revert a move, copy its snapshot back.
-3. Do each move with the tool that owns that kind of work:
+`GATE` is `scripts/gate.py` in the `evolving-skills` skill; its steps and verdicts are
+described in that skill's `references/gate-and-evals.md`.
+
+1. Order the moves to apply by `Requires`. Apply one move at a time, and finish all of
+   it, including its blast radius, before starting the next, so that stopping between
+   moves always leaves a consistent estate.
+2. Stage the move: `GATE stage --root <configuration root> --path <target> ...` with
+   every file and directory the move changes or removes. Staging refuses a path with
+   uncommitted changes; that move goes to the user's list. All edits are made in the
+   `head/` copy the command prints, never in the estate.
+3. Do each move in the staging copy with the tool that owns that kind of work:
    - `rebuild`, `new`, `split`, `merge`: write the result with the
      `creating-agent-skills` skill's Building steps, from the blind design's unit and
      the facts worth keeping from the old text. Start from the unit, not from the old
-     file. When the result keeps the name of an asset it replaces, build it under
-     `$RUN/staging/<name>/` and validate it there; it is swapped in at step 5.
-   - `restructure`: edit in place; validate with that skill's validators.
-   - `reword`: apply with the `auditing-prompt-docs` rules, then re-run its linter on
-     the document.
+     file. A rebuilt or new skill that produces an artifact gets its self-check and
+     eval cases there.
+   - `restructure`: edit in place in the copy.
+   - `reword`: apply with the `auditing-prompt-docs` rules, then run its linter on
+     the staged document.
    - `retier`: change every place the estate's model-assignment source lists as
      needing to agree, in one move.
-   - `delete`: repoint or remove the references first. Do not remove the asset yet.
-4. A file that already had uncommitted changes at the start of the run holds the
-   user's work in progress. Its snapshot keeps that work, so an edit can proceed.
-   When a move would remove or wholly replace such a file, name it in the step 5
-   confirmation so the user sees that uncommitted work is among what goes.
-5. Removal and swap come last, once, for all `delete`, `merge` and `rebuild` moves
-   together: list the paths to be removed and the staged replacements to be moved
-   into place, confirm the list with the user through `AskUserQuestion`, then do it in one step. Until then the
-   old assets stay in place and keep working.
-6. After the last move, re-run the collector and each touched skill's validators.
-   Report any name that still resolves to a removed asset as unfinished work, with
-   its location.
-7. Make no commit and no remote write unless the user asks. Close with what was
-   applied, what was not and why, the validator results, and the follow-ups the moves
-   created (see `claude-code.md`): copies of the changed assets held by a published
-   plugin, or by repositories that receive synced tier
-   definitions, and a setting an approved move depends on (agent teams).
+   - `delete`: repoint or remove the references, and remove the asset from the copy.
+4. Check: `GATE check --run <run>`, and `--final` after a pass when a touched skill
+   has eval cases. `pass` lands. `unmeasured` lands with `--allow-unmeasured` when
+   no touched skill has a case the move could affect, which is the usual situation
+   for moves between assets; say so in the commit subject. `fail`, `blocked` and
+   `inconclusive` do not land: record the verdict in the ledger with the run
+   directory and move the move to the user's list. A `delete` of a skill that carries
+   tests, eval cases or hooks is `blocked` by design, since it removes checks.
+5. Land: write the commit message (subject `rethink <move id> <kind>: <one line>`,
+   body with the Why and Evidence lines from the proposal) to a file in the run
+   directory, then `GATE land --run <run> --message-file <file>`.
+6. After each landed move, re-run the collector and each touched skill's validators.
+   A name that still resolves to a removed asset, or a validator error the move
+   introduced, means the blast radius was wrong: `GATE revert --root <root> --commit
+   <sha>`, record it, and put the move on the user's list with what was missed.
+7. Close with: the commits landed (move id, sha), the moves left for the user and why,
+   the validator results, and the follow-ups the applied moves created (see
+   `claude-code.md`): copies of the changed assets held by a published plugin or by
+   repositories that receive synced tier definitions, and a setting a move depends on
+   (agent teams). Nothing is pushed.

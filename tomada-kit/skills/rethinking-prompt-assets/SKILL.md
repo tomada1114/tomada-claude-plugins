@@ -2,15 +2,16 @@
 name: rethinking-prompt-assets
 description: >-
   Rethink a set of prompt assets from zero — memory files (CLAUDE.md, AGENTS.md),
-  skills, sub-agent definitions, and the flows they form — and propose large changes:
+  skills, sub-agent definitions, and the flows they form — and make large changes:
   delete, merge, split, rebuild, reroute. A sub-agent blind to the current
   assets designs the ideal set for the jobs they serve; the current set is compared
-  with it and with usage evidence from transcripts. Finds what a
+  with it and with usage evidence. Finds what a
   one-file review cannot: overlap and contradiction between skills, unclear ownership,
   skills unused or never firing, delegation that drifted from the model-assignment
-  source, flows with wasted stages or ill-fitting agent coordination, cautions that
-  outlived their reason.
-  Applies the moves the user approves. Use when asked to rethink, consolidate, prune
+  source, flows with wasted stages, ill-fitting coordination or no evaluation,
+  cautions that outlived their reason.
+  Applies well-evidenced moves as gated commits; lists the rest.
+  Use when asked to rethink, consolidate, prune
   or overhaul all skills or the agent setup, to check a multi-skill flow's shape,
   or find unused or redundant skills. Not for one document's wording
   (auditing-prompt-docs), one skill's structure (creating-agent-skills), or a
@@ -35,7 +36,7 @@ The existing single-purpose reviewers are parts, called where a step needs them:
 `auditing-prompt-docs` (wording and its linter), `creating-agent-skills` (one skill's
 structure; building a replacement), `auditing-repositories` (a repository's harness).
 Their own procedures, approval stops and remote writes do not run here; this skill's
-proposal is the only approval. Load one with the `Skill` tool; how to call each: [references/claude-code.md](references/claude-code.md#parts-and-their-own-side-effects).
+proposal and its apply rule are the only gate. Load one with the `Skill` tool; how to call each: [references/claude-code.md](references/claude-code.md#parts-and-their-own-side-effects).
 
 ## Contract
 
@@ -58,10 +59,10 @@ and following links transitively turns any scope into the whole estate.
 
 **Output:** `$RUN = ${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/rethinking-prompt-assets/<scope-slug>/runs/<YYYY-MM-DD>/`
 holding `evidence.json`, `listing-diff.md`, `needs.md`, `blind-design.md`, `cards/`,
-`proposal.md`, and, once moves are applied, `snapshots/` and `staging/`.
+`proposal.md`, and the gate's run directories for applied moves.
 `<scope-slug>` is `estate` for the whole estate, otherwise the entry skill, the
 repository name, or a 2–4 word slug of the job. The ledger `decisions.json` sits one
-level above `runs/`. Edits to the assets come only after approval, in Phase 6.
+level above `runs/`. Edits to the assets happen only in Phase 6, through the gate.
 
 **The order of the phases is the method.** Until the blind design has returned
 (end of Phase 2), read no asset body in scope: only the collector's output, and the
@@ -145,9 +146,9 @@ Tier criteria, and the criteria for how contexts coordinate, live in the
 1. **Design against estate.** Map each unit of the blind design to current assets:
    same shape; one unit spread over several assets; several units inside one asset; a
    unit with no asset; an asset with no unit. Do the same for flows, stage by stage.
-2. **Cross-checks.** Run X1–X9 in [references/cross-checks.md](references/cross-checks.md): overlap,
+2. **Cross-checks.** Run X1–X10 in [references/cross-checks.md](references/cross-checks.md): overlap,
    contradiction, unclear boundary, unused or unreachable, tier drift, flow waste,
-   leftovers, memory files against skills, coordination fit. Call a part where a
+   leftovers, memory files against skills, coordination fit, evaluation loop. Call a part where a
    check says to.
 3. **Verdict per asset:** keep, or one of the move kinds in
    [references/proposal.md](references/proposal.md#moves). A difference from the blind design is a reason to
@@ -158,25 +159,27 @@ Tier criteria, and the criteria for how contexts coordinate, live in the
 
 ## Phase 5: Propose
 
-Write `$RUN/proposal.md` in the format of [references/proposal.md](references/proposal.md#proposalmd) and ask for
-approval as described there. The unit of approval is the move: one structural change
-with everything needed to leave the estate consistent, approvable and revertable on
-its own. **Change no asset before the user names the moves to apply.**
+Write `$RUN/proposal.md` in the format of [references/proposal.md](references/proposal.md#proposalmd). The unit is
+the move: one structural change with everything needed to leave the estate
+consistent, appliable and revertable on its own. Then sort the moves into the ones
+this run applies and the ones left for the user, by the rule in
+[references/proposal.md](references/proposal.md#choosing-what-to-apply), and show both lists.
 
 ## Phase 6: Apply
 
-Follow [references/proposal.md](references/proposal.md#applying-approved-moves): one move at a time including its
-blast radius, its targets snapshotted first, each done with the part that owns that
-kind of work, replacements staged and swapped in with the removals in a single
-confirmed step at the end, the collector and validators re-run, the ledger updated,
-no commit or remote write unless asked.
+The user has approved applying moves without a confirmation step, on the condition
+that each is checked mechanically and lands as its own commit that can be reverted.
+Follow [references/proposal.md](references/proposal.md#applying-moves): one move at a time including its blast
+radius, edited in a staging copy made by the `evolving-skills` gate, checked, landed
+as one commit, the collector and validators re-run after each, the ledger updated.
+No push and no other remote write.
 
 ## Resources
 
-- [references/cross-checks.md](references/cross-checks.md): the nine cross-asset checks, the evidence each
+- [references/cross-checks.md](references/cross-checks.md): the ten cross-asset checks, the evidence each
   starts from, and what makes a finding. Read at Phase 4.
-- [references/proposal.md](references/proposal.md): move kinds and sizing, the proposal format, the approval
-  round, the ledger, and the rules for applying moves. Read at Phase 4.3 and after.
+- [references/proposal.md](references/proposal.md): move kinds and sizing, the proposal format, which moves
+  this run applies, the ledger, and the rules for applying moves. Read at Phase 4.3 and after.
 - [references/agents/blind-designer.md](references/agents/blind-designer.md), [references/agents/card-writer.md](references/agents/card-writer.md): the two
   sub-agent briefs.
 - [references/claude-code.md](references/claude-code.md): configuration roots and the transcript location,

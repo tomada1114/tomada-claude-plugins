@@ -274,7 +274,7 @@ A skill that never seems to trigger is often gated here. Manual `/skill-name` in
 
 **Type:** Object
 
-Hooks scoped to this skill's lifecycle. Configuration format matches the hooks documentation.
+Hooks registered when the skill is invoked. They then run for the rest of the session, on turns after the skill's own as well; `once: true` on a hook removes it after its first successful run. Configuration format matches the hooks documentation, with one difference from the body: `${CLAUDE_SKILL_DIR}` is not expanded inside a hook `command`. When to use one, and how to keep it narrow: `self-evaluation.md` (load via SKILL.md).
 
 ### `shell`
 

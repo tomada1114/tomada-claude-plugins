@@ -4,7 +4,7 @@ One template for every lens in the Improving playbook. Fill the placeholders, th
 
 | Placeholder | Fill with |
 |---|---|
-| `{{LENS_NAME}}` | `prose` / `neutrality` / `structure` / `scripts` / `orchestration` |
+| `{{LENS_NAME}}` | `prose` / `neutrality` / `structure` / `scripts` / `orchestration` / `self-evaluation` |
 | `{{LENS_FOCUS}}` | one line naming what the lens checks, taken from its checklist's item headings |
 | `{{CHECKLIST_PATH}}` | absolute path of the reference holding this lens's `## Review checklist` |
 | `{{SKILL_DIR}}` | absolute path of the skill under review |

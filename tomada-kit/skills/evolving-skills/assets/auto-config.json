@@ -1,0 +1,6 @@
+{
+  "min_followups": 2,
+  "lock_stale_minutes": 120,
+  "harvest": {"agent": "scout", "max_budget_usd": 0.5, "daily_cap": 6, "tools": ["Read", "Glob", "Grep", "Skill"]},
+  "improve": {"agent": "executor", "max_budget_usd": 5, "daily_cap": 2, "tools": ["Read", "Glob", "Grep", "Skill", "Edit", "Write"]}
+}

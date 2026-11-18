@@ -19,6 +19,7 @@ confidence, and the cost it causes today.
 - [X7: Leftovers](#x7-leftovers)
 - [X8: Memory files against skills](#x8-memory-files-against-skills)
 - [X9: Coordination fit](#x9-coordination-fit)
+- [X10: Evaluation loop](#x10-evaluation-loop)
 
 ## X1: Overlap
 
@@ -200,3 +201,54 @@ one needs only evidence that the extra channel is unused.
 - The cure is a `reroute` move. When it adopts agent teams, the move names the
   setting it depends on and where that would be enabled, as a follow-up for the user
   (`claude-code.md`, "Follow-ups after applying moves").
+
+## X10: Evaluation loop
+
+A flow that produces work for the user has no way to find out it is wrong except the
+user saying so, or its way of finding out cannot be trusted. X9 asks whether contexts
+are wired correctly; this check asks whether anything outside the writer ever judges
+the output, and whether the assets that are edited automatically are protected from
+getting worse.
+
+The model for what should exist (criteria applied during the run, cases run when the
+asset changes, misses recorded for later change, a judge measured against the user's
+decisions) is `references/self-evaluation.md` in the `creating-agent-skills` skill and
+the `evolving-skills` skill. Point at them in the move; do not restate them.
+
+- Start from: the cards' `Steps`, `Outputs`, `Delegations` and `Asks the user` for
+  each flow that ends in an artifact; whether each skill directory has `evals/`,
+  check scripts, a self-check section, a feedback or signal log; the reviewers a flow
+  spawns and what each is given.
+- For each such flow, write down three facts before judging: who judges the output
+  before the user sees it (nobody, the writer, a script, another context); what
+  happens to a correction the user makes afterwards (lost, logged, turned into a
+  change); and what stops a change to the flow's assets from making results worse
+  (nothing, a human reading the diff, cases that run).
+- Finding when no loop exists:
+  - a flow hands its artifact to the user with no criteria of its own, and the
+    transcripts show the user correcting the same kind of thing more than once;
+  - corrections are made in the conversation and recorded nowhere;
+  - an asset is edited by an automatic process (a retrospective, a rule-revision
+    skill, an unattended run) and has no eval cases, or the process can also edit the
+    checks that judge it.
+- Finding when a loop exists without what makes it work:
+  - the judge runs in the writer's context, or is handed the writer's notes about its
+    intent along with the output;
+  - a judge or reviewer whose verdicts have never been compared with the user's own
+    decisions can send work back or block it;
+  - result and route are judged as one thing, so a skipped step is invisible when the
+    output happens to look right;
+  - a check-and-fix loop has no cap on rounds or no rule for what happens at the cap
+    (report this once, here, when X9 would raise the same loop);
+  - criteria that a program could decide are applied by reading;
+  - a feedback log is written and nothing reads it, or it is read only when the user
+    remembers to ask.
+- Finding when the loop is too heavy: a judge spawned on every run for output that is
+  cheap to redo, an evaluation suite run during normal work instead of on change, a
+  session-long hook doing a per-run check.
+- A flow whose output is consumed only by another stage, or a pure reference skill,
+  has no loop to judge. Record "no artifact" and move on.
+- The cure is a `restructure` move (add a self-check and cases to an asset), a
+  `reroute` move (move the judge to its own context, connect a log to the process that
+  reads it), or a `new` move when the estate has no learning process at all.
+

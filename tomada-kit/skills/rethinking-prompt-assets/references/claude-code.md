@@ -33,11 +33,12 @@ repository's skills is recorded there too.
 
 | Step | Tool |
 |---|---|
-| Needs round (Phase 1), approval round (Phase 5), removal confirmation (Phase 6) | `AskUserQuestion`, questions batched into one call. The approval round uses `multiSelect` over the move ids when there are four or fewer, and otherwise offers the recommended set, "all", "choose by ID" (the user types the ids), and "none" |
+| Needs round (Phase 1) | `AskUserQuestion`, questions batched into one call. Phases 5 and 6 ask nothing: the apply rule in `proposal.md` sorts the moves, and left-over moves are listed in the closing report |
+| Staging, checking and landing a move (Phase 6) | `Bash`, running `scripts/gate.py` of the `evolving-skills` skill (load that skill with `Skill` for the path) |
 | Blind designer | `Agent` with `subagent_type: architect`, one spawn. Never a bare `model`, which runs at the session's effort |
 | Card writers | `Agent` with `subagent_type: scout`, all slices in one message so they run in parallel. `scout` has no write tool: save each reply to `$RUN/cards/` yourself. A reply over the display limit arrives as a persisted-output path; copy that file instead of retyping it. Re-request an empty reply |
 | Loading a part | `Skill`, by name |
-| The proposal as a page | Offer once, in one line, to publish `proposal.md` with `Artifact` when it has more than about ten moves; a long move table is easier to approve from a page than from the terminal |
+| The proposal as a page | Offer once, in one line, to publish `proposal.md` with `Artifact` when it has more than about ten moves; a long move table is easier to read from a page than from the terminal |
 | Tracking phases | The task list, one entry per phase, when the scope is the whole estate |
 
 ## The live listing
@@ -100,7 +101,7 @@ run directory.
 | Part | Its normal behavior | How this skill calls it |
 |---|---|---|
 | `auditing-prompt-docs` | Writes its own findings file and stops for approval | Run only its linter (`lint_prompt_doc.py <files> --json`) and read its rules and per-model references. Findings go into `reword` moves |
-| `creating-agent-skills` (Improving) | Fans out up to five lenses and stops for approval | Run only `audit_skill.py <skill> --json` for an asset slated to be kept and restructured. Run the lenses only if the user asks for a deep review of one skill |
+| `creating-agent-skills` (Improving) | Fans out up to six lenses and applies fixes through the gate | Run only `audit_skill.py <skill> --json` for an asset slated to be kept and restructured. Run the lenses only if the user asks for a deep review of one skill |
 | `creating-agent-skills` (Building) | Scaffolds and validates a skill | Used as written, in Phase 6, for `rebuild`, `new`, `split`, `merge` |
 | `auditing-repositories` | Files GitHub issues on invocation | Invoke with `dry-run` and the `tooling` lens only, from inside the repository; read its drafts. Nothing is filed |
 
