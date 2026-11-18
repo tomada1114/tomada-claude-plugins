@@ -1,19 +1,20 @@
 ---
 name: evolving-skills
 description: >-
-  Improve skills automatically from evidence, with no approval step: record what went
+  Maintain skills from evidence when the user asks, with no approval step per change:
+  record what went
   wrong when a skill ran (the user corrected its output, its self-check failed, a
   standing instruction was given), act only on what has recurred, make one change in a
   staging copy, and commit it only when a mechanical gate shows the skill got no worse
   (path guard, size budget, validators, the skill's eval cases before and after).
   A failed change never reaches the real files. Also calibrates an LLM judge against
-  the user's past accept and reject decisions before the judge is trusted. Use when
-  skill-driven work has just ended with corrections or a failed self-check, or when
-  asked to learn from feedback, tune or auto-improve a skill, see what the automatic
-  runs did, revert an automatic change, or calibrate a judge. Also runs unattended
-  from a session-end hook. Not for building or fully reviewing a skill
+  the user's past accept and reject decisions before the judge is trusted. The user
+  invokes it, typically at the end of a session that used skills, to learn from that
+  session's feedback; also to see what earlier runs changed, revert a change, or
+  calibrate a judge. Not for building or fully reviewing a skill
   (creating-agent-skills) or restructuring many assets (rethinking-prompt-assets).
 argument-hint: "[harvest <digest.json> | improve [skill] [--max-groups N] [--eval-max-cost-usd X] | calibrate <skill> <judge> | status | revert <commit>]"
+disable-model-invocation: true
 metadata:
   platforms: claude-code
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/signals.py:*), Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/gate.py:*), Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/calibrate_judge.py:*), Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/session_digest.py:*), Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/auto_run.py:*)
@@ -28,8 +29,9 @@ the on-the-spot edit with a loop that has a memory and a gate: evidence is recor
 first, a change is made only for what has recurred, and the change lands only when the
 skill measurably got no worse.
 
-The user has approved this loop to run without asking: an edit that passes the gate is
-committed, and git history is the undo. Two things stay outside that approval, because
+This skill runs only when the user invokes it; it is never started by the model or by
+a hook. Once invoked, the user has approved the loop to run without asking again: an
+edit that passes the gate is committed, and git history is the undo. Two things stay outside that approval, because
 they are how the loop could quietly weaken itself or reach other people: a change that
 rewrites or removes an existing check (the gate reports it as `blocked`), and anything
 that leaves this machine (push, publishing a plugin, syncing tiers). Report those and
@@ -45,7 +47,7 @@ this session, then `improve`.
 | `harvest [digest.json]` | Record signals from this session, or from a transcript digest when run headless |
 | `improve [skill]` | Act on promotable signals: one change per signal group, gated, committed. `--max-groups N` stops after N groups; `--eval-max-cost-usd X` is passed to every `gate.py check` as `--max-cost-usd` |
 | `calibrate <skill> <judge>` | Measure a judge against labelled examples; write its calibration file |
-| `status` | What the ledger holds, what is blocked and waiting for the user, what the automatic runs did |
+| `status` | What the ledger holds, what is blocked and waiting for the user, what earlier runs changed |
 | `revert <commit>` | Undo a landed change and mark its signals |
 
 **Output:** rows in the ledger `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/evolving-skills/signals.jsonl`;
@@ -54,8 +56,8 @@ a run directory under `runs/` per attempted change, holding the staging copy and
 
 **Scripts** (run them, do not read them; each prints JSON and documents itself with `--help`):
 `scripts/signals.py` (ledger), `scripts/gate.py` (stage, check, land, revert),
-`scripts/calibrate_judge.py`, `scripts/session_digest.py`, `scripts/auto_run.py`
-(the session-end hook and its switch).
+`scripts/calibrate_judge.py`, `scripts/session_digest.py`, and the optional
+`scripts/auto_run.py`.
 
 ## Harvest
 
@@ -119,7 +121,7 @@ around the gate: the staging copy is what makes a failed attempt cost nothing.
   examples. Until then it is advisory. Procedure and thresholds:
   [references/judge-calibration.md](references/judge-calibration.md).
 - **Status.** `signals.py stats --json`, `signals.py list --status blocked --json`, and
-  `auto_run.py status`. Lead with what is blocked and waiting for the user.
+  `git log --grep 'Signals: SIG-'` in the repository that holds the skills. Lead with what is blocked and waiting for the user.
 - **Revert.** `gate.py revert --root <git root> --commit <sha>`, then
   `signals.py set --status reverted` on that commit's signals. A reverted group needs
   new signals before it is tried again.
@@ -127,7 +129,7 @@ around the gate: the staging copy is what makes a failed attempt cost nothing.
 ## Delegation
 
 Tiers are named by agent; what each one costs and when to use it is in the
-`orchestrating-models` skill. The main session, or the headless `executor` run, does
+`orchestrating-models` skill. The main session does
 the diagnosis and the edit, because they depend on having read the skill. Spawn only:
 
 - one `worker` per batch of blind examples during `calibrate`, with
@@ -138,15 +140,17 @@ the diagnosis and the edit, because they depend on having read the skill. Spawn 
 At most two spawns per run. The eval runs inside `gate.py check` are separate
 processes, not spawns.
 
-## Unattended runs
+## Finishing a run
 
-The session-end hook starts `harvest` on the cheapest tier and `improve` on the
-`executor` tier, each with a daily cap and a budget; setup, the caps and the switch:
-[references/auto-run.md](references/auto-run.md). In an unattended run, finish every
-promotable group, up to `--max-groups`, before ending: staging, checking and landing need no go-ahead. End
-the turn early only for a `blocked` verdict (record it and continue with the next
-group) or when the path has uncommitted work. Close with one line per group: signal
-ids, verdict, commit or run path.
+Staging, checking and landing need no further go-ahead: work through every promotable
+group, up to `--max-groups` when given, before ending. Skip a group only for a
+`blocked` verdict (record it and continue with the next) or when its path has
+uncommitted work. Close with one line per group (signal ids, verdict, commit or run
+path), then the signals recorded this time that are still waiting for recurrence.
+
+`scripts/auto_run.py` can start these passes from a session-end hook. It is not
+registered and stays off unless the user asks for it:
+[references/auto-run.md](references/auto-run.md).
 
 ## Resources
 
@@ -154,5 +158,5 @@ ids, verdict, commit or run path.
 - [references/improve-protocol.md](references/improve-protocol.md): diagnosis categories, where a fix belongs, pruning, the commit message format, which changes may land unmeasured. Read at Improve step 2.
 - [references/gate-and-evals.md](references/gate-and-evals.md): what each gate step checks, protected paths, eval case format, tags, isolation limits, cost. Read at Improve step 4 and when a verdict is unclear.
 - [references/judge-calibration.md](references/judge-calibration.md): labelled examples, the blind run, thresholds, what an advisory judge may do. Read at Calibrate.
-- [references/auto-run.md](references/auto-run.md): the session-end hook, tiers, caps, logs, switching it off. Read when setting up or debugging unattended runs.
+- [references/auto-run.md](references/auto-run.md): the optional session-end hook, tiers, caps, logs. Read only when the user asks for unattended runs.
 - [references/agents/judge.md](references/agents/judge.md): the judge brief for `calibrate`.

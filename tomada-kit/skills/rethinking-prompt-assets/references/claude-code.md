@@ -34,7 +34,7 @@ repository's skills is recorded there too.
 | Step | Tool |
 |---|---|
 | Needs round (Phase 1) | `AskUserQuestion`, questions batched into one call. Phases 5 and 6 ask nothing: the apply rule in `proposal.md` sorts the moves, and left-over moves are listed in the closing report |
-| Staging, checking and landing a move (Phase 6) | `Bash`, running `scripts/gate.py` of the `evolving-skills` skill (load that skill with `Skill` for the path) |
+| Staging, checking and landing a move (Phase 6) | `Bash`, running `${CLAUDE_SKILL_DIR}/../evolving-skills/scripts/gate.py`. That skill is invoked only by the user, so read its files by path instead of loading it |
 | Blind designer | `Agent` with `subagent_type: architect`, one spawn. Never a bare `model`, which runs at the session's effort |
 | Card writers | `Agent` with `subagent_type: scout`, all slices in one message so they run in parallel. `scout` has no write tool: save each reply to `$RUN/cards/` yourself. A reply over the display limit arrives as a persisted-output path; copy that file instead of retyping it. Re-request an empty reply |
 | Loading a part | `Skill`, by name |

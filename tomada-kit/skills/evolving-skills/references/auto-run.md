@@ -1,5 +1,9 @@
 # Unattended runs from the session-end hook
 
+This is optional and off: the skill is normally run by the user, by typing its command
+at the end of a session, and no hook is registered. Register one only when the user
+asks for unattended runs, after showing them the costs below.
+
 `scripts/auto_run.py` lets the loop run without anyone calling it. A `SessionEnd`
 command hook runs `auto_run.py hook` when any Claude Code session ends. The hook makes
 no model call: it reads the transcript, decides, and at most starts one detached

@@ -130,8 +130,10 @@ so that a declined move is not raised again on the next run.
 
 ## Applying moves
 
-`GATE` is `scripts/gate.py` in the `evolving-skills` skill; its steps and verdicts are
-described in that skill's `references/gate-and-evals.md`.
+`GATE` is `scripts/gate.py` in the `evolving-skills` skill, a sibling of this skill's
+directory; its steps and verdicts are described in that skill's
+`references/gate-and-evals.md`. Read those files by path: the skill itself is invoked
+only by the user.
 
 1. Order the moves to apply by `Requires`. Apply one move at a time, and finish all of
    it, including its blast radius, before starting the next, so that stopping between
