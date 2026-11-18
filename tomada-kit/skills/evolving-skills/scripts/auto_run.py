@@ -29,8 +29,11 @@ Subcommands:
 
 State lives under $AGENT_SKILL_STATE_DIR (default ~/.local/state/agent-skills)
 /evolving-skills/auto/. Config: assets/auto-config.json (missing keys fall back
-to built-in defaults). Env EVOLVING_SKILLS_AUTO=0 disables; the headless runs
-get EVOLVING_SKILLS_CHILD=1 so they never start more runs.
+to built-in defaults). `project_roots` (default false) lets `hook` also count
+skills under <cwd>/.claude/skills; improve.max_groups and
+improve.eval_max_cost_usd bound the work of one improve launch.
+Env EVOLVING_SKILLS_AUTO=0 disables; the headless runs get
+EVOLVING_SKILLS_CHILD=1 so they never start more runs.
 
 Exit codes:
     hook  always 0
@@ -60,10 +63,12 @@ CONFIG_PATH = SKILL_DIR / "assets" / "auto-config.json"
 DEFAULT_CONFIG = {
     "min_followups": 2,
     "lock_stale_minutes": 120,
+    "project_roots": False,
     "harvest": {"agent": "scout", "max_budget_usd": 0.5, "daily_cap": 6,
                 "tools": ["Read", "Glob", "Grep", "Skill"]},
     "improve": {"agent": "executor", "max_budget_usd": 5, "daily_cap": 2,
-                "tools": ["Read", "Glob", "Grep", "Skill", "Edit", "Write"]},
+                "tools": ["Read", "Glob", "Grep", "Skill", "Edit", "Write"],
+                "max_groups": 2, "eval_max_cost_usd": 1},
 }
 
 HARVEST_TIMEOUT = 20 * 60
@@ -284,6 +289,12 @@ def git_toplevel(root):
     return Path(root)
 
 
+def improve_prompt(section):
+    """The improve prompt, bounding how many groups (and paid eval runs) one launch handles."""
+    return "/evolving-skills improve --max-groups %s --eval-max-cost-usd %s" % (
+        section["max_groups"], section["eval_max_cost_usd"])
+
+
 def claude_argv(claude_bin, prompt, section):
     return ([claude_bin, "-p", prompt, "--agent", str(section["agent"]),
              "--max-budget-usd", str(section["max_budget_usd"]), "--allowedTools"]
@@ -329,7 +340,7 @@ def hook_decide(payload, claude_bin):
 
     roots = [SKILLS_ROOT]
     project_skills = Path(cwd) / ".claude" / "skills"
-    if project_skills.is_dir() and project_skills.resolve() != Path(SKILLS_ROOT).resolve():
+    if cfg.get("project_roots") is True and project_skills.is_dir() and project_skills.resolve() != Path(SKILLS_ROOT).resolve():
         roots.append(project_skills)
     digest = session_digest.build_digest(transcript, roots)
     harvest = bool(digest["skills_used"]) and len(digest["followups"]) >= int(cfg["min_followups"])
@@ -406,7 +417,7 @@ def cmd_run(args):
                 bump_count("improve")
                 log_path = auto_dir() / "logs" / ("%s-improve.log" % stamp(utcnow()))
                 code, _ = run_cmd(
-                    claude_argv(args.claude_bin, "/evolving-skills improve", cfg["improve"]),
+                    claude_argv(args.claude_bin, improve_prompt(cfg["improve"]), cfg["improve"]),
                     cwd=str(git_toplevel(SKILLS_ROOT)), timeout=IMPROVE_TIMEOUT,
                     env=child_env(), log_path=log_path)
                 ran.append({"pass": "improve", "code": code, "log": str(log_path)})

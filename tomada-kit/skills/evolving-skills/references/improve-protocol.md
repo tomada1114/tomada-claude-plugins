@@ -26,7 +26,7 @@ common true cause.
 | Wrong rule | The skill was followed and the result was what the user rejected | Rewrite or delete the rule |
 | Rule not followed | The rule exists and was skipped | Do not repeat it louder. Move it earlier, give it a reason, or make it mechanical |
 | Belongs in a script | The rule is a deterministic check or transformation | Move it to `scripts/` with a test, and delete the prose |
-| Instruction overweight | `unused-instruction` signals: a step skipped with no loss | Delete the step |
+| Instruction overweight | `unused-instruction` signals: a step skipped with no loss | Delete the step. A self-check criterion is never deleted this way; the gate blocks it |
 | Not the skill | The signals describe the user's taste on one piece of work, or a problem in another asset | Mark `rejected` with a note; change nothing |
 
 When the signals in a group point at different categories, the key was too broad:

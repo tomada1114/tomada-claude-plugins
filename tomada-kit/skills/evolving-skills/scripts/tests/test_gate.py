@@ -387,6 +387,53 @@ class TestGuard(GateTestCase):
         code, v = self.check()
         self.assertEqual(v["steps"]["guard"]["status"], "pass")
 
+    def write_self_check(self, root_skill, section):
+        p = root_skill / "SKILL.md"
+        p.write_text(p.read_text() + section + "\n## After\n\ntrailing text\n")
+
+    def restage_with_self_check(self):
+        self.write_self_check(self.root / "skills" / "demo", "\n## Self-check\n\n- Output names the file.\n- Every claim cites a source.\n")
+        git(self.root, "commit", "-q", "-am", "self-check")
+        self.stage()
+
+    def test_self_check_section_helper(self):
+        lines = ["# T", "## SELF-CHECK before done", "- a", "## Next", "- b"]
+        self.assertEqual(gate.self_check_section(lines), ["## SELF-CHECK before done", "- a"])
+        self.assertEqual(gate.self_check_section(["## Self-check", "- a"]), ["## Self-check", "- a"])
+        self.assertIsNone(gate.self_check_section(["## Self-checks", "## Other"]))
+
+    def test_self_check_addition_allowed(self):
+        self.restage_with_self_check()
+        p = self.head / "SKILL.md"
+        p.write_text(p.read_text().replace("- Every claim cites a source.\n",
+                                           "- Every claim cites a source.\n- Dates are absolute.\n"))
+        code, v = self.check()
+        self.assertEqual(v["steps"]["guard"]["status"], "pass", v)
+
+    def test_self_check_loosened_blocked(self):
+        self.restage_with_self_check()
+        p = self.head / "SKILL.md"
+        p.write_text(p.read_text().replace("- Every claim cites a source.\n", "- Most claims cite a source.\n"))
+        code, v = self.check()
+        self.assertEqual(code, 2)
+        self.assertEqual(self.violations(v), [{"kind": "protected-modified", "file": "skills/demo/SKILL.md",
+                                               "detail": "self-check section"}])
+
+    def test_self_check_removed_blocked(self):
+        self.restage_with_self_check()
+        p = self.head / "SKILL.md"
+        text = p.read_text()
+        start = text.index("## Self-check")
+        p.write_text(text[:start] + text[text.index("## After"):])
+        code, v = self.check()
+        self.assertEqual(code, 2)
+        self.assertEqual(self.violations(v)[0]["detail"], "self-check section")
+
+    def test_self_check_new_section_allowed(self):
+        self.write_self_check(self.head, "\n## Self-check\n\n- New criterion.\n")
+        code, v = self.check()
+        self.assertEqual(v["steps"]["guard"]["status"], "pass", v)
+
     def test_budget_skill_body(self):
         self.edit_skill_body("".join(f"line {i}\n" for i in range(150)))
         code, v = self.check()

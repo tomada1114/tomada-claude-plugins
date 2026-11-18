@@ -9,7 +9,7 @@ background process.
 
 | Pass | Starts when | Runs as | Tier (agent) |
 |---|---|---|---|
-| harvest | The session used a skill from the personal skills folder or the project's, and the person wrote at least `min_followups` messages after it | `claude -p "/evolving-skills harvest <digest>"` | `scout` |
+| harvest | The session used a skill from the personal skills folder, and the person wrote at least `min_followups` messages or question answers after it | `claude -p "/evolving-skills harvest <digest>"` | `scout` |
 | improve | The ledger has a promotable group | `claude -p "/evolving-skills improve"` | `executor` |
 
 Harvest reads a small digest, not the transcript, and only records; it is
@@ -28,10 +28,20 @@ Most session ends cost nothing. Limits on the rest, all in `assets/auto-config.j
 | `min_followups` | 2 | Sessions with fewer messages after the skill use are not harvested |
 | `harvest.daily_cap` / `improve.daily_cap` | 6 / 2 | Launches per day |
 | `harvest.max_budget_usd` / `improve.max_budget_usd` | 0.5 / 5 | Spend ceiling per launch, passed to `claude -p` |
+| `improve.max_groups` | 2 | Signal groups one improve launch works through |
+| `improve.eval_max_cost_usd` | 1 | Ceiling for each eval invocation inside the gate |
+| `project_roots` | false | Whether a project's `.claude/skills` is harvested too |
 | `lock_stale_minutes` | 120 | One run at a time; an older lock is treated as dead |
 
-The gate's eval runs are separate processes with their own ceiling
-(`gate.py check --max-cost-usd`).
+The gate's eval runs are separate processes outside the `claude -p` budget. With the
+defaults, the ceiling for one improve launch is the 5 above plus, per group, two
+attempts of check and `--final` (four eval invocations per attempt): about
+5 + 2 × 8 = 21 in the worst case, more if cases are retaken, and in practice a small fraction of that, since a small skill's
+check costs well under 1. Everything counts against the account's usage limits.
+
+`project_roots` stays off until the ledger can tell two skills of the same name
+apart: it records the skill name only, and the improve pass runs in the repository
+that holds the personal skills.
 
 ## Setup
 

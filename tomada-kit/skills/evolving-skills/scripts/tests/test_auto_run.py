@@ -148,12 +148,34 @@ class HookTests(Base):
         _, lines = self.run_hook(self.payload(self.transcript(skill="not-here")))
         self.assertEqual(self.decision(lines), "skip-nothing-to-do")
 
-    def test_project_skills_root_counts(self):
+    def make_project_skill(self):
         proj_root = self.cwd / ".claude" / "skills" / "beta"
         proj_root.mkdir(parents=True)
         (proj_root / "SKILL.md").write_text("x")
+
+    def test_project_skills_ignored_by_default(self):
+        self.make_project_skill()
         calls, lines = self.run_hook(self.payload(self.transcript(skill="beta")))
+        self.assertEqual(self.decision(lines), "skip-nothing-to-do")
+        self.assertEqual(calls["spawn"], [])
+
+    def test_project_skills_count_when_enabled(self):
+        self.make_project_skill()
+        cfg_path = self.dir / "cfg.json"
+        cfg_path.write_text(json.dumps({"project_roots": True}))
+        with mock.patch.object(ar, "CONFIG_PATH", cfg_path):
+            calls, lines = self.run_hook(self.payload(self.transcript(skill="beta")))
         self.assertEqual(self.decision(lines), "launch")
+        digest = json.loads(Path(calls["spawn"][0][0][-1]).read_text())
+        self.assertEqual(digest["skills_used"][0]["root"], str(self.cwd / ".claude" / "skills"))
+
+    def test_project_roots_requires_true(self):
+        self.make_project_skill()
+        cfg_path = self.dir / "cfg.json"
+        cfg_path.write_text(json.dumps({"project_roots": "yes"}))
+        with mock.patch.object(ar, "CONFIG_PATH", cfg_path):
+            _, lines = self.run_hook(self.payload(self.transcript(skill="beta")))
+        self.assertEqual(self.decision(lines), "skip-nothing-to-do")
 
     def test_skip_locked(self):
         self.auto.mkdir(parents=True)
@@ -255,7 +277,8 @@ class RunTests(Base):
         self.assertEqual(harvest["env"]["EVOLVING_SKILLS_CHILD"], "1")
         self.assertTrue(str(harvest["log_path"]).endswith("-harvest.log"))
         self.assertEqual(improve["argv"], [
-            "claude", "-p", "/evolving-skills improve", "--agent", "executor",
+            "claude", "-p", "/evolving-skills improve --max-groups 2 --eval-max-cost-usd 1",
+            "--agent", "executor",
             "--max-budget-usd", "5", "--allowedTools", "Read", "Glob", "Grep", "Skill", "Edit",
             "Write", bash_rule])
         self.assertEqual(improve["cwd"], self.git_top)
@@ -366,6 +389,9 @@ class CommandTests(Base):
         self.assertTrue(data["lock"]["held"])
         self.assertEqual(data["hook_log_tail"], ["line %d" % i for i in range(5, 15)])
         self.assertEqual(data["config"]["harvest"]["agent"], "scout")
+        self.assertIs(data["config"]["project_roots"], False)
+        self.assertEqual(data["config"]["improve"]["max_groups"], 2)
+        self.assertEqual(data["config"]["improve"]["eval_max_cost_usd"], 1)
 
     def test_disable_enable_cycle(self):
         code, _, _ = self.call(["disable"])
@@ -410,6 +436,7 @@ class CommandTests(Base):
         self.assertEqual(cfg["harvest"]["agent"], "scout")
         self.assertEqual(cfg["improve"], ar.DEFAULT_CONFIG["improve"])
         self.assertEqual(cfg["lock_stale_minutes"], 120)
+        self.assertIs(cfg["project_roots"], False)
         self.assertNotIn("unknown", cfg)
         cfg_path.write_text("[1, 2]")
         with mock.patch.object(ar, "CONFIG_PATH", cfg_path):
@@ -417,6 +444,16 @@ class CommandTests(Base):
         cfg_path.write_text("{bad")
         with mock.patch.object(ar, "CONFIG_PATH", cfg_path):
             self.assertEqual(ar.load_config(), ar.DEFAULT_CONFIG)
+
+    def test_improve_prompt_uses_config_values(self):
+        self.promotable_cfg = self.dir / "cfg2.json"
+        self.promotable_cfg.write_text(json.dumps({"improve": {"max_groups": 1,
+                                                               "eval_max_cost_usd": 0.25}}))
+        with mock.patch.object(ar, "CONFIG_PATH", self.promotable_cfg):
+            cfg = ar.load_config()
+        self.assertEqual(ar.improve_prompt(cfg["improve"]),
+                         "/evolving-skills improve --max-groups 1 --eval-max-cost-usd 0.25")
+        self.assertEqual(cfg["improve"]["agent"], "executor")
 
     def test_shipped_config_matches_defaults(self):
         shipped = json.loads((SCRIPTS.parent / "assets" / "auto-config.json").read_text())

@@ -38,7 +38,8 @@ existing lines gives `blocked`:
 - anything under `evals/` or `hooks/`, and `scripts/tests/`;
 - files named `test_*.py`, `validate*.py`, `audit*.py`, `check*.py`, `guard*.py`,
   `gate.py`, `*lint*`, `lint-config*`, `*.calibration.json`;
-- the `hooks:` block of a SKILL.md frontmatter.
+- the `hooks:` block of a SKILL.md frontmatter, and its `## Self-check` section: the
+  skill's own acceptance criteria may gain items, never lose or loosen them.
 
 A `blocked` change is not discarded. Its run directory holds the staged files and the
 verdict, and `signals.py list --status blocked` is the queue the user reads.
@@ -120,6 +121,8 @@ is a pass.
 
 A gate check runs cases × runs × 2 sessions, plus three short judge calls per `llm`
 grader per run. `gate.py check` passes a cost ceiling to each eval (`--max-cost-usd`,
-default 5); hitting it gives `inconclusive`. Keep the `gate` set small, three to six
+default 5; unattended runs pass 1); hitting it gives `inconclusive`. The ceiling applies
+per eval invocation, and one check makes two (base and head), plus two more with
+`--final` and one pair per retaken case. Keep the `gate` set small, three to six
 cases, and put breadth in `holdout`. A full run of every case with the no-skill
 comparison belongs to a deliberate review of the skill, not to this loop.

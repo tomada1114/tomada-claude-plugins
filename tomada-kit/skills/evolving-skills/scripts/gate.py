@@ -115,6 +115,7 @@ SKILL_NAME = "evolving-skills"
 
 TOP_LEVEL_KEY_RE = re.compile(r"^[A-Za-z_][\w.-]*\s*:")
 LOCATION_LINE_RE = re.compile(r"(?::\d+)+$")
+SELF_CHECK_RE = re.compile(r"^## Self-check\b", re.IGNORECASE)
 
 
 class UsageError(Exception):
@@ -238,6 +239,19 @@ def hooks_block(fm: List[str]) -> Optional[List[str]]:
             block = [line]
             for nxt in fm[i + 1:]:
                 if TOP_LEVEL_KEY_RE.match(nxt):
+                    break
+                block.append(nxt)
+            return block
+    return None
+
+
+def self_check_section(lines: List[str]) -> Optional[List[str]]:
+    """The `## Self-check` section (heading included) up to the next `## ` heading."""
+    for i, line in enumerate(lines):
+        if SELF_CHECK_RE.match(line):
+            block = [line]
+            for nxt in lines[i + 1:]:
+                if nxt.startswith("## "):
                     break
                 block.append(nxt)
             return block
@@ -457,6 +471,14 @@ def guard(run: Path, diff: Dict[str, List[str]], protect: List[str], leak_chars:
                 if not pure_additions(old_hooks, new_hooks):
                     violations.append(
                         {"kind": "protected-modified", "file": rel, "detail": "frontmatter hooks"}
+                    )
+            # The self-check section holds the skill's acceptance criteria: append-only.
+            old_check = self_check_section(old_text.splitlines()) if old_text is not None else None
+            if old_check is not None:
+                new_check = self_check_section(new_text.splitlines()) or []
+                if not pure_additions(old_check, new_check):
+                    violations.append(
+                        {"kind": "protected-modified", "file": rel, "detail": "self-check section"}
                     )
             limit = max(SKILL_BODY_BUDGET, len(old_body)) if old_text is not None else SKILL_BODY_BUDGET
             if len(new_body) > limit:

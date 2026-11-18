@@ -13,7 +13,7 @@ description: >-
   runs did, revert an automatic change, or calibrate a judge. Also runs unattended
   from a session-end hook. Not for building or fully reviewing a skill
   (creating-agent-skills) or restructuring many assets (rethinking-prompt-assets).
-argument-hint: "[harvest <digest.json> | improve [skill] | calibrate <skill> <judge> | status | revert <commit>]"
+argument-hint: "[harvest <digest.json> | improve [skill] [--max-groups N] [--eval-max-cost-usd X] | calibrate <skill> <judge> | status | revert <commit>]"
 metadata:
   platforms: claude-code
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/signals.py:*), Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/gate.py:*), Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/calibrate_judge.py:*), Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/session_digest.py:*), Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/auto_run.py:*)
@@ -43,7 +43,7 @@ this session, then `improve`.
 | Mode | Does |
 |---|---|
 | `harvest [digest.json]` | Record signals from this session, or from a transcript digest when run headless |
-| `improve [skill]` | Act on promotable signals: one change per signal group, gated, committed |
+| `improve [skill]` | Act on promotable signals: one change per signal group, gated, committed. `--max-groups N` stops after N groups; `--eval-max-cost-usd X` is passed to every `gate.py check` as `--max-cost-usd` |
 | `calibrate <skill> <judge>` | Measure a judge against labelled examples; write its calibration file |
 | `status` | What the ledger holds, what is blocked and waiting for the user, what the automatic runs did |
 | `revert <commit>` | Undo a landed change and mark its signals |
@@ -143,7 +143,7 @@ processes, not spawns.
 The session-end hook starts `harvest` on the cheapest tier and `improve` on the
 `executor` tier, each with a daily cap and a budget; setup, the caps and the switch:
 [references/auto-run.md](references/auto-run.md). In an unattended run, finish every
-promotable group before ending: staging, checking and landing need no go-ahead. End
+promotable group, up to `--max-groups`, before ending: staging, checking and landing need no go-ahead. End
 the turn early only for a `blocked` verdict (record it and continue with the next
 group) or when the path has uncommitted work. Close with one line per group: signal
 ids, verdict, commit or run path.
