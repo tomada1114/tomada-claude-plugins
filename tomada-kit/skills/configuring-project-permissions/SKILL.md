@@ -1,21 +1,19 @@
 ---
 name: configuring-project-permissions
 description: >-
-  Set up a repository's personal, uncommitted agent permissions so development runs
-  without prompts: Claude Code's gitignored .claude/settings.local.json and Codex CLI's
-  gitignored .codex/rules/local.rules, each in its native format. Generic rules (git,
-  gh, coreutils, hook-bypass and force-push denies) go to the user-level files; the
-  project file keeps only what names the repository — recipes, scripts, dependency
-  policy, protected files — allow by default, ask only for commands that open the app,
-  write to GitHub, release, or change dependencies. Detects the toolchain, drops rules
-  a global rule already covers, settles borderline rules in one question round, merges
-  without dropping denies or hooks, migrates a committed .claude/settings.json out, and
-  checks Codex rules with codex execpolicy check. Use when setting up or tidying a
-  project's permissions, when it keeps prompting for its own build/test commands, when
-  moving permissions out of a committed settings file, or as stage 5 of
-  kicking-off-apps.
+  Set up a repository's personal, uncommitted Claude Code permissions so development
+  runs without prompts, in its gitignored .claude/settings.local.json. Generic rules
+  (git, gh, coreutils, hook-bypass and force-push denies) go to the user-level
+  ~/.claude/settings.json; the project file keeps only what names the repository —
+  recipes, scripts, dependency policy, protected files — allow by default, ask only for
+  commands that open the app, write to GitHub, release, or change dependencies. Detects
+  the toolchain, drops rules a global rule already covers, settles borderline rules in
+  one question round, merges without dropping denies or hooks, and migrates a committed
+  .claude/settings.json out. Use when setting up or tidying a project's permissions,
+  when it keeps prompting for its own build/test commands, when moving permissions out
+  of a committed settings file, or as stage 5 of kicking-off-apps.
 metadata:
-  platforms: claude-code, codex
+  platforms: claude-code
 ---
 
 # Configuring Project Permissions
@@ -26,15 +24,15 @@ developer's machine, on GitHub, on a release, or on the dependency set still sto
 human. The user prefers loose: when a development command could go either way, propose
 allow.
 
-Two hosts, two native mechanisms, never one shared file:
+Where Claude Code reads permissions:
 
-| | Claude Code | Codex CLI |
-|---|---|---|
-| User level (every repository) | `~/.claude/settings.json` `permissions` | `~/.codex/rules/default.rules`, sandbox in `~/.codex/config.toml` | <!-- neutrality-ignore: N2 -->
-| This repository, personal | `.claude/settings.local.json` (gitignored) | `.codex/rules/local.rules` (gitignored), loaded only while the project is trusted |
-| Precedence | deny → ask → allow across all files | forbidden > prompt > allow across all layers |
+| | Claude Code |
+|---|---|
+| User level (every repository) | `~/.claude/settings.json` `permissions` | <!-- neutrality-ignore: N2 -->
+| This repository, personal | `.claude/settings.local.json` (gitignored) |
+| Precedence | deny → ask → allow across all files |
 
-Neither project file is committed: which commands run without a prompt is each
+The project file is not committed: which commands run without a prompt is each
 person's choice, and a committed allow list is reviewed by nobody when it widens. A
 committed `.claude/settings.json` may still carry team-wide, non-permission settings
 (plugins, marketplaces, MCP servers), never `permissions` or personal hooks.
@@ -65,7 +63,7 @@ the runner's allow — never a project allow for `rm -rf`.
 ## Contract
 
 **Input:** a repository root (default: the current one). **Output:** its
-`.claude/settings.local.json` and `.codex/rules/local.rules`, both gitignored, plus any
+`.claude/settings.local.json`, gitignored, plus any
 user-level additions the user approved. Nothing is committed unless the repository
 needs a `.gitignore` line or has a committed `.claude/settings.json` to migrate — then
 that change goes through the repository's own branch, commit, and PR process.
@@ -77,14 +75,13 @@ python3 {SKILL_DIR}/scripts/detect_toolchain.py <repo> --json
 ```
 
 `{SKILL_DIR}` is this skill's absolute directory. It reads marker files and the
-user-level files only, and returns: the tools with the file that proved each, recipes
+user-level settings only, and returns: the tools with the file that proved each, recipes
 and package scripts, `human_candidates` and `cleanup_recipes`, the proposed project
 `allow`/`ask` with every rule a user-level rule already covers removed
 (`covered_by_global`) or blocks (`blocked_by_global`), `global_candidates` for the
 user level, the rules already in `.claude/settings.local.json` and in a committed
 `.claude/settings.json` (`existing.local`, `existing.committed`, `committed_hooks`),
-whether both project files are ignored by git (`ignored`), and the Codex state
-(`codex.trusted`, `codex.local_rules`).
+and whether the project file is ignored by git (`ignored`).
 
 ## 2. Read the repository's own policy
 
@@ -95,8 +92,8 @@ The detector knows names, not intent. Before proposing, read:
   labels or ruleset sync, a release, a bootstrap) and the dependency policy.
 - a committed `.claude/settings.json`: its `deny` rules and hooks move, they are not
   dropped (step 5).
-- `~/.claude/settings.json` and `~/.codex/rules/default.rules`, to see what the user <!-- neutrality-ignore: N2 -->
-  level already allows, asks, and forbids.
+- `~/.claude/settings.json`, to see what the user level already allows, asks, and <!-- neutrality-ignore: N2 -->
+  forbids.
 
 Adjust the proposal: every recipe the policy reserves for a human goes to ask; every
 cleanup recipe and every recipe the policy treats as routine stays allowed.
@@ -104,25 +101,22 @@ cleanup recipe and every recipe the policy treats as routine stays allowed.
 ## 3. Decide the borderline rules with the user
 
 Present one short table — tools detected; project allow / ask / deny counts; rules
-dropped as covered by the user level; proposed user-level additions; the Codex state —
-then ask only what depends on how the user works, in one round of at most 4
+dropped as covered by the user level; proposed user-level additions — then ask only what depends on how the user works, in one round of at most 4
 questions, 2–4 options each with its cost, the loose option first and marked
 recommended unless the repository's policy says otherwise. Typical questions:
 
 - Recipes that launch or install the app on this machine (`run`, `dev`,
   `install-app`): ask each time (when the policy reserves them), or allow?
 - The proposed user-level additions (`global_candidates`, plus any generic rule found
-  in the old committed file): add them to the user-level files, keep them project-only,
+  in the old committed file): add them to the user-level file, keep them project-only,
   or drop them?
-- Codex: set up `.codex/rules/local.rules` too, and trust the project in
-  `~/.codex/config.toml` so it loads? (Skip when the user does not use Codex here.) <!-- neutrality-ignore: N2 -->
 - Anything the policy reserves for a human that the user may want to own (labels,
   ruleset, release, bootstrap): keep at ask (recommended), or allow?
 
 Skip a question the policy or an earlier answer already settles. A rule the user
 rejects is dropped; nothing is added silently after the table.
 
-## 4. Write Claude Code's project file
+## 4. Write the project file
 
 Write the agreed project rules to a JSON file (`{"allow": [...], "ask": [...],
 "deny": [...], "hooks": {...}}`, keys optional), preview, then merge:
@@ -151,30 +145,16 @@ CHANGELOG entry if the repository keeps one, and ship it through the repository'
 commit and PR skills. A harness check that reads the committed file should treat it as
 optional rather than be deleted.
 
-## 6. Write Codex's project rules
+## 6. Make sure the project file stays out of git
 
-Only when the user wants Codex set up here. Follow
-[references/codex.md](references/codex.md): mirror each project ask as a `prompt`
-`prefix_rule` in `.codex/rules/local.rules`, add allow rules only for project scripts
-that must run outside the sandbox, propose user-level allows for toolchains the
-Claude side allows globally but Codex does not, and make sure the project is trusted.
-Verify every rule with `codex execpolicy check` against both files before finishing.
-
-## 7. Make sure both files stay out of git
-
-If `ignored` reports `false` for either file, add the exact path to the repository's
-`.gitignore` (`/.codex/rules/local.rules` alone, not all of `.codex/`, so shared Codex
-config can still be committed) and include that line in the repository's next commit.
-`.claude/settings.local.json` is usually ignored globally already.
+`.claude/settings.local.json` is usually ignored globally already. If `ignored` reports
+`false` for it, add the exact path to the repository's `.gitignore` and include that
+line in the repository's next commit.
 
 ## Report
 
 Tools detected; rules added per file and list; rules dropped as covered by the user
 level; user-level additions made; a migrated committed file and the PR that removed
-it; the Codex rules and the `execpolicy check` table; questions asked and the answers;
-conflicts and how they were resolved. New rules take effect in the next session
-started in the repository — the current session keeps the permissions it loaded.
-
-## Platform notes
-
-Host-specific tool mapping and sandbox recovery: [references/platform-notes.md](references/platform-notes.md).
+it; questions asked and the answers; conflicts and how they were resolved. New rules
+take effect in the next session started in the repository — the current session keeps
+the permissions it loaded.

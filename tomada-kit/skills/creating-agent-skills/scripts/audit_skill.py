@@ -41,16 +41,9 @@ Wraps validate_skill.py and adds editorial / structural checks:
         concern (mirrors SKILL.md's own size budget applied to references/).
         Same opt-out mechanism as A006 (see below), code `A010`.
 
-  N1-N4 Dual-platform neutrality — inherited automatically, not a separate
-        check here. `validate_skill.validate()` (this script's base `report`)
-        already runs dual-platform-skills/scripts/neutrality_lint.py and folds
-        its N1-N4 findings in, so they appear in every audit report without
-        duplicate logic. See validate_skill.py's own docstring (check 9).
-
 Also emits a `profile` block (body_lines, reference_count, max_reference_lines,
 total_reference_lines, has_scripts, has_tests, spawns_subagents, has_phases,
-code_blocks, platforms) — a
-structural snapshot for deciding things like "should this skill be split"
+code_blocks) — a structural snapshot for deciding things like "should this skill be split"
 or "does it need scripts/tests/", not itself a pass/fail check.
 
 Usage:
@@ -360,14 +353,11 @@ class Profile:
     spawns_subagents: bool = False
     has_phases: bool = False
     code_blocks: int = 0
-    platforms: str = ""
 
 
 def build_profile(skill_path: Path, body: str) -> Profile:
     """Build the structural `profile` block from the skill directory and the
-    SKILL.md body. `metadata.platforms` is read separately below because
-    validate_skill.parse_frontmatter() flattens top-level keys only.
-    """
+    SKILL.md body."""
     refs_dir = skill_path / "references"
     ref_files = sorted(refs_dir.rglob("*.md")) if refs_dir.exists() else []
     reference_count = len(ref_files)
@@ -397,20 +387,6 @@ def build_profile(skill_path: Path, body: str) -> Profile:
 
     code_blocks = sum(1 for _ in validate_skill.CODE_BLOCK_RE.finditer(body))
 
-    # metadata.platforms is nested under `metadata:`, which parse_frontmatter()
-    # deliberately doesn't flatten (see its docstring: "top-level key: value only").
-    # Reuse neutrality_lint's own frontmatter parser, which does flatten it, rather
-    # than duplicating that parsing here; fall back to "" if it can't be loaded.
-    platforms = ""
-    nl = validate_skill._load_neutrality_lint()
-    skill_md = skill_path / "SKILL.md"
-    if nl is not None and skill_md.exists():
-        try:
-            vals, _ = nl.parse_frontmatter(skill_md.read_text(encoding="utf-8"))
-            platforms = vals.get("metadata.platforms", "")
-        except Exception:  # noqa: BLE001 — profile is best-effort, never block the rest
-            platforms = ""
-
     return Profile(
         body_lines=len(body.splitlines()),
         reference_count=reference_count,
@@ -421,7 +397,6 @@ def build_profile(skill_path: Path, body: str) -> Profile:
         spawns_subagents=spawns_subagents,
         has_phases=has_phases,
         code_blocks=code_blocks,
-        platforms=platforms,
     )
 
 
@@ -547,7 +522,6 @@ def render_markdown(
     lines.append(f"- **spawns_subagents:** {profile.spawns_subagents}")
     lines.append(f"- **has_phases:** {profile.has_phases}")
     lines.append(f"- **code_blocks:** {profile.code_blocks}")
-    lines.append(f"- **platforms:** {profile.platforms or '(none)'}")
     lines.append("")
 
     all_findings = list(report.findings) + extras

@@ -161,9 +161,11 @@ class DetectTest(unittest.TestCase):
 
         def check(cmd):
             calls.append(cmd)
-            return {".claude/settings.local.json": 0, ".codex/rules/local.rules": 1}[cmd[-1]]
+            return {".claude/settings.local.json": 0}[cmd[-1]]
         det = self.detect(check=check)
-        self.assertEqual(det.ignored, {".claude/settings.local.json": True, ".codex/rules/local.rules": False})
+        self.assertEqual(det.ignored, {".claude/settings.local.json": True})
+        det = self.detect(check=lambda cmd: 1)
+        self.assertEqual(det.ignored, {".claude/settings.local.json": False})
         self.assertEqual(calls[0][:5], ["git", "-C", str(self.root), "check-ignore", "-q"])
         det = self.detect(check=lambda cmd: 128)
         self.assertEqual(set(det.ignored.values()), {None})
@@ -172,22 +174,6 @@ class DetectTest(unittest.TestCase):
         self.assertEqual(dt.default_check([sys.executable, "-c", "raise SystemExit(1)"]), 1)
         self.assertIsNone(dt.default_check(["/nonexistent/binary"]))
 
-    def test_codex_state(self):
-        home = self.root / "codex"
-        det = self.detect(codex_home=home)
-        self.assertEqual(det.codex, {"trusted": None, "local_rules": False, "config": str(home / "config.toml")})
-        write(self.root, "codex/config.toml",
-              f'[projects."{self.root.resolve()}"]\ntrust_level = "trusted"\n')
-        write(self.root, ".codex/rules/local.rules")
-        det = self.detect(codex_home=home)
-        self.assertTrue(det.codex["trusted"])
-        self.assertTrue(det.codex["local_rules"])
-        write(self.root, "codex/config.toml", '[projects."/elsewhere"]\ntrust_level = "trusted"\n')
-        self.assertFalse(self.detect(codex_home=home).codex["trusted"])
-        write(self.root, "codex/config.toml", "not = = toml")
-        self.assertIsNone(self.detect(codex_home=home).codex["trusted"])
-        self.assertEqual(self.detect().codex["config"], "")
-
     def run_main(self, argv):
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
@@ -195,27 +181,25 @@ class DetectTest(unittest.TestCase):
         return code, out.getvalue(), err.getvalue()
 
     def test_main_text_json_and_errors(self):
-        home = ["--codex-home", str(self.root / "codex")]
         g = self.root / "g.json"
         g.write_text(json.dumps({"permissions": {"deny": ["Bash(just *)"]}}))
-        code, out, _ = self.run_main([str(self.root), "--no-global", *home])
+        code, out, _ = self.run_main([str(self.root), "--no-global"])
         self.assertEqual(code, 1)
         write(self.root, "justfile", "run:\n\techo\nclean:\n")
         with mock.patch.object(dt.shutil, "which", return_value=None):
-            code, out, _ = self.run_main([str(self.root), "--global", str(g), *home])
+            code, out, _ = self.run_main([str(self.root), "--global", str(g)])
             self.assertEqual(code, 0)
             self.assertIn("human-only candidates: run", out)
             self.assertIn("cleanup recipes: clean", out)
             self.assertIn("global candidates:", out)
             self.assertIn("blocked: Bash(just *) by deny Bash(just *)", out)
             self.assertIn("ignored: .claude/settings.local.json=", out)
-            self.assertIn("codex: trusted=None", out)
-            code, out, _ = self.run_main([str(self.root), "--json", "--no-global", *home])
+            code, out, _ = self.run_main([str(self.root), "--json", "--no-global"])
         self.assertEqual(json.loads(out)["tools"], ["just"])
         code, _, err = self.run_main([str(self.root / "missing"), "--no-global"])
         self.assertEqual(code, 2)
         g.write_text("{bad")
-        code, _, err = self.run_main([str(self.root), "--global", str(g), *home])
+        code, _, err = self.run_main([str(self.root), "--global", str(g)])
         self.assertEqual(code, 2)
         self.assertIn("global settings", err)
 

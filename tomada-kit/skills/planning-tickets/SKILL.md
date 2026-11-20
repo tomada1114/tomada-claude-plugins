@@ -10,8 +10,6 @@ description: >-
   contract — and falls back to its own templates only where the repository has none.
   Use when cutting tickets, breaking a feature or a new app's MVP into issues, planning
   a sprint or backlog, or as the issues stage of kicking-off-apps.
-metadata:
-  platforms: claude-code, codex
 ---
 
 # Planning Tickets
@@ -81,7 +79,3 @@ Body lines stay the source automation parses; native links mirror them.
 The created issues as a table with numbers and links, the tracking parents, the
 dependency layers, and anything left for a human (a `blocked: design` decision, a
 `blocked: external` step).
-
-## Platform notes
-
-Host tool mapping and degradation paths: [references/platform-notes.md](references/platform-notes.md).

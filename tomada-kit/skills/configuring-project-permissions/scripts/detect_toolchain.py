@@ -25,7 +25,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tomllib
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable, Sequence
@@ -116,7 +115,6 @@ class Detection:
     existing: dict[str, dict[str, list[str]]] = field(default_factory=dict)
     committed_hooks: bool = False
     ignored: dict[str, bool | None] = field(default_factory=dict)
-    codex: dict[str, object] = field(default_factory=dict)
 
 
 def _add(det: Detection, tool: str, why: str) -> None:
@@ -162,20 +160,6 @@ def is_ignored(root: Path, rel: str, check: Callable[[Sequence[str]], int | None
     return {0: True, 1: False}.get(code) if code is not None else None
 
 
-def codex_state(root: Path, codex_home: Path | None) -> dict[str, object]:
-    config = (codex_home / "config.toml") if codex_home else None
-    trusted: bool | None = None
-    if config and config.is_file():
-        try:
-            data = tomllib.loads(config.read_text(encoding="utf-8"))
-            entry = (data.get("projects") or {}).get(str(root.resolve())) or {}
-            trusted = isinstance(entry, dict) and entry.get("trust_level") == "trusted"
-        except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError, AttributeError):
-            trusted = None
-    return {"trusted": trusted, "local_rules": (root / ".codex/rules/local.rules").is_file(),
-            "config": str(config) if config else ""}
-
-
 def _settings(path: Path) -> tuple[dict[str, list[str]], bool]:
     try:
         perms = load_permissions(path)
@@ -189,7 +173,7 @@ def _settings(path: Path) -> tuple[dict[str, list[str]], bool]:
 
 
 def detect(root: Path, run: Callable[[Sequence[str]], str | None] = default_run,
-           global_path: Path | None = None, codex_home: Path | None = None,
+           global_path: Path | None = None,
            check: Callable[[Sequence[str]], int | None] = default_check) -> Detection:
     """Detect `root`'s toolchain. `global_path` None means no user-level settings."""
     det = Detection(root=str(root))
@@ -310,9 +294,7 @@ def detect(root: Path, run: Callable[[Sequence[str]], str | None] = default_run,
     local, _ = _settings(root / ".claude" / "settings.local.json")
     committed, det.committed_hooks = _settings(root / ".claude" / "settings.json")
     det.existing = {"local": local, "committed": committed}
-    det.ignored = {rel: is_ignored(root, rel, check)
-                   for rel in (".claude/settings.local.json", ".codex/rules/local.rules")}
-    det.codex = codex_state(root, codex_home)
+    det.ignored = {rel: is_ignored(root, rel, check) for rel in (".claude/settings.local.json",)}
     return det
 
 
@@ -323,8 +305,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--global", dest="global_path", default="~/.claude/settings.json",
                     help="user-level Claude Code settings (default: ~/.claude/settings.json)")
     ap.add_argument("--no-global", action="store_true", help="ignore user-level settings")
-    ap.add_argument("--codex-home", default=os.environ.get("CODEX_HOME") or "~/.codex",
-                    help="Codex CLI home (default: $CODEX_HOME or ~/.codex)")
     args = ap.parse_args(argv)
     root = Path(args.root)
     if not root.is_dir():
@@ -332,7 +312,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     global_path = None if args.no_global else Path(args.global_path).expanduser()
     try:
-        det = detect(root, global_path=global_path, codex_home=Path(args.codex_home).expanduser())
+        det = detect(root, global_path=global_path)
     except ValueError as e:
         print(f"error: cannot read global settings: {e}", file=sys.stderr)
         return 2
@@ -352,8 +332,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         for b in det.blocked_by_global:
             print(f"  blocked: {b['rule']} by {b['kind']} {b['by']}")
         print("ignored: " + ", ".join(f"{k}={v}" for k, v in det.ignored.items()))
-        print(f"codex: trusted={det.codex['trusted']}, local_rules={det.codex['local_rules']}, "
-              f"config={det.codex['config']}")
     return 0 if det.tools else 1
 
 

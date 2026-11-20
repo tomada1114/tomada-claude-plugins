@@ -9,8 +9,6 @@ description: >-
   Claude Haiku 5.5 alongside the cross-model practices. Use when reviewing or slimming an
   instruction file, when instructions are ignored or fire too often, when migrating a
   prompt to a newer model, or when refreshing this guidance after a model release.
-metadata:
-  platforms: claude-code, codex
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/lint_prompt_doc.py:*)
 ---
 

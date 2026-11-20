@@ -1,14 +1,12 @@
 ---
 name: creating-agent-skills
-description: "Create or improve Agent Skills (the shared SKILL.md format read by Claude Code and OpenAI Codex CLI — SKILL.md + optional references/scripts/assets). Two playbooks: build a skill from scratch or from an existing doc; or review an existing skill through parallel specialist lenses (prose quality, agent neutrality, structure, scripts, orchestration, self-evaluation) and apply the fixes through a regression gate. Takes a free-form request — \"I want a skill that…\", \"turn this runbook into a skill\", \"audit this skill\", \"it never fires\", \"split this into sub-agents\" — optionally followed by a skill name or absolute path. Also triggers on Codex skill / skill-creator requests."
+description: "Create or improve Claude Code Agent Skills (SKILL.md + optional references/scripts/assets). Two playbooks: build a skill from scratch or from an existing doc; or review an existing skill through parallel specialist lenses (prose quality, structure, scripts, orchestration, self-evaluation) and apply the fixes through a regression gate. Takes a free-form request — \"I want a skill that…\", \"turn this runbook into a skill\", \"audit this skill\", \"it never fires\", \"split this into sub-agents\" — optionally followed by a skill name or absolute path."
 argument-hint: "<free-form intent> [skill-name-or-path]"
-metadata:
-  platforms: claude-code, codex
 ---
 
 # creating-agent-skills
 
-Workshop for building and maintaining Agent Skills — the shared `SKILL.md` format both Claude Code and Codex CLI read natively (see [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md) for what's common vs. per-host). Most guidance here is host-agnostic; the few Claude Code-only mechanics (`Task`, `AskUserQuestion`, plugin `${CLAUDE_PLUGIN_ROOT}`, etc.) are called out explicitly where they appear. <!-- neutrality-ignore: N1 --> <!-- neutrality-ignore: N2 -->
+Workshop for building and maintaining Claude Code Agent Skills — `SKILL.md` plus optional `references/`, `scripts/` and `assets/`. Skills here run on Claude Code, so they use its mechanics (`Agent`, `AskUserQuestion`, `${CLAUDE_SKILL_DIR}`, frontmatter extensions) directly.
 
 `$ARGUMENTS` is **free-form text**, in any language. There is no mode keyword to parse. Read the user's intent, optionally pick out a skill name or path token, then route to [Building a skill](#building-a-skill) or [Improving a skill](#improving-a-skill). If the request mixes goals (e.g. "audit it, and fix whatever is broken"), chain playbooks in the order implied by the request.
 
@@ -17,12 +15,12 @@ Workshop for building and maintaining Agent Skills — the shared `SKILL.md` for
 **Input:** free-form natural-language description of the task, optionally including a skill name or absolute path.
 
 **Outputs depend on the inferred task:**
-- Building → directory at `~/.claude/skills/<name>/` (or `<cwd>/.claude/skills/<name>/` with `--scope project`). Run `dual-platform-skills` afterward to bridge it onto Codex. <!-- neutrality-ignore: N2 -->
+- Building → directory at `~/.claude/skills/<name>/` (or `<cwd>/.claude/skills/<name>/` with `--scope project`).
 - Improving → `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/skills-audit/<skill-name>/` holding `report.md`, `lens-<name>.md` per lens, `recommendations.md`; then one commit per recommendation that passes the gate. `report-only` in the request stops after `recommendations.md`.
 
-**Bundled scripts** (invoke through `${CLAUDE_SKILL_DIR}`, never a hardcoded path): <!-- neutrality-ignore: N2 -->
+**Bundled scripts** (invoke through `${CLAUDE_SKILL_DIR}`, never a hardcoded path):
 - `scripts/init_skill.sh` — scaffold new skill from template
-- `scripts/validate_skill.py` — frontmatter / size / link-integrity / neutrality checks, `--json`
+- `scripts/validate_skill.py` — frontmatter / size / link-integrity checks, `--json`
 - `scripts/audit_skill.py` — wraps validate, adds editorial checks A001–A010, emits a `profile` block, writes a Markdown report
 - `scripts/check_scripts.py` — for skills with `scripts/`: tests, coverage ≥ 90 %, hardcoded paths, `.gitignore` (S001–S007), `--json`
 
@@ -35,7 +33,7 @@ Match signals in `$ARGUMENTS` to a playbook on meaning, not wording — the requ
 | build / new / scaffold / from scratch / convert / "turn this doc into a skill" / "I want a skill that…" | [Building a skill](#building-a-skill) |
 | audit / review / health check / refactor / slim down / "never fires" / "fires too often" / sub-agents / parallel / "split this up" | [Improving a skill](#improving-a-skill) |
 
-If a token in the input matches an existing skill name or `~/.claude/skills/...` path, treat it as the target. Otherwise infer or ask. Both goals in one request ("build it, then review it") → run Building to completion, then Improving. <!-- neutrality-ignore: N2 -->
+If a token in the input matches an existing skill name or `~/.claude/skills/...` path, treat it as the target. Otherwise infer or ask. Both goals in one request ("build it, then review it") → run Building to completion, then Improving.
 
 ---
 
@@ -57,19 +55,19 @@ Full rationale and examples: [references/authoring-principles.md](references/aut
 
 Use for a new skill — from scratch, or from an existing doc/runbook/note.
 
-1. **Capture intent.** If a source doc exists, read it fully first — most of the questions below are answered by it. Otherwise ask in one round: concrete tasks, invocation style (command / description-match / both), inputs/outputs, 1–2 example invocations, and whether this runs on Codex too (default: both — see [agent-neutral-authoring.md](references/agent-neutral-authoring.md) before writing prose either way).
+1. **Capture intent.** If a source doc exists, read it fully first — most of the questions below are answered by it. Otherwise ask in one round: concrete tasks, invocation style (command / description-match / both), inputs/outputs, and 1–2 example invocations.
 2. **Name the gap before writing anything.** For each example, state what Claude does *without* the skill and where it falls short — that gap is the spec; everything else documents behavior the model already had. Turn it into three test prompts with checkable expected behavior ([evaluating-skills.md](references/evaluating-skills.md)); they become the skill's eval cases in step 5.
 3. **Plan reusable contents.** Code rewritten each time → `scripts/` (with a test); a doc to consult → `references/`; boilerplate copied into output → `assets/`. From a source doc over ~300 lines: split by concern into `references/`, keeping only what a competent stranger to *this* system couldn't guess.
 4. **Scaffold:** `${CLAUDE_SKILL_DIR}/scripts/init_skill.sh <name> [basic|advanced] [--scope user|project]`.
 5. **Implement resources first, SKILL.md last.** Write and test `scripts/`/`references/`/`assets/`, then the body in imperative form, applying the Core Principles above and [prompt-authoring.md](references/prompt-authoring.md). Omit `allowed-tools` unless one of the two reasons in [yaml-spec.md](references/yaml-spec.md#allowed-tools) applies. Markdown links to bundled files use relative paths; commands and sub-agent prompts use `${CLAUDE_SKILL_DIR}/...`. If the skill delegates to fresh contexts, name the tier (`executor` / `architect`) per spawn ([prompt-authoring.md](references/prompt-authoring.md#assigning-models-and-effort)), keep delegation prompts in `references/agents/<name>.md`, and state the delegation bar and cap (patterns in [orchestration-patterns.md](references/orchestration-patterns.md)). From a source doc, write in English; keep original wording only for verbatim material (UI labels, error strings, sample output). A skill that produces an artifact also gets a `## Self-check` section and `evals/` cases built from the step-2 gap list ([self-evaluation.md](references/self-evaluation.md)): its own criteria applied on every run, and the cases a later change is measured against.
-6. **Validate:** `python3 ${CLAUDE_SKILL_DIR}/scripts/validate_skill.py <skill-path>` and, if the skill has `scripts/`, `check_scripts.py`. Fix every error, including the neutrality lint.
+6. **Validate:** `python3 ${CLAUDE_SKILL_DIR}/scripts/validate_skill.py <skill-path>` and, if the skill has `scripts/`, `check_scripts.py`. Fix every error.
 7. **Check against the gap list.** Run the three step-2 prompts in a fresh session. Separate "didn't activate" (a `description` problem) from "activated but wrong" (a body problem), and delete any instruction covering behavior the no-skill baseline already got right ([evaluating-skills.md](references/evaluating-skills.md) for repeatable measurement).
 
 ## Improving a skill
 
 Use for health, drift, bloat, trigger accuracy, or restructuring — including splitting into phases or sub-agents. One agent reading for every concern at once misses things; lenses run in fresh contexts and are merged after.
 
-**P0. Script pass (deterministic).** Resolve the path (`~/.claude/skills/<name>` for a bare name). <!-- neutrality-ignore: N2 --> Run:
+**P0. Script pass (deterministic).** Resolve the path (`~/.claude/skills/<name>` for a bare name). Run:
 ```bash
 AUDIT_DIR="${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/skills-audit/<skill-name>"
 mkdir -p "$AUDIT_DIR"
@@ -83,17 +81,16 @@ Read the `profile` block of `audit.json` — it decides the lens set below. See 
 | Lens | Checklist | Tier | Runs when |
 |---|---|---|---|
 | prose | [prompt-authoring.md](references/prompt-authoring.md#review-checklist) (`PA`) | `architect` | always |
-| neutrality | [agent-neutral-authoring.md](references/agent-neutral-authoring.md#review-checklist) (`AN`) | `executor` | always |
 | structure | [patterns-and-structure.md](references/patterns-and-structure.md#review-checklist) (`ST`) | `executor` | always |
 | scripts | [scripts-guide.md](references/scripts-guide.md#review-checklist) (`SC`) | `executor` | `scripts/` exists, or a code block in SKILL.md |
 | orchestration | [orchestration-patterns.md](references/orchestration-patterns.md#review-checklist) (`OR`) | `architect` | spawns sub-agents, has phases, or body > 150 lines |
 | self-evaluation | [self-evaluation.md](references/self-evaluation.md#review-checklist) (`SE`) | `executor` | the skill produces an artifact, or has a self-check, a judge, frontmatter hooks, or `evals/` |
 
-**Gate:** if SKILL.md is under 100 lines with no `references/` or `scripts/`, spawn nothing — run the always-on lenses inline. Never more than the six lenses above. Lenses report full coverage with confidence and severity; filtering happens in P2, not the lens.
+**Gate:** if SKILL.md is under 100 lines with no `references/` or `scripts/`, spawn nothing — run the always-on lenses inline. Never more than the five lenses above. Lenses report full coverage with confidence and severity; filtering happens in P2, not the lens.
 
 **P2. Merge and recommend.** Deduplicate by checklist ID and location. Rank: blocks the skill → misleads the model → costs context for nothing → cosmetic. Write `$AUDIT_DIR/recommendations.md` with evidence (`file:line`) and old→new text for concrete items, one recommendation per independent change. Propose delegation only under the conditions and limits in [orchestration-patterns.md](references/orchestration-patterns.md#proposing-orchestration) (at most one per phase, three per skill).
 
-**P3. Apply through the gate.** The user has approved applying audit fixes without a confirmation step, on the condition that each one is measured and can be reverted. Read `${CLAUDE_SKILL_DIR}/../evolving-skills/SKILL.md` (the user invokes that skill themselves, so it cannot be loaded as a skill) and take each recommendation through its Improve steps 3–7 (stage, case, change, check, land) as its own change, in rank order; a finding that shows up as a failing eval case gets that case. A change that touches only wording a case cannot exercise lands with `--allow-unmeasured`. The gate reports `blocked` for a recommendation that rewrites or removes an existing check, test, eval case or hook: leave it unapplied and list it for the user, with its run directory. Uncommitted work in the skill directory means the user is mid-edit: stop after P2 and say so. Close with the commits landed, the recommendations rejected by the gate with the reason, and the blocked ones. No push and no plugin publish. Where `evolving-skills` is not available (Codex, or a host without it), stop after P2 and hand `recommendations.md` to the user.
+**P3. Apply through the gate.** The user has approved applying audit fixes without a confirmation step, on the condition that each one is measured and can be reverted. Read `${CLAUDE_SKILL_DIR}/../evolving-skills/SKILL.md` (the user invokes that skill themselves, so it cannot be loaded as a skill) and take each recommendation through its Improve steps 3–7 (stage, case, change, check, land) as its own change, in rank order; a finding that shows up as a failing eval case gets that case. A change that touches only wording a case cannot exercise lands with `--allow-unmeasured`. The gate reports `blocked` for a recommendation that rewrites or removes an existing check, test, eval case or hook: leave it unapplied and list it for the user, with its run directory. Uncommitted work in the skill directory means the user is mid-edit: stop after P2 and say so. Close with the commits landed, the recommendations rejected by the gate with the reason, and the blocked ones. No push and no plugin publish. Where `evolving-skills` is not available, stop after P2 and hand `recommendations.md` to the user.
 
 ---
 
@@ -101,15 +98,13 @@ Read the `profile` block of `audit.json` — it decides the lens set below. See 
 
 Load on demand:
 - [references/authoring-principles.md](references/authoring-principles.md) — full Core Principles rationale, "what NOT to put in a skill", production patterns worth copying.
-- [references/agent-neutral-authoring.md](references/agent-neutral-authoring.md) — write once for both hosts. Holds `AN` checklist.
 - [references/prompt-authoring.md](references/prompt-authoring.md) — wording for current models, sub-agent prompt layers, tier per spawn. Holds `PA` checklist.
 - [references/yaml-spec.md](references/yaml-spec.md) — every frontmatter field, substitutions, bash injection, diagnosing a skill that never activates.
 - [references/patterns-and-structure.md](references/patterns-and-structure.md) — content types, storage locations, sizing/slimming, workflow shapes. Holds `ST` checklist.
 - [references/scripts-guide.md](references/scripts-guide.md) — script-or-prose decision, conventions, patterns. Holds `SC` checklist.
 - [references/orchestration-patterns.md](references/orchestration-patterns.md) — sub-agent and phase-handoff patterns, when to propose orchestration. Holds `OR` checklist.
-- [references/platform-notes.md](references/platform-notes.md) — Claude Code / Codex tool mapping for orchestration guidance.
 - [references/workspace-conventions.md](references/workspace-conventions.md) — deterministic output paths, snapshot/restore.
-- [references/evaluating-skills.md](references/evaluating-skills.md) — eval-driven authoring, baseline comparison, `claude plugin eval` and skill-creator, testing across effort levels and hosts.
+- [references/evaluating-skills.md](references/evaluating-skills.md) — eval-driven authoring, baseline comparison, `claude plugin eval` and skill-creator, testing across effort levels.
 - [references/self-evaluation.md](references/self-evaluation.md) — the self-check contract, when to add a judge or a hook, seeding eval cases. Holds `SE` checklist.
 - [references/agents/review-lens.md](references/agents/review-lens.md) — the prompt template each Improving lens is filled from.
 
@@ -122,4 +117,3 @@ Examples: [greeting-generator](examples/greeting-generator/) · [http-status-gui
 ## Hard rules
 
 - `disable-model-invocation: true` (user-only) and `user-invocable: false` (Claude-only) are opposites — confusing them silently hides a skill from the wrong party.
-- Set `metadata.platforms` when scaffolding: `claude-code, codex` with an agent-neutral body by default, `claude-code` only when the skill's subject is Claude Code itself.

@@ -2,19 +2,16 @@
 name: advanced-skill-name
 description: What this skill produces, then the triggers — "Use when [concrete situation], [concrete situation], or working with [artifact or keyword]." Keep the key use case first; Claude Code truncates the listing entry at 1536 chars of description + when_to_use.
 # allowed-tools: Read, Grep, Glob, Write, Edit   (omit unless pre-approving this skill's own scripts, or an unattended run — see references/yaml-spec.md#allowed-tools)
-metadata:
-  platforms: claude-code, codex   # or just `claude-code` if this skill is inherently Claude-only —
-                                   # see references/agent-neutral-authoring.md before writing the body
 # Claude Code extensions (not part of the portable Agent Skills standard):
 # when_to_use: "Trigger phrases and example requests"
 # disable-model-invocation: true   (user-only; NOT the same as user-invocable: false)
 # user-invocable: false            (Claude-only)
-# disallowed-tools: AskUserQuestion   <!-- neutrality-ignore: N1 -->
+# disallowed-tools: AskUserQuestion
 # argument-hint: "[arg1] [arg2]"
 # arguments: [arg1, arg2]
 # model: <alias>   (usually omit to inherit the session model; never a dated full ID)
 # effort: high
-# context: fork   <!-- neutrality-ignore: N1 -->
+# context: fork
 # agent: Explore
 # background: false
 # paths: "src/**/*.ts"
@@ -48,8 +45,7 @@ metadata:
 ## Resources
 
 - `references/[name].md` — [what it covers, and the condition under which to read it]
-- `references/platform-notes.md` — only if `metadata.platforms` includes `codex`: starts with `<!-- platform-annex -->`, holds the Claude/Codex tool mapping and the "what's lost on Codex" list. This is the only place a Claude-specific tool name may appear in body text — see references/agent-neutral-authoring.md.
-- `scripts/[name].py` — run as `python3 ${CLAUDE_SKILL_DIR}/scripts/[name].py <args>`; never a hardcoded `~/.claude/skills/...` path <!-- neutrality-ignore: N2 -->
+- `scripts/[name].py` — run as `python3 ${CLAUDE_SKILL_DIR}/scripts/[name].py <args>`; never a hardcoded `~/.claude/skills/...` path
 - `scripts/tests/test_[name].py` — stdlib `unittest`, discovered with `python3 -m unittest discover -s scripts/tests -p 'test_*.py'` from the skill directory; coverage ≥ 90% (see `references/scripts-guide.md#conventions` for the authoritative rules, checked by `scripts/check_scripts.py`). Generated files (`__pycache__/`, `.pytest_cache/`, `.coverage*`) belong in the enclosing repository's `.gitignore`.
 - `assets/[name]` — [boilerplate copied into the output]
 - `evals/<case>/prompt.md` + `graders/` — the cases a change to this skill is measured against (two tagged `gate`, one `holdout`); see references/self-evaluation.md in creating-agent-skills

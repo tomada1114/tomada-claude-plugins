@@ -2,8 +2,8 @@
 name: syncing-agent-tiers
 description: >-
   Push the canonical sub-agent tier definitions (executor, architect, scout, worker)
-  into every listed repository's .claude/agents/ and .codex/agents/, opening one
-  auto-merging PR per repository. Use after changing a tier's model or effort, when
+  into every listed repository's .claude/agents/, opening one auto-merging PR per
+  repository. Use after changing a tier's model or effort, when
   adding a repository to the sync list, or as the last step of distributing-plugins.
 metadata:
   platforms: claude-code
@@ -11,8 +11,8 @@ metadata:
 
 # syncing-agent-tiers
 
-Repositories keep their own copies of the tier files because cloud sessions and Codex
-read only what is in the repository. This skill makes those copies generated output:
+Repositories keep their own copies of the tier files because cloud sessions read only
+what is in the repository. This skill makes those copies generated output:
 the only place a tier's model or effort is written is `assets/tiers.json`.
 
 ## Rules for repositories that receive the tiers
@@ -20,9 +20,8 @@ the only place a tier's model or effort is written is `assets/tiers.json`.
 - Repository prose (AGENTS.md, CLAUDE.md, skills) names tiers by agent name and role
   only — never a model name or an effort level. Workflow `agent()` stages that need a
   model name one in a single constant the skill defines once, not inline per stage.
-- Tests check structure (the four tiers exist in both hosts, the Codex instructions
-  equal the Claude body, Claude files set `model` and `effort`, Codex files omit
-  `model`), never the model or effort values.
+- Tests check structure (the four tiers exist, each file sets `model` and `effort`),
+  never the model or effort values.
 - Repository-specific agents (any other file in `.claude/agents/`) are not touched.
 
 ## Steps

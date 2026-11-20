@@ -1,4 +1,3 @@
-<!-- platform-annex -->
 # Skills Structure and Patterns
 
 This document covers directory structure, integration patterns, workflow patterns, and best practices for Claude Code skills.
@@ -336,11 +335,10 @@ File ops: `Read`, `Write`, `Edit`, `Glob`, `NotebookEdit`. Search: `Grep`. Execu
 
 ## What the P0 script pass already covers
 
-The Improving playbook's lenses (`prompt-authoring.md`, `agent-neutral-authoring.md`, this file, `scripts-guide.md`, `orchestration-patterns.md`) should not re-derive what `validate_skill.py` and `audit_skill.py` already emit as findings:
+The Improving playbook's lenses (`prompt-authoring.md`, this file, `scripts-guide.md`, `orchestration-patterns.md`) should not re-derive what `validate_skill.py` and `audit_skill.py` already emit as findings:
 
 - frontmatter validity, name rules (reserved words: `E013`), description length and listing truncation, description person (`W024`), body and code-block size (`E030`/`W031`), broken and escaping links — E/W codes;
 - trigger headings in the body, duplicate headings, orphan references, reference-to-reference links, missing ToC, oversized references, Japanese frontmatter, legacy phrasings as a hint — `A001`–`A010`;
-- raw tool names and platform paths in body text, missing `metadata.platforms` — `N1`–`N4`;
 - test presence, test results, coverage, shebang, hardcoded paths, `.gitignore` — `S001`–`S007` (`check_scripts.py`, only when the skill has `scripts/`).
 
 A lens finding that only restates one of these codes is redundant; a lens exists to see what the scripts cannot.

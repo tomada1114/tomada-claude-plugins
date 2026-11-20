@@ -17,8 +17,6 @@ description: >-
   (auditing-prompt-docs), one skill's structure (creating-agent-skills), or a
   repository's code (auditing-repositories).
 argument-hint: "[scope: empty | asset names | flow <entry skill> | a job in words | repository path] [report-only]"
-metadata:
-  platforms: claude-code
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/collect_estate.py:*)
 ---
 

@@ -29,47 +29,6 @@ def write_skill(root: Path, name: str = "sample-skill", skill_md: str | None = N
     return skill_dir
 
 
-class TestNeutralityInheritedFromValidate(unittest.TestCase):
-    """audit_skill.py must NOT reimplement N1-N4 — it inherits them via
-    validate_skill.validate() as the base report. This locks in that design so
-    a future edit doesn't silently duplicate (and drift from) neutrality_lint.py.
-    """
-
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
-        self.root = Path(self.tmp.name)
-
-    def test_n1_finding_appears_in_base_report_not_extras(self):
-        if vs._load_neutrality_lint() is None:
-            self.skipTest("dual-platform-skills sibling skill not found in this checkout")
-        skill = write_skill(
-            self.root,
-            skill_md=(
-                "---\nname: sample-skill\ndescription: d\nmetadata:\n"
-                "  platforms: claude-code, codex\n---\nAsk via AskUserQuestion.\n"
-            ),
-        )
-        report, extras, _profile = au.audit(skill)
-        self.assertTrue(any(f.code == "N1" for f in report.findings))
-        self.assertFalse(any(f.code == "N1" for f in extras))
-
-    def test_markdown_report_includes_n1_finding(self):
-        if vs._load_neutrality_lint() is None:
-            self.skipTest("dual-platform-skills sibling skill not found in this checkout")
-        skill = write_skill(
-            self.root,
-            skill_md=(
-                "---\nname: sample-skill\ndescription: d\nmetadata:\n"
-                "  platforms: claude-code, codex\n---\nAsk via AskUserQuestion.\n"
-            ),
-        )
-        report, extras, profile = au.audit(skill)
-        md = au.render_markdown(skill, report, extras, profile)
-        self.assertIn("N1", md)
-        self.assertIn("AskUserQuestion", md)
-
-
 class TestOwnChecks(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -329,8 +288,7 @@ class TestBuildProfile(unittest.TestCase):
 
     def test_phases_scripts_and_tests_detected(self):
         skill_md = (
-            "---\nname: sample-skill\ndescription: d\nmetadata:\n"
-            "  platforms: claude-code, codex\n---\n"
+            "---\nname: sample-skill\ndescription: d\n---\n"
             "## Phase 1: Setup\nDelegate this to a sub-agent, in parallel.\n"
         )
         skill = write_skill(
@@ -346,7 +304,6 @@ class TestBuildProfile(unittest.TestCase):
         self.assertTrue(profile.has_scripts)
         self.assertTrue(profile.has_tests)
         self.assertTrue(profile.spawns_subagents)
-        self.assertEqual(profile.platforms, "claude-code, codex")
 
     def test_reference_line_counts_are_computed(self):
         skill = write_skill(
@@ -414,7 +371,7 @@ class TestCLI(unittest.TestCase):
         for key in (
             "body_lines", "reference_count", "max_reference_lines",
             "total_reference_lines", "has_scripts", "has_tests",
-            "spawns_subagents", "has_phases", "code_blocks", "platforms",
+            "spawns_subagents", "has_phases", "code_blocks",
         ):
             self.assertIn(key, data["profile"])
 

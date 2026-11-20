@@ -34,6 +34,7 @@ The only legitimate use of `/tmp` in a skill is for **truly transient byproducts
 | Verification / testing scratch | `~/Desktop/testing/{YYYYMMDD}_{slug}/` | `~/Desktop/testing/20260407_config_check/` |
 | Single-file outputs | `<project-root>/<deterministic-name>.<ext>` | `~/acme/webapp/CONTRIBUTING.md` |
 | Per-PR artifacts | `~/<project>/pr/{pr-number}/` | `~/acme/pr/4567/` |
+| Skill-owned persistent state (run records, reports) | `${AGENT_SKILL_STATE_DIR:-$HOME/.local/state/agent-skills}/<skill-name>/` | `~/.local/state/agent-skills/skills-audit/my-skill/` |
 
 The shape that recurs:
 

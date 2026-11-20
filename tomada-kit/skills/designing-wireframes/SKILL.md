@@ -9,8 +9,6 @@ description: >-
   or user flow, to visualize screens before implementation, or as the UX stage of
   kicking-off-apps.
 argument-hint: "[requirements path] [--out path]"
-metadata:
-  platforms: claude-code, codex
 ---
 
 # Designing Wireframes
@@ -70,7 +68,3 @@ Where the requirements leave a layout decision open, default to the platform's
 conventions and ask the user only about decisions that change the layout: batch them
 (at most 4 questions per round), give each 2–4 options with trade-offs and a
 recommendation, and wait for the answers before drawing those screens.
-
-## Platform notes
-
-Host tool mapping and degradation paths: [references/platform-notes.md](references/platform-notes.md).

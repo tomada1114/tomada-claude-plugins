@@ -16,8 +16,6 @@ description: >-
   a kickoff, or when turning a feature request for an existing app into parent and
   sub-issues.
 argument-hint: "[app idea, free-form | resume | feature <request>]"
-metadata:
-  platforms: claude-code, codex
 ---
 
 # Kicking Off Apps
@@ -85,7 +83,7 @@ recommended option when there is a real recommendation; then wait for the answer
 | 2 | UX | `designing-wireframes`, then `ui-ux-designing` | `ux-flows.md`, `ux-guidelines.md` |
 | 3 | Design system | `applying-design-systems` (or `refero-design` when it is not installed), then the contrast pass of `ui-ux-designing` | `design-direction.md` |
 | 4 | Init | `bootstrapping-from-templates` | the repository, Product section, drafts copied in, labels |
-| 5 | Permissions | `configuring-project-permissions` | `.claude/settings.local.json` and `.codex/rules/local.rules`, gitignored |
+| 5 | Permissions | `configuring-project-permissions` | `.claude/settings.local.json`, gitignored |
 | 6 | Handoff | this skill | resume prompt |
 | 7 | Design decisions | `designing-architecture` | each decision and the design lock written into the skill that owns it — no architecture docs, ADRs, or roadmap |
 | 8 | Issues | `planning-tickets` (repository conventions first) | tracking issues, sub-issues, dependencies |
@@ -131,17 +129,12 @@ next session starts with the loose permissions already in place.
 
 **Stage 6 — handoff.** The session started in the template directory, so the new
 repository's settings, hooks, and skills are not loaded. Mark stage 6 done, then print
-only the block for the host this run is on — start a session in the new repository, then
-invoke this skill with `resume` — and stop:
+this block — start a session in the new repository, then invoke this skill with
+`resume` — and stop:
 
 ```
-# Claude Code
 cd <repo_path> && claude
 /kicking-off-apps resume
-
-# Codex CLI
-cd <repo_path> && codex
-$kicking-off-apps resume
 ```
 
 **Stage 7.** `designing-architecture` settles the decisions and writes each into the
@@ -180,8 +173,4 @@ plan in stage 8 to a tool-free writing sub-agent. The brief inlines what the
 sub-agent needs (for stage 8: the approved plan table and the issue template content
 from `planning-tickets`) and passes `repo_path` and `$STATE` as absolute paths, since a
 sub-agent neither shares this skill's directory nor starts in the clone. When it cannot,
-run the same work here, stage by stage in the same order. Tier names per host: [references/platform-notes.md](references/platform-notes.md).
-
-## Platform notes
-
-See [references/platform-notes.md](references/platform-notes.md).
+run the same work here, stage by stage in the same order.

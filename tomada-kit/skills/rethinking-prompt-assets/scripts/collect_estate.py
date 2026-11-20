@@ -68,7 +68,6 @@ class Skill:
     description_chars: int
     user_only: bool
     model_only: bool
-    platforms: str
     body_lines: int
     reference_files: int
     reference_lines: int
@@ -250,7 +249,6 @@ def collect_skills(root: Path, agent_names: list[str]) -> tuple[list[Skill], dic
         meta, body = parse_frontmatter(_read(skill_md))
         description = meta.get("description", "")
         description = description if isinstance(description, str) else ""
-        metadata = meta.get("metadata") if isinstance(meta.get("metadata"), dict) else {}
         skill = Skill(
             name=directory.name,
             path=str(directory),
@@ -259,7 +257,6 @@ def collect_skills(root: Path, agent_names: list[str]) -> tuple[list[Skill], dic
             description_chars=len(description) + len(str(meta.get("when_to_use", ""))),
             user_only=_is_true(meta.get("disable-model-invocation", "")),
             model_only=str(meta.get("user-invocable", "")).strip().lower() == "false",
-            platforms=str(metadata.get("platforms", "")),
             body_lines=len(body.splitlines()),
             reference_files=0,
             reference_lines=0,

@@ -1,5 +1,5 @@
 {
-  "_comment": "Repositories (owner tomada1114) that receive the tier files. Codex files are written only where .codex/agents/ already exists.",
+  "_comment": "Repositories (owner tomada1114) that receive the tier files.",
   "owner": "tomada1114",
   "repos": [
     "uv-template",

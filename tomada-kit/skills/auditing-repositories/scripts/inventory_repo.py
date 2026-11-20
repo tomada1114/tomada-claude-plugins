@@ -387,9 +387,7 @@ def build_inventory(
         gate_entrypoints=gates,
         instruction_files=sorted(p for p in tracked if PurePosixPath(p).name in ("AGENTS.md", "CLAUDE.md")),
         repo_skills={k: sorted(v) for k, v in sorted(skills.items())},
-        repo_agents=sorted(
-            p for p in tracked if p.startswith((".claude/agents/", ".codex/agents/"))
-        ),
+        repo_agents=sorted(p for p in tracked if p.startswith(".claude/agents/")),
         issue_conventions={
             "issue_templates": sorted(p for p in tracked if p.startswith(".github/ISSUE_TEMPLATE/")),
             "labels_file": next((p for p in (".github/labels.yml", ".github/labels.yaml") if p in tracked_set), None),

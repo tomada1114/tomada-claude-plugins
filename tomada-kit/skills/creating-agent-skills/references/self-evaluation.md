@@ -65,9 +65,7 @@ Rules for the section:
 - The cap of two rounds and the report of what still fails are part of the contract.
   A loop with no cap and no exit rule is the defect checked by `OR` and by
   `rethinking-prompt-assets` X10.
-- The signal line is what connects a run to later improvement. In a skill that also
-  runs on Codex, give the command in `references/platform-notes.md` and describe the
-  step neutrally in the body.
+- The signal line is what connects a run to later improvement.
 - A skill with no artifact (a pure reference skill) has no self-check. Do not add one
   for symmetry.
 

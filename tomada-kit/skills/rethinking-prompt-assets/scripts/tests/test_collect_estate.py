@@ -25,7 +25,7 @@ description: >-
   Use when alpha is needed.
 when_to_use: "alpha things"
 metadata:
-  platforms: claude-code, codex   # both hosts
+  version: "1.0"   # inline comment
 allowed-tools:
 ---
 
@@ -119,7 +119,7 @@ class FrontmatterTests(unittest.TestCase):
         meta, body = ce.parse_frontmatter(SKILL_ALPHA)
         self.assertEqual(meta["description"], "Does the alpha job. Use when alpha is needed.")
         self.assertEqual(meta["when_to_use"], "alpha things")
-        self.assertEqual(meta["metadata"], {"platforms": "claude-code, codex"})
+        self.assertEqual(meta["metadata"], {"version": "1.0"})
         self.assertEqual(meta["allowed-tools"], {})
         self.assertIn("# Alpha", body)
 
@@ -144,7 +144,6 @@ class InventoryTests(EstateFixture):
         self.assertEqual(estate.non_skill_dirs, ["dangling", "stray"])
         alpha = self.skill(estate, "alpha")
         self.assertTrue(alpha.has_description and alpha.has_scripts)
-        self.assertEqual(alpha.platforms, "claude-code, codex")
         self.assertEqual((alpha.reference_files, alpha.reference_lines), (1, 2))
         self.assertEqual(alpha.description_chars, len("Does the alpha job. Use when alpha is needed.") + len("alpha things"))
         beta = self.skill(estate, "beta")

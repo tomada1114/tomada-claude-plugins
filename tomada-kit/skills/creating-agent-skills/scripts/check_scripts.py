@@ -51,7 +51,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 import validate_skill  # type: ignore  # noqa: E402
 
 # S006: hardcoded personal skills path. A line carrying `scripts-ignore: S006`
-# is exempt (same convention as `audit-ignore` / `neutrality-ignore`); this
+# is exempt (same convention as `audit-ignore`); this
 # regex line needs it because it literally contains the pattern it hunts.
 PERSONAL_SKILLS_PATH_RE = re.compile(
     r"(?:~|\$HOME|/Users/[^/\s]+|/home/[^/\s]+)/\.claude/skills"  # scripts-ignore: S006

@@ -12,8 +12,6 @@ description: >-
   tdd do that afterwards. Use when asked to audit a repository, find technical debt,
   review a codebase's architecture or test quality, decide what to refactor, or
   health-check a template repository.
-metadata:
-  platforms: claude-code, codex
 ---
 
 # Auditing repositories
@@ -59,7 +57,6 @@ day overwrites that day's run.
    audit of what changed since the base.
 3. Run the inventory and save it:
    `python3 ${CLAUDE_SKILL_DIR}/scripts/inventory_repo.py <repo-root> --json [--since <base>] > $RUN/inventory.json`
-   (on hosts that do not expand that variable, use the directory holding this file).
    It reports scale, areas, the largest and most-churned files, untested candidates,
    markers, gates, harness files, issue conventions, and `template_origin`. With
    `--since` it adds `changes_since`: the changed files with their kind and area, or
@@ -97,8 +94,7 @@ anyway.
 Fill [references/agents/surveyor.md](references/agents/surveyor.md) with the lens file
 and one slice of the inventory's areas. Size each slice at roughly 10k source lines or
 less, which keeps a scout's context out of the model's high-price tier. Hand each brief
-to a `scout` sub-agent, in parallel where the host supports it; otherwise run the
-briefs one after another inline. Cap: 6 scouts. Save the replies for a lens, slice
+to a `scout` sub-agent, in parallel. Cap: 6 scouts. Save the replies for a lens, slice
 after slice, as `$RUN/survey-<lens>.md`.
 
 The whole phase is skipped for a small repository (inventory `scale: small`). It is
@@ -111,7 +107,7 @@ Fill [references/agents/analyst.md](references/agents/analyst.md) per lens. Incl
 absolute paths to the lens file, the survey (or "none" when Phase 1 did not cover the
 lens), and the intent files, plus the scope and any previous findings. Add the gate
 commands the repository documents for tests, coverage and lint as allowed checks. Hand
-each to an `architect` sub-agent in parallel, or inline in sequence. Cap: 4 analysts.
+each to an `architect` sub-agent in parallel. Cap: 4 analysts.
 For a small repository, give one `architect` all selected lenses in a single brief.
 Sub-agents return text and write no files. Save each analyst's reply verbatim as
 `$RUN/analysis-<lens>.md`; when the host has already stored a long reply in a file,
@@ -159,7 +155,5 @@ Give the user the summary, the filed links, the owner decisions, and the report 
   [references/agents/analyst.md](references/agents/analyst.md): the sub-agent briefs.
 - [references/issue-filing.md](references/issue-filing.md): conventions, the filing
   bar, duplicates, the template trace, drafting, creation and its postconditions.
-- [references/platform-notes.md](references/platform-notes.md): the tool mapping for
-  each host, and what changes on hosts without parallel sub-agents.
 - `scripts/inventory_repo.py`: run it, do not read it. Standard library only; tests in
   `scripts/tests/`.

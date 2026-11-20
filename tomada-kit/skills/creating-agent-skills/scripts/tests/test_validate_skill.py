@@ -130,50 +130,24 @@ class TestLinkIntegrity(unittest.TestCase):
         self.assertTrue(any(f.code == "W040" for f in r.warnings))
 
 
-class TestNeutralityIntegration(unittest.TestCase):
+class TestMetadataTolerance(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
 
-    def test_neutrality_lint_loadable_from_sibling_skill(self):
-        # This is the real integration point: dual-platform-skills must actually be
-        # findable at ../../dual-platform-skills/scripts/neutrality_lint.py relative to
-        # this test file's real location — not a fixture. Skip gracefully if the sibling
-        # skill isn't present (e.g. this test run in isolation without the repo layout).
-        mod = vs._load_neutrality_lint()
-        if mod is None:
-            self.skipTest("dual-platform-skills sibling skill not found in this checkout")
-        self.assertTrue(hasattr(mod, "lint"))
-
-    def test_ask_user_question_in_body_surfaces_as_n1_finding(self):
-        if vs._load_neutrality_lint() is None:
-            self.skipTest("dual-platform-skills sibling skill not found in this checkout")
+    def test_nested_metadata_and_claude_tool_names_pass(self):
+        # A leftover `metadata.platforms` line and Claude Code tool names in the body
+        # are both fine: skills here are Claude Code-only.
         skill = write_skill(
             self.root,
             skill_md=(
                 "---\nname: sample-skill\ndescription: d\nmetadata:\n"
-                "  platforms: claude-code, codex\n---\nAsk via AskUserQuestion.\n"
+                "  platforms: claude-code\n---\nAsk via AskUserQuestion.\n"
             ),
         )
         r = vs.validate(skill)
-        n1 = [f for f in r.findings if f.code == "N1"]
-        self.assertEqual(len(n1), 1)
-        self.assertEqual(n1[0].level, "error")
-        self.assertTrue(r.errors)
-
-    def test_missing_dual_platform_skills_degrades_gracefully(self):
-        # Simulate the sibling skill not existing: _load_neutrality_lint should return
-        # None rather than raising, and validate() must still complete check 1-8.
-        import validate_skill as vs_mod
-        orig = vs_mod._load_neutrality_lint
-        vs_mod._load_neutrality_lint = lambda: None
-        try:
-            skill = write_skill(self.root, skill_md="---\nname: sample-skill\ndescription: d\n---\nBody.\n")
-            r = vs_mod.validate(skill)
-            self.assertFalse(r.errors)
-        finally:
-            vs_mod._load_neutrality_lint = orig
+        self.assertFalse(r.findings)
 
 
 class TestCLI(unittest.TestCase):
@@ -415,27 +389,6 @@ class TestLinkSkipping(unittest.TestCase):
         skill = write_skill(self.root, skill_md=skill_md)
         r = vs.validate(skill)
         self.assertFalse([f for f in r.findings if f.code in ("E041", "W040")])
-
-
-class TestW060NeutralityLintCrash(unittest.TestCase):
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
-        self.root = Path(self.tmp.name)
-
-    def test_neutrality_lint_exception_surfaces_as_w060(self):
-        class ExplodingNL:
-            def lint(self, skill_path):
-                raise RuntimeError("boom")
-
-        skill = write_skill(self.root)
-        orig = vs._load_neutrality_lint
-        vs._load_neutrality_lint = lambda: ExplodingNL()
-        try:
-            r = vs.validate(skill)
-        finally:
-            vs._load_neutrality_lint = orig
-        self.assertTrue(any(f.code == "W060" for f in r.warnings))
 
 
 class TestRenderHuman(unittest.TestCase):

@@ -1,4 +1,3 @@
-<!-- platform-annex -->
 # Scripts in Skills
 
 ## Table of Contents
@@ -77,7 +76,7 @@ Two rules keep this from rotting: changing `_shared/` means running every consum
 
 ### Tests and coverage
 
-- stdlib `unittest`, discovered with `python3 -m unittest discover -s scripts/tests -p 'test_*.py'` run from the skill directory — the suite runs identically on both hosts without pytest.
+- stdlib `unittest`, discovered with `python3 -m unittest discover -s scripts/tests -p 'test_*.py'` run from the skill directory — the suite runs without pytest.
 - Fixtures built in `tempfile.TemporaryDirectory()`.
 - Coverage **≥ 90%**, measured with:
   ```bash

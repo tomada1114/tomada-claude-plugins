@@ -2,7 +2,7 @@
 name: refining-prompts
 description: >-
   Polish a rough instruction (often dictated by voice) into a precise prompt that can be
-  handed straight to another agentic coding session (Claude Code, Codex CLI, etc.), and
+  handed straight to another agentic coding session (Claude Code), and
   print it in the CLI as a single code block (no file is saved). Runs a light scouting
   pass only when needed, and questions the user only when
   needed; the investigating and the thinking are deliberately left as work for the
@@ -11,14 +11,12 @@ description: >-
   to hand to another session.
 allowed-tools: Read, Grep, Glob, Bash, Agent, AskUserQuestion
 argument-hint: "[rough instruction, thing to talk through, or problem to solve]"
-metadata:
-  platforms: claude-code, codex
 ---
 <!-- prompt-lint-ignore-file: P004 -->
 
 # Prompt Refiner
 
-雑多な口述指示を、別のエージェント型コーディングセッション（Claude Code や Codex CLI 等）に渡す
+雑多な口述指示を、別のエージェント型コーディングセッション（Claude Code）に渡す
 1 個の完成プロンプトに磨き上げる。
 成果物は **CLI に出力するコードブロックだけ**。ファイルは作らない。タスク自体も実行しない。
 
@@ -61,8 +59,7 @@ metadata:
 既定は自分で読む。数回の検索と読み取りで済む当たり付けや、「ここは罠がある」という判断が要る読みは
 委譲しない。大量に読んで要約だけ使う場合に限り `scout` サブエージェントに渡す（委譲するかどうかと段の
 選び方は `orchestrating-models` スキル）。渡すときは読むファイルと問いを絞る。入力が大きいと `scout` は
-割高になるため。返答が空なら同じ依頼をもう一度出す。委譲できない環境では逐次インラインで行う
-（[references/platform-notes.md](references/platform-notes.md)）。
+割高になるため。返答が空なら同じ依頼をもう一度出す。
 
 いずれの場合も、受け取る（残す）のは要約だけ: 関連パス、現状の挙動・エラー、既存の慣習。
 ログ全文や全文 diff は戻させない（該当するエラー文の原文は数行なら可）。
@@ -102,8 +99,7 @@ metadata:
 - **成果物・完了の目安** — 何が出てきたら成功か。作業依頼では検証方法も一言。
 - **不明時の挙動** — 設計・計画や相談のように途中で合意を取りたい依頼には、確認してほしい分岐を
   名指しして入れる（例:「データモデルの方針を決める前に確認して」）。作業依頼では、解釈が割れると
-  作業が大きく変わる点だけを挙げ、それ以外は自分で判断して進めるよう書く。確認手段の
-  書き分けは [references/platform-notes.md](references/platform-notes.md) を参照。
+  作業が大きく変わる点だけを挙げ、それ以外は自分で判断して進めるよう書く。
 
 貼り付ける長い材料（エラーログ、コード抜粋、仕様の断片）があるならプロンプトの**上部**に置き、
 依頼を末尾にする。材料と指示が混ざるなら見出しか XML タグ（`<error_log>` 等）で区切る。
@@ -115,7 +111,3 @@ metadata:
 
 プロンプト全体を **1 個の markdown コードブロック** で出力する（そのままコピペでき、新セッションが
 追加の前提なしで動き出せる形）。伝えたい留意点はブロックの外ではなくプロンプト本文に入れる。
-
-## Platform notes
-
-詳細は [references/platform-notes.md](references/platform-notes.md) を参照。

@@ -94,7 +94,7 @@ Where the skill lives decides how to write this in. A skill installed alongside 
 
 Do not pin a model in SKILL.md frontmatter to control sub-agents — frontmatter `model:` sets the model for the skill's own turn and should usually be omitted so it inherits the session.
 
-Effort is what separates the tiers, and not every spawn mechanism accepts it — naming only a model silently runs the spawn at the session's effort. How each host selects a tier is in `platform-notes.md` (load via SKILL.md).
+Effort is what separates the tiers, and not every spawn mechanism accepts it — naming only a model silently runs the spawn at the session's effort. For a single spawn, select the tier with the Agent tool's `subagent_type: executor` / `architect`, whose agent frontmatter carries `model` + `effort` (the Agent tool takes `model` but not `effort`); in a Workflow script, pass both `model` and `effort` to `agent()`.
 
 ---
 

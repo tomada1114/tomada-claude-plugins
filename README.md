@@ -19,13 +19,11 @@ Run `/plugin` to browse interactively.
 | **auditing-repositories** | Audit the repository you are in, often a template or an app cut from one, for technical debt and room to… |
 | **authoring-goal-prompts** | Author a self-contained prompt for Claude Code's /goal command, run unattended in a separate session — a… |
 | **bootstrapping-from-templates** | Cut a new GitHub repository from one of the user's template repositories and bring it to a clean first… |
-| **codex-cli-config** | Reference for OpenAI Codex CLI configuration, permissions, sandboxing, and autonomy — sandbox_mode and… |
 | **configuring-cloud-environments** | Inspect, create, and edit Claude Code cloud environments (the Name, Network access, Allowed domains, Setup… |
-| **configuring-project-permissions** | Set up a repository's personal, uncommitted agent permissions so development runs without prompts: Claude… |
-| **creating-agent-skills** | Create or improve Agent Skills (the shared SKILL.md format read by Claude Code and OpenAI Codex CLI —… |
+| **configuring-project-permissions** | Set up a repository's personal, uncommitted Claude Code permissions so development runs without prompts, in… |
+| **creating-agent-skills** | Create or improve Claude Code Agent Skills (SKILL.md + optional references/scripts/assets). |
 | **designing-architecture** | Decide a new app's hard-to-reverse design choices from its signed-off requirements and UX drafts before any… |
 | **designing-wireframes** | Create ASCII wireframes for every screen and window, user flow diagrams, and per-screen states (empty… |
-| **dual-platform-skills** | Convert one existing skill (Claude Code origin or Codex origin) into a layout that works on both Claude Code… |
 | **evolving-skills** | Maintain skills from evidence when the user asks, with no approval step per change: record what went wrong… |
 | **kicking-off-apps** | Take a rough app idea ("I want an app that…") to a new public GitHub repository cut from one of the user's… |
 | **orchestrating-models** | Decide which model and effort runs a piece of work, and whether to delegate it at all. |

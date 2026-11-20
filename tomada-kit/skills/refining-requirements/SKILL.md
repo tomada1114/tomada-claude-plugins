@@ -11,8 +11,6 @@ description: >-
   PRD, or app idea, when someone describes an app they want built, when implementation
   is about to start from a vague or incomplete spec, or as stage 1 of kicking-off-apps.
 argument-hint: "[idea or path to spec] [--out path]"
-metadata:
-  platforms: claude-code, codex
 ---
 
 # Refining Requirements
@@ -76,7 +74,3 @@ styling.
 Sign-off is the user saying so, not the loop running out of questions. Set the
 document's status line to `Signed off YYYY-MM-DD`, and leave any remaining Open
 questions with what would settle them.
-
-## Platform notes
-
-Host tool mapping and degradation paths: [references/platform-notes.md](references/platform-notes.md).

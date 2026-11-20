@@ -12,8 +12,6 @@ description: >-
   or a long-running autonomous session, or when deciding its done-criteria.
 allowed-tools: Read, Grep, Glob, Bash, Write, Edit, Agent, AskUserQuestion
 argument-hint: "[task to draft a /goal prompt for]"
-metadata:
-  platforms: claude-code, codex
 ---
 
 # Goal Prompt Author
@@ -67,15 +65,11 @@ unless the user names another. Gather, in order:
 4. **Environment preflight** — for outward-facing endings (push, PR, publish, deploy), verify the
    prerequisite now (`gh auth status`, `git remote -v`, required tools) and record it in `BASELINE`.
    If it can't be guaranteed, encode a **degraded terminal state** (see the guide) instead of thrashing.
-   Note which host runs the goal (Claude Code or Codex) and what it can write: Codex writes only
-   inside the workspace it was launched in. When the host is unknown, write for both
-   ([references/platform-notes.md](references/platform-notes.md)).
 5. **Design** — when the task involves choices (architecture, interfaces, naming, approach, library),
    make them now and record decision + rationale + rejected alternative. The lead designs; the executor executes.
 
 For a broad/uncertain scope, run items 1 and 3 in parallel as `scout` sub-agents, since both only read (tier choice:
-the `orchestrating-models` skill); name the files and the question for each, and re-request an empty reply; where that isn't available, read them sequentially in
-the main context — same result, more time (see [references/platform-notes.md](references/platform-notes.md)).
+the `orchestrating-models` skill); name the files and the question for each, and re-request an empty reply.
 
 Resolve everything you can here by investigation — only genuine, goal-defining unknowns reach Phase 4.
 
@@ -106,8 +100,8 @@ Pick siblings from the standard menu — create only those that earn their place
 overwrites the same dir (idempotent). **Overwrite guard**: if a run of this goal is in progress
 (its progress file or commits exist), don't clobber the bundle — pick a new slug or confirm with the user.
 
-**The bundle is read-only to the executor.** The state dir sits outside the target repository, and
-a Codex goal session cannot write there. Nothing in the run may require writing the bundle; put
+**The bundle is read-only to the executor.** The state dir sits outside the target repository.
+Nothing in the run may require writing the bundle; put
 mutable run state where the executor can write, lightest first:
 
 1. **Derive it from the repo** — commits with a fixed message per item, or the files' own state,
@@ -115,7 +109,7 @@ mutable run state where the executor can write, lightest first:
 2. **A progress file inside the workspace**, at a gitignored path named in `goal.md`, never staged.
 3. **The final message** for the run report; no report file.
 
-GitHub issues and PRs (read and write) are reachable from both hosts and may carry state when the
+GitHub issues and PRs (read and write) are reachable from the goal session and may carry state when the
 goal already works through them; don't add them just for bookkeeping. Keep bookkeeping as light
 as resuming needs — the checks prove the work, not the ledger.
 
@@ -173,6 +167,3 @@ whether optional items are in scope, or whether the run ends at local commits vs
   exercised locally (CI workflows, deploys) have an explicit proxy verification chain.
 - Staff-engineer test: a fresh session reading only `goal.md` + siblings would reproduce your
   intended design — no decision, finding, or pattern lives only in this conversation.
-
-## Platform notes
-詳細は [references/platform-notes.md](references/platform-notes.md) を参照。

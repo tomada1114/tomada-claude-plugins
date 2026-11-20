@@ -11,8 +11,6 @@ description: >-
   with no owning skill gets a new skill for that subject. Use when designing the
   architecture of a new app, writing its design lock, settling decisions after a
   bootstrap, or as stage 7 of kicking-off-apps.
-metadata:
-  platforms: claude-code, codex
 ---
 
 # Designing Architecture
@@ -104,7 +102,3 @@ authorized.
 The decisions made, each with the skill file it is written in; the ones deferred with
 what would settle them; any skill created; any architecture document, roadmap, or ADR
 machinery removed; and the follow-ups that must become issues.
-
-## Platform notes
-
-Host-specific tool mapping and degradations: [references/platform-notes.md](references/platform-notes.md).

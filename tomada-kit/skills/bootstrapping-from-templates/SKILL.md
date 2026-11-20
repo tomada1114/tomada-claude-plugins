@@ -11,8 +11,6 @@ description: >-
   template's bootstrap or rename, a placeholder survived a rename, or as stage 4 of
   kicking-off-apps.
 argument-hint: "--template-path DIR | --template OWNER/NAME, --repo OWNER/NAME"
-metadata:
-  platforms: claude-code, codex
 ---
 
 # Bootstrapping From Templates
@@ -130,7 +128,3 @@ the user about any hit whose right value is not obvious.
 Repository URL, clone path, the identity values used, the description and topics set,
 checks run with their result,
 the steps deferred to later stages, and the human-only list.
-
-## Platform notes
-
-Host-specific tool mapping and sandbox recovery: [references/platform-notes.md](references/platform-notes.md).

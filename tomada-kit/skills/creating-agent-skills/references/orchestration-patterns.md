@@ -2,7 +2,7 @@
 
 Patterns for skills that spawn specialists, run independent investigations in parallel, or hand off to a downstream skill through file artifacts. A single linear walkthrough does not need this file.
 
-> **Triage first.** For parallel or multi-stage execution, a deterministic fan-out runner — deterministic control flow (loops, branching, fan-out), token-budget awareness, resume, progress visibility — is the first candidate where the host offers one; it suits large, decomposable, verification-heavy orchestration. The single-spawn patterns here are the fallback when it doesn't fit or isn't available: steering interactively mid-run, driving a real TUI from outside. Conversational questions and single trivial edits need neither. Host-specific runner names: `references/platform-notes.md`.
+> **Triage first.** For parallel or multi-stage execution, the Workflow tool — a deterministic fan-out runner with deterministic control flow (loops, branching, fan-out), token-budget awareness, resume, progress visibility — is the first candidate; it suits large, decomposable, verification-heavy orchestration. The single-spawn patterns here (the Agent tool) are the fallback when it doesn't fit: steering interactively mid-run, driving a real TUI from outside. Conversational questions and single trivial edits need neither.
 
 ## Table of Contents
 
@@ -143,6 +143,8 @@ Every effective sub-agent prompt carries five layers:
 
 "Investigate X" with nothing else returns shallow, generic reports. The parent does all the orienting work that doesn't need parallelism. Phrasings to keep *out* of these prompts: `prompt-authoring.md` (load via SKILL.md).
 
+Keep each delegation prompt in `references/agents/<name>.md` — one canonical copy, not an inline string scattered across SKILL.md — and have SKILL.md name the file to fill. A skill-relative path does not resolve inside a spawned sub-agent (its working directory is the repository root, not the skill directory), so the caller fills every path placeholder with an absolute path (`${CLAUDE_SKILL_DIR}/...`) or inlines the content.
+
 ---
 
 ### A5. Synchronous join
@@ -152,7 +154,7 @@ Sub-agents never talk to each other; there is no "Phase 1.5" where Agent A recei
 - If Phase 2 needs Phase 1's output, it is a sequential phase, not a parallel one.
 - When a phase fans out, SKILL.md gets a merge step: the main agent deduplicates, ranks, and resolves conflicts — if needed by a tie-breaker spawn in a follow-up phase.
 
-**Barrier only where the merge needs it.** Block on the whole set only when the next step needs cross-item context — deduplicating across all findings, ranking a complete list, early-exiting on a zero count. Otherwise let each item flow to its next stage as it completes (pipelining, where the runner supports it). A needless barrier costs the gap between the fastest and slowest sub-agent, every phase.
+**Barrier only where the merge needs it.** Block on the whole set only when the next step needs cross-item context — deduplicating across all findings, ranking a complete list, early-exiting on a zero count. Otherwise let each item flow to its next stage as it completes (pipelining, `pipeline()` inside a Workflow script). A needless barrier costs the gap between the fastest and slowest sub-agent, every phase.
 
 ---
 
@@ -164,7 +166,7 @@ Two tiers for agentic work: `executor` for fully specified, judgment-free work �
 
 A phase is often mixed rather than uniform: several `scout` collectors on disjoint slices, then one `architect` that reconciles their reports.
 
-See `references/platform-notes.md` for how each host selects a tier (effort is what separates them, and not every spawn mechanism takes it), and `prompt-authoring.md` (load via SKILL.md) for writing the assignment into a skill.
+Effort is what separates the tiers, and not every spawn mechanism takes it: a single spawn selects the tier with the Agent tool's `subagent_type` (the named agent's frontmatter carries `model` + `effort`; the Agent tool itself takes `model` but not `effort`), and a Workflow `agent()` stage passes both `model` and `effort`. See `prompt-authoring.md` (load via SKILL.md) for writing the assignment into a skill.
 
 ---
 

@@ -35,8 +35,7 @@ CONSTRAINTS:
     write the test first, run it and paste the failing line, then implement to green. Test and
     implementation land in the same commit.
   - Hygiene: write every temporary file (verification logs, drafts, throwaway scripts) into
-    [Claude Code: the session's scratchpad directory | Codex or either host: a gitignored folder
-    inside the workspace, e.g. <repo>/.drafts/<slug>/] — never the repo's tracked tree or the
+    the session's scratchpad directory — never the repo's tracked tree or the
     bundle dir. When delegating to subagents, state this location explicitly in their
     instructions (they don't inherit it).
   - [Divergence — include when bundled:] If the repo contradicts a fact in a support file, trust the

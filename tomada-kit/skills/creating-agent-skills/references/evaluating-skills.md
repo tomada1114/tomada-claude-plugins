@@ -14,7 +14,7 @@ Seeing a skill trigger tells you Claude found it — not that it did what you in
 - [Running evals with skill-creator](#running-evals-with-skill-creator)
 - [The A/B iteration loop](#the-ab-iteration-loop)
 - [Reading how Claude navigates the skill](#reading-how-claude-navigates-the-skill)
-- [Testing across effort levels and hosts](#testing-across-effort-levels-and-hosts)
+- [Testing across effort levels](#testing-across-effort-levels)
 
 ---
 
@@ -133,12 +133,11 @@ Behavioral signals worth more than any checklist:
 | Activates on the wrong requests | Description too broad — tune with should-not-trigger cases |
 | Never activates unprompted | Trigger keywords are in the body instead of the description, or `paths` is gating it |
 
-## Testing across effort levels and hosts
+## Testing across effort levels
 
-A skill is an addition to a model, not a standalone spec — what it needs to spell out depends on who reads it. Where the same skill runs at more than one effort level (a sub-agent at `executor` low, the main session at medium, an `architect` at high) or on both Claude Code and Codex, run the same eval cases on each before calling it done:
+A skill is an addition to a model, not a standalone spec — what it needs to spell out depends on who reads it. Where the same skill runs at more than one effort level (a sub-agent at `executor` low, the main session at medium, an `architect` at high), run the same eval cases on each before calling it done:
 
 - **Low effort**: does the skill give enough guidance, or does it need a step spelled out that higher effort would infer?
 - **High effort**: does it over-explain what the model already does unprompted, or invite scope the task did not ask for?
-- **The other host**: does the agent-neutral phrasing still produce the same behavior where tool names differ?
 
 A prescriptive block written for the weakest reader's failure mode costs the strongest one quality (`prompt-authoring.md`'s "Prescriptiveness budget", load via SKILL.md). Prefer the version that clears the weakest reader with the least prescription.

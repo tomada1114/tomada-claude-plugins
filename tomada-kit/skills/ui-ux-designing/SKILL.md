@@ -2,8 +2,6 @@
 name: ui-ux-designing
 description: "Produces one app-wide UX guidelines document (docs/design/ux-guidelines.md or a caller-named path) fixing navigation, platform conventions, empty/loading/error/offline/permission states, feedback, form validation, motion and reduced-motion, UI language and i18n, and accessibility targets as concrete values, settled through batched option-question rounds; also runs a measured WCAG contrast pass on a palette decided elsewhere. Use when settling app-wide behavior, deciding state handling, validation timing, motion policy, or accessibility targets, when a kickoff needs UX guidelines, or when a palette or tokens file needs its contrast measured. Not for visual direction — palette, typography, tokens (applying-design-systems, or refero-design when it is not installed, plus the repository's designing-ui skill); not for wireframes, screen layouts, or user flows (designing-wireframes); not for product requirements (refining-requirements)."
 argument-hint: "[output-path] | contrast <palette-source> [into <doc>]"
-metadata:
-  platforms: claude-code, codex
 ---
 
 # UI/UX Designing
@@ -72,7 +70,3 @@ Every question is put to the user as options, and the round waits for the answer
 - [references/research-methods.md](references/research-methods.md) — research procedure and summary format, when researching without delegating
 - [references/agents/research-competitors.md](references/agents/research-competitors.md) — the delegation prompt
 - [templates/ux-guidelines-template.md](templates/ux-guidelines-template.md) — the output document
-
-## Platform notes
-
-Tool mapping per host and degradation paths: [references/platform-notes.md](references/platform-notes.md).
