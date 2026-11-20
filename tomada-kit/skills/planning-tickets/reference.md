@@ -4,10 +4,38 @@ Commands for turning an approved plan into linked issues.
 
 ## Contents
 
+- [Batch the writes](#batch-the-writes)
 - [Two-pass creation](#two-pass-creation)
 - [Native sub-issues and dependencies](#native-sub-issues-and-dependencies)
 - [Fallback labels](#fallback-labels)
 - [Verification](#verification)
+
+## Batch the writes
+
+Each `gh` call is one permission prompt for the user (and, on a sandboxed host, has to
+run as a bare command). Filing 25 issues one call at a time means about 100 prompts,
+so send each phase as **one GraphQL request** built by a local script:
+
+1. **Generate** the request JSON with a short local script (no network), so only the
+   `gh` call itself needs approval. Use aliases (`m0: …`, `m1: …`), one per write:
+   - read state or ids: `i218: issue(number:218){id number title}`, plus
+     `repository{id labels(first:100){nodes{id name}}}` once for `createIssue`;
+   - create: `createIssue(input:{repositoryId, title, body, labelIds}){issue{number}}`;
+   - backfill: `updateIssue(input:{id, body}){issue{number}}`;
+   - link: `addSubIssue(input:{issueId, subIssueId}){subIssue{number}}` and
+     `addBlockedBy(input:{issueId, blockingIssueId}){issue{number}}`. These take node
+     ids (`I_kw…`), not the REST database ids below.
+   Pass bodies as GraphQL variables (`"variables": {"b0": "…"}`, `$b0: String!`) so no
+   Markdown has to be escaped into the query string.
+2. **Send** it with `gh api graphql --input <file>.json --jq '<summary>'`.
+3. **Keep a request to about 20 writes.** A larger one can time out and return an HTML
+   page (`invalid character '<'`) while GitHub still applies part of it. Never resend
+   blindly: re-run the state query, then send only what is missing. For `createIssue`,
+   chunk to about 10 and search by title before any retry, or the retry duplicates.
+
+Fall back to one REST call per write (the sections below) only where GraphQL is refused:
+a Claude Code cloud session's GitHub proxy rejects `gh api graphql`, `gh issue` and
+`gh pr`, and allows `gh api` REST calls.
 
 ## Two-pass creation
 

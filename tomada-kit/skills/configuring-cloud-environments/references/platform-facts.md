@@ -33,6 +33,7 @@ of the page first — the product changes, and the page wins over this file.
 | Field | Behavior |
 |---|---|
 | Name | Free text shown in the selector. |
+| Repositories | The repositories new sessions in this environment start with; pre-filled with the current repository in a new environment (seen 2026-11-18). |
 | Network access | None / Trusted (default) / Full / Custom. |
 | Allowed domains | Custom only. One domain per line; a leading `*.` matches subdomains. A checkbox, "Also include default list of common package managers", adds the Trusted list. |
 | Network secrets | Pro and Max only. A key the agent proxy attaches to requests for listed hosts; the value cannot be viewed after saving. |
@@ -58,6 +59,10 @@ of the page first — the product changes, and the page wins over this file.
 - **Finish within about five minutes**, or the environment is not cached. Run
   independent installs in parallel with `&` and `wait`; move one oversized download
   into a SessionStart hook that runs it in the background.
+- **End on its own.** A script that never exits is killed. The session then fails with
+  "Setup script failed with exit code -1" and shows no script output. Seen 2026-11-19:
+  a hang was the likely cause, which the guards in SKILL.md's "Writing a setup script"
+  fixed.
 - **Root and apt work.** `apt update && apt install -y <pkg>` is fine.
 - The script's output is not shown in the dialog. Confirm its effect from inside a
   session (for example `command -v <tool>`, `<tool> --version`).
@@ -100,3 +105,13 @@ running — `service postgresql start`); git, gh, jq, yq, ripgrep. A session can
 most versions with the `check-tools` command. Anything else — another Node major, a
 newer Python, a browser build — comes from the setup script or the project's own
 tooling.
+
+Seen in a session on 2026-11-19:
+
+- Rust is managed by rustup 1.28.2. A setup script that installs rustup only when
+  `rustup` is missing keeps that version. `rust-toolchain.toml` still works: rustup
+  downloads the pinned toolchain on the first `cargo` call.
+- The Bash tool's shell did not have `~/.local/share/mise/shims` on `PATH`, even
+  though the setup script had written it as the first line of `~/.bashrc` and into
+  `/etc/profile.d/`. The cause is unverified. Put a tool that must run from that shell
+  in `/usr/local/bin`.

@@ -104,7 +104,10 @@ Create in draft order through the host's GitHub access, the audited repository f
 and then the template. Then backfill real numbers into the bodies, including the
 cross-repository "also filed" links, and add native sub-issue and blocked-by links. The creation mechanics (the
 two-pass method, which labels must exist first, the native-link endpoints) are in the
-`planning-tickets` skill's `reference.md`. Labels the repository defines but GitHub
+`planning-tickets` skill's `reference.md`. An audit files dozens of issues, and every
+`gh` call is a separate prompt for the user, so follow its "Batch the writes" section:
+one GraphQL request per phase (create, backfill, link, verify), never one call per
+issue or per link. Labels the repository defines but GitHub
 lacks are created through the repository's own sync recipe when it has one; GitHub
 drops an unknown label silently.
 

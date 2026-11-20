@@ -44,6 +44,9 @@ table is not known — verify it with the method above before relying on it.
 | The same, from pnpm's unofficial-builds mirror | `unofficial-builds.nodejs.org` | `pnpm@11.18.0` `UNOFFICIAL_NODE_MIRROR_BASE_URL`, 2026-10-13; when pnpm picks it over the default is UNCHECKED | No |
 | npm packages; pnpm fetching the version `packageManager` pins | `registry.npmjs.org` | npm and pnpm default registry | Yes |
 | PyPI packages | `pypi.org`, `files.pythonhosted.org` | pip and uv default index | Yes |
+| mise's installer script and its version-metadata host | `mise.run`, `mise.jdx.dev`, `mise-versions.jdx.dev` | `curl https://mise.run \| sh`; mise setting `use_versions_host` (default true), mise v2026.11.6, 2026-11-18 | No (2026-11-18) — install the binary from its GitHub release instead, and commit `mise.lock` or set `use_versions_host = false` |
+| mise binary and aqua/github-backend tool downloads | `github.com`, `release-assets.githubusercontent.com`, `objects.githubusercontent.com`, `api.github.com` | GitHub release assets, 2026-11-18 | Yes (2026-11-18) |
+| rustup-init and Rust toolchains; crates | `static.rust-lang.org`, `index.crates.io`, `static.crates.io` | `static.rust-lang.org/rustup/archive/<ver>/<target>/rustup-init`; cargo's default registry, 2026-11-18 | Yes (2026-11-18) |
 
 `microsoft.com` in Trusted is an exact entry; it does not cover
 `playwright.download.prss.microsoft.com`.

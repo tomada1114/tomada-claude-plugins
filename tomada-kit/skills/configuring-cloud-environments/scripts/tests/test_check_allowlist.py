@@ -65,6 +65,23 @@ class ParseAllowlistTest(unittest.TestCase):
             ],
         )
 
+    def test_parse_allowlist_blockquote_accordion_format_returns_rules(self):
+        # The page as served on 2026-11-18: accordions render as blockquotes.
+        docs = (
+            "## Default allowed domains\n\n"
+            "> [accordion] Version control\n>\n"
+            "> * github.com\n"
+            "> * raw\\.githubusercontent.com\n"
+            "> * [www.crates.io](http://www.crates.io)\n>\n"
+            "> [accordion] Cloud\n>\n"
+            "> * \\*.googleapis.com\n\n"
+            "## Related resources\n\n* after.example.com\n"
+        )
+        self.assertEqual(
+            ca.parse_allowlist(docs),
+            ["github.com", "raw.githubusercontent.com", "www.crates.io", "*.googleapis.com"],
+        )
+
     def test_parse_allowlist_missing_heading_raises(self):
         with self.assertRaisesRegex(ValueError, "not found"):
             ca.parse_allowlist("# Nothing here\n* github.com\n")

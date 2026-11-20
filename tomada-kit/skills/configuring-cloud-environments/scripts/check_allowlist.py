@@ -26,7 +26,8 @@ from urllib.parse import urlsplit
 
 DOCS_URL = "https://code.claude.com/docs/en/cloud-environments.md"
 SECTION_HEADING = "## Default allowed domains"
-_BULLET = re.compile(r"^\s*\*\s+(.+?)\s*$")
+# A bullet, bare or inside blockquotes: the page renders its accordions as `> * host`.
+_BULLET = re.compile(r"^\s*(?:>\s*)*\*\s+(.+?)\s*$")
 _LINK = re.compile(r"^\[([^\]]+)\]\([^)]*\)")
 
 
